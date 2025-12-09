@@ -128,9 +128,25 @@ export default function Transactions() {
   const { data: transactions, isLoading } = useQuery({
     queryKey: ['transactions'],
     queryFn: async () => {
-      const { data } = await supabase
-        .from('transactions')
-        .select('*');
+      // Fetch all transactions - need to paginate since Supabase has 1000 row default limit
+      let allTransactions: any[] = [];
+      let from = 0;
+      const pageSize = 1000;
+      
+      while (true) {
+        const { data, error } = await supabase
+          .from('transactions')
+          .select('*')
+          .range(from, from + pageSize - 1)
+          .order('created', { ascending: false, nullsFirst: false });
+        
+        if (error || !data || data.length === 0) break;
+        allTransactions = [...allTransactions, ...data];
+        if (data.length < pageSize) break;
+        from += pageSize;
+      }
+      
+      const data = allTransactions;
 
       const { data: users } = await supabase.from('users').select('*');
       const { data: rosters } = await supabase.from('rosters').select('*');

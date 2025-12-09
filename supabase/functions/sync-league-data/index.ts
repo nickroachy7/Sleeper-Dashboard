@@ -158,9 +158,10 @@ Deno.serve(async (req) => {
 
     // 4. Sync Transactions from all leagues
     for (const lid of allLeagueIds) {
-      // For current league, only sync recent weeks; for historical leagues, sync all weeks (1-18)
+      // For current league, only sync recent weeks; for historical leagues, sync all weeks (0-18)
+      // Week 0 contains offseason transactions (trades, free agents before week 1)
       const isCurrentLeague = lid === leagueId;
-      const startWeek = isCurrentLeague ? Math.max(1, currentWeek - 4) : 1;
+      const startWeek = isCurrentLeague ? Math.max(0, currentWeek - 4) : 0;
       const endWeek = isCurrentLeague ? currentWeek : 18;
       
       for (let week = startWeek; week <= endWeek; week++) {
