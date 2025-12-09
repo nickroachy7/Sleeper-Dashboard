@@ -13,7 +13,9 @@ import {
   TrendingDown,
   Users,
   RotateCcw,
+  Info,
 } from 'lucide-react';
+import { analyzeTrade, calculateSideValue, type TradeAsset as ValueAdjustmentAsset } from '../lib/trade-value-adjustment';
 
 // Types
 interface Player {
@@ -437,27 +439,64 @@ export function TradeEvaluator() {
   }, []);
 
   const totals = useMemo(() => {
-    return tradeSides.map((side) => ({
-      rosterId: side.rosterId,
-      total: side.assets.reduce((sum, asset) => sum + asset.value, 0),
-    }));
+    return tradeSides.map((side) => {
+      const sideValue = calculateSideValue(side.assets as ValueAdjustmentAsset[]);
+      return {
+        rosterId: side.rosterId,
+        rawTotal: sideValue.rawTotal,
+        adjustedTotal: sideValue.adjustedTotal,
+        studBonus: sideValue.studBonus,
+        consolidationBonus: sideValue.consolidationBonus,
+        piecesPenalty: sideValue.piecesPenalty,
+        adjustmentBreakdown: sideValue.adjustmentBreakdown,
+      };
+    });
   }, [tradeSides]);
 
   const tradeAnalysis = useMemo(() => {
     if (tradeSides.some((s) => s.rosterId === 0) || tradeSides.some((s) => s.assets.length === 0)) return null;
-    const sortedTotals = [...totals].sort((a, b) => a.total - b.total);
+    
+    // For 2-way trades, use the full analysis
+    if (tradeSides.length === 2) {
+      const analysis = analyzeTrade(
+        tradeSides[0].assets as ValueAdjustmentAsset[],
+        tradeSides[1].assets as ValueAdjustmentAsset[]
+      );
+      
+      return {
+        winner: tradeSides[analysis.winnerIndex].rosterId,
+        loser: tradeSides[analysis.winnerIndex === 0 ? 1 : 0].rosterId,
+        rawDifference: analysis.rawDifference,
+        adjustedDifference: analysis.adjustedDifference,
+        valueAdjustment: analysis.valueAdjustment,
+        fairness: analysis.fairness,
+        explanation: analysis.explanation,
+      };
+    }
+    
+    // For multi-team trades, compare adjusted totals
+    const sortedTotals = [...totals].sort((a, b) => a.adjustedTotal - b.adjustedTotal);
     const winner = sortedTotals[0];
     const loser = sortedTotals[sortedTotals.length - 1];
-    const difference = loser.total - winner.total;
-    const percentDiff = winner.total > 0 ? ((difference / winner.total) * 100).toFixed(1) : 0;
+    const adjustedDifference = loser.adjustedTotal - winner.adjustedTotal;
+    const rawDifference = loser.rawTotal - winner.rawTotal;
+    const percentDiff = winner.adjustedTotal > 0 ? (adjustedDifference / winner.adjustedTotal) * 100 : 0;
 
     let fairness: 'fair' | 'slight' | 'unfair' | 'lopsided';
-    if (difference < 500) fairness = 'fair';
-    else if (difference < 1500) fairness = 'slight';
-    else if (difference < 3000) fairness = 'unfair';
+    if (adjustedDifference < 300 || percentDiff < 3) fairness = 'fair';
+    else if (adjustedDifference < 800 || percentDiff < 8) fairness = 'slight';
+    else if (adjustedDifference < 1800 || percentDiff < 15) fairness = 'unfair';
     else fairness = 'lopsided';
 
-    return { winner: winner.rosterId, loser: loser.rosterId, difference, percentDiff, fairness };
+    return { 
+      winner: winner.rosterId, 
+      loser: loser.rosterId, 
+      rawDifference,
+      adjustedDifference,
+      valueAdjustment: adjustedDifference,
+      fairness,
+      explanation: '',
+    };
   }, [totals, tradeSides]);
 
   const getAvailableRosters = useCallback((currentSideIndex: number) => {
@@ -511,7 +550,7 @@ export function TradeEvaluator() {
       {/* Trade Analysis - Compact Banner */}
       {tradeAnalysis && (
         <div
-          className={`mb-3 px-3 py-2 rounded-lg flex items-center justify-between ${
+          className={`mb-3 px-3 py-2 rounded-lg ${
             tradeAnalysis.fairness === 'fair'
               ? 'bg-emerald-500/10 border border-emerald-500/30'
               : tradeAnalysis.fairness === 'slight'
@@ -521,26 +560,38 @@ export function TradeEvaluator() {
               : 'bg-red-500/10 border border-red-500/30'
           }`}
         >
-          <div className="flex items-center gap-2">
-            <Scale
-              className={`h-4 w-4 ${
-                tradeAnalysis.fairness === 'fair'
-                  ? 'text-emerald-500'
-                  : tradeAnalysis.fairness === 'slight'
-                  ? 'text-blue-500'
-                  : tradeAnalysis.fairness === 'unfair'
-                  ? 'text-amber-500'
-                  : 'text-red-500'
-              }`}
-            />
-            <span className="text-sm font-semibold text-slate-900 dark:text-white">
-              {tradeAnalysis.fairness === 'fair' ? 'Fair Trade' : tradeAnalysis.fairness === 'slight' ? 'Slightly Uneven' : tradeAnalysis.fairness === 'unfair' ? 'Unfair' : 'Lopsided'}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Scale
+                className={`h-4 w-4 ${
+                  tradeAnalysis.fairness === 'fair'
+                    ? 'text-emerald-500'
+                    : tradeAnalysis.fairness === 'slight'
+                    ? 'text-blue-500'
+                    : tradeAnalysis.fairness === 'unfair'
+                    ? 'text-amber-500'
+                    : 'text-red-500'
+                }`}
+              />
+              <span className="text-sm font-semibold text-slate-900 dark:text-white">
+                {tradeAnalysis.fairness === 'fair' ? 'Fair Trade' : tradeAnalysis.fairness === 'slight' ? 'Slightly Uneven' : tradeAnalysis.fairness === 'unfair' ? 'Unfair' : 'Lopsided'}
+              </span>
+            </div>
+            <span className="text-xs text-slate-600 dark:text-slate-300">
+              <span className="font-semibold">{rosters?.find((r) => r.roster_id === tradeAnalysis.winner)?.ownerName}</span> wins by{' '}
+              <span className="font-bold">{tradeAnalysis.adjustedDifference.toLocaleString()}</span>
             </span>
           </div>
-          <span className="text-xs text-slate-600 dark:text-slate-300">
-            <span className="font-semibold">{rosters?.find((r) => r.roster_id === tradeAnalysis.winner)?.ownerName}</span> wins by{' '}
-            <span className="font-bold">{tradeAnalysis.difference.toLocaleString()}</span> ({tradeAnalysis.percentDiff}%)
-          </span>
+          {/* Value Adjustment Explanation */}
+          {tradeAnalysis.rawDifference !== tradeAnalysis.adjustedDifference && (
+            <div className="mt-1.5 pt-1.5 border-t border-slate-200/50 dark:border-zinc-700/50 flex items-start gap-1.5">
+              <Info className="h-3 w-3 text-slate-400 mt-0.5 shrink-0" />
+              <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                <span className="font-medium">Value Adjustment:</span> Raw difference was {tradeAnalysis.rawDifference.toLocaleString()}, 
+                adjusted to {tradeAnalysis.adjustedDifference.toLocaleString()} based on stud factor, consolidation, and piece count.
+              </span>
+            </div>
+          )}
         </div>
       )}
 
@@ -549,7 +600,7 @@ export function TradeEvaluator() {
         tradeSides.length === 2 ? 'grid-cols-1 sm:grid-cols-2' : tradeSides.length === 3 ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-2 sm:grid-cols-4'
       }`}>
         {tradeSides.map((side, sideIndex) => {
-          const sideTotal = totals[sideIndex]?.total || 0;
+          const sideTotal = totals[sideIndex];
           const isWinner = tradeAnalysis?.winner === side.rosterId;
           const isLoser = tradeAnalysis?.loser === side.rosterId;
 
@@ -669,7 +720,7 @@ export function TradeEvaluator() {
 
               {/* Total - Compact */}
               <div
-                className={`px-2.5 py-2 border-t flex items-center justify-between ${
+                className={`px-2.5 py-2 border-t ${
                   isWinner
                     ? 'bg-emerald-500/10 border-emerald-500/30'
                     : isLoser
@@ -677,16 +728,27 @@ export function TradeEvaluator() {
                     : 'bg-slate-50 dark:bg-zinc-800/50 border-slate-200 dark:border-zinc-700'
                 }`}
               >
-                <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400 uppercase">Total</span>
-                <div className="flex items-center gap-1">
-                  {isWinner && <TrendingUp className="h-3.5 w-3.5 text-emerald-500" />}
-                  {isLoser && <TrendingDown className="h-3.5 w-3.5 text-red-500" />}
-                  <span className={`text-base font-bold tabular-nums ${
-                    isWinner ? 'text-emerald-600 dark:text-emerald-400' : isLoser ? 'text-red-600 dark:text-red-400' : 'text-slate-900 dark:text-white'
-                  }`}>
-                    {sideTotal.toLocaleString()}
-                  </span>
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400 uppercase">Total</span>
+                  <div className="flex items-center gap-1">
+                    {isWinner && <TrendingUp className="h-3.5 w-3.5 text-emerald-500" />}
+                    {isLoser && <TrendingDown className="h-3.5 w-3.5 text-red-500" />}
+                    <span className={`text-base font-bold tabular-nums ${
+                      isWinner ? 'text-emerald-600 dark:text-emerald-400' : isLoser ? 'text-red-600 dark:text-red-400' : 'text-slate-900 dark:text-white'
+                    }`}>
+                      {(sideTotal?.adjustedTotal || 0).toLocaleString()}
+                    </span>
+                  </div>
                 </div>
+                {/* Value Adjustment Breakdown */}
+                {sideTotal && (sideTotal.studBonus > 0 || sideTotal.consolidationBonus > 0 || sideTotal.piecesPenalty > 0) && (
+                  <div className="mt-1 pt-1 border-t border-slate-200/50 dark:border-zinc-700/50">
+                    <div className="flex items-center justify-between text-[9px] text-slate-400 dark:text-slate-500">
+                      <span>Raw: {sideTotal.rawTotal.toLocaleString()}</span>
+                      <span className="truncate ml-1">{sideTotal.adjustmentBreakdown}</span>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           );

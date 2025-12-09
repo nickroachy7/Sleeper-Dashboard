@@ -10,7 +10,13 @@ import {
   TrendingUp,
   TrendingDown,
   Users,
+  Info,
 } from 'lucide-react';
+import { 
+  analyzeTrade, 
+  calculateSideValue, 
+  type TradeAsset as ValueAdjustmentAsset 
+} from '../lib/trade-value-adjustment';
 
 // Types
 interface Player {
@@ -72,8 +78,12 @@ interface TradeScenario {
   get: TradeAsset[];
   giveTotal: number;
   getTotal: number;
+  giveAdjusted: number;
+  getAdjusted: number;
   difference: number;
+  adjustedDifference: number;
   differencePercent: number;
+  fairness: 'fair' | 'slight' | 'unfair' | 'lopsided';
   partnerRoster: Roster;
 }
 
@@ -485,9 +495,17 @@ export function TradeFinder() {
     return availableAssets.filter(a => selectedAssetIds.includes(a.id));
   }, [availableAssets, selectedAssetIds]);
 
-  // Total value of selected assets
-  const selectedValue = useMemo(() => {
-    return selectedAssets.reduce((sum, a) => sum + a.value, 0);
+  // Total value of selected assets (both raw and adjusted)
+  const selectedValueInfo = useMemo(() => {
+    const sideValue = calculateSideValue(selectedAssets as ValueAdjustmentAsset[]);
+    return {
+      raw: sideValue.rawTotal,
+      adjusted: sideValue.adjustedTotal,
+      studBonus: sideValue.studBonus,
+      consolidationBonus: sideValue.consolidationBonus,
+      piecesPenalty: sideValue.piecesPenalty,
+      breakdown: sideValue.adjustmentBreakdown,
+    };
   }, [selectedAssets]);
 
   // Toggle asset selection
@@ -508,8 +526,10 @@ export function TradeFinder() {
 
     setTimeout(() => {
       try {
-        const minValue = selectedValue * (1 - tolerance / 100);
-        const maxValue = selectedValue * (1 + tolerance / 100);
+        // Use adjusted value for tolerance calculation
+        const adjustedValue = selectedValueInfo.adjusted;
+        const minValue = adjustedValue * (1 - tolerance / 100);
+        const maxValue = adjustedValue * (1 + tolerance / 100);
         const newScenarios: TradeScenario[] = [];
 
         // Teams to search for matching packages
@@ -546,32 +566,47 @@ export function TradeFinder() {
             }
           }
 
-          // Find matching combinations
+          // Find matching combinations using adjusted values
           combinations.forEach(combo => {
-            const comboValue = combo.reduce((sum, a) => sum + a.value, 0);
+            const comboValue = calculateSideValue(combo as ValueAdjustmentAsset[]);
+            const comboAdjusted = comboValue.adjustedTotal;
             
-            if (comboValue >= minValue && comboValue <= maxValue) {
-              const diff = comboValue - selectedValue;
-              const diffPercent = (diff / selectedValue) * 100;
+            if (comboAdjusted >= minValue && comboAdjusted <= maxValue) {
+              // Get full trade analysis
+              const analysis = tradeMode === 'dump'
+                ? analyzeTrade(selectedAssets as ValueAdjustmentAsset[], combo as ValueAdjustmentAsset[])
+                : analyzeTrade(combo as ValueAdjustmentAsset[], selectedAssets as ValueAdjustmentAsset[]);
+              
+              const rawDiff = comboValue.rawTotal - selectedValueInfo.raw;
+              const adjustedDiff = comboAdjusted - adjustedValue;
+              const diffPercent = adjustedValue > 0 ? (adjustedDiff / adjustedValue) * 100 : 0;
 
               if (tradeMode === 'dump') {
                 newScenarios.push({
                   give: selectedAssets,
                   get: combo,
-                  giveTotal: selectedValue,
-                  getTotal: comboValue,
-                  difference: diff,
+                  giveTotal: selectedValueInfo.raw,
+                  getTotal: comboValue.rawTotal,
+                  giveAdjusted: adjustedValue,
+                  getAdjusted: comboAdjusted,
+                  difference: rawDiff,
+                  adjustedDifference: adjustedDiff,
                   differencePercent: diffPercent,
+                  fairness: analysis.fairness,
                   partnerRoster: searchRoster,
                 });
               } else {
                 newScenarios.push({
                   give: combo,
                   get: selectedAssets,
-                  giveTotal: comboValue,
-                  getTotal: selectedValue,
-                  difference: -diff,
+                  giveTotal: comboValue.rawTotal,
+                  getTotal: selectedValueInfo.raw,
+                  giveAdjusted: comboAdjusted,
+                  getAdjusted: adjustedValue,
+                  difference: -rawDiff,
+                  adjustedDifference: -adjustedDiff,
                   differencePercent: -diffPercent,
+                  fairness: analysis.fairness,
                   partnerRoster: targetRoster!,
                 });
               }
@@ -579,14 +614,14 @@ export function TradeFinder() {
           });
         });
 
-        // Sort by absolute difference (closest matches first)
-        newScenarios.sort((a, b) => Math.abs(a.difference) - Math.abs(b.difference));
+        // Sort by absolute adjusted difference (closest matches first)
+        newScenarios.sort((a, b) => Math.abs(a.adjustedDifference) - Math.abs(b.adjustedDifference));
         setScenarios(newScenarios.slice(0, 50));
       } finally {
         setIsSearching(false);
       }
     }, 100);
-  }, [rosters, myRoster, targetRoster, selectedAssets, selectedValue, tolerance, tradeMode, getPlayersOwnedByRoster, getPicksOwnedByRoster]);
+  }, [rosters, myRoster, targetRoster, selectedAssets, selectedValueInfo, tolerance, tradeMode, getPlayersOwnedByRoster, getPicksOwnedByRoster]);
 
   const isLoading = rostersLoading || valuesLoading || picksLoading;
   const canSearch = tradeMode === 'dump'
@@ -710,9 +745,14 @@ export function TradeFinder() {
 
                   {selectedAssets.length > 0 && (
                     <div className="mt-4 p-3 bg-accent-50 dark:bg-accent-900/20 rounded-lg">
-                      <span className="text-sm text-accent-700 dark:text-accent-300">
-                        Total value: <strong>{selectedValue.toLocaleString()}</strong> KTC
-                      </span>
+                      <div className="text-sm text-accent-700 dark:text-accent-300">
+                        Adjusted value: <strong>{selectedValueInfo.adjusted.toLocaleString()}</strong> KTC
+                        {selectedValueInfo.raw !== selectedValueInfo.adjusted && (
+                          <span className="text-xs text-slate-500 dark:text-slate-400 block mt-1">
+                            Raw: {selectedValueInfo.raw.toLocaleString()} • {selectedValueInfo.breakdown}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   )}
                 </>
@@ -773,9 +813,14 @@ export function TradeFinder() {
 
                   {selectedAssets.length > 0 && (
                     <div className="p-3 bg-accent-50 dark:bg-accent-900/20 rounded-lg mb-6">
-                      <span className="text-sm text-accent-700 dark:text-accent-300">
-                        Target value: <strong>{selectedValue.toLocaleString()}</strong> KTC
-                      </span>
+                      <div className="text-sm text-accent-700 dark:text-accent-300">
+                        Target value: <strong>{selectedValueInfo.adjusted.toLocaleString()}</strong> KTC
+                        {selectedValueInfo.raw !== selectedValueInfo.adjusted && (
+                          <span className="text-xs text-slate-500 dark:text-slate-400 block mt-1">
+                            Raw: {selectedValueInfo.raw.toLocaleString()} • {selectedValueInfo.breakdown}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   )}
 
@@ -870,18 +915,37 @@ export function TradeFinder() {
               {scenarios.map((scenario, idx) => (
                 <div
                   key={idx}
-                  className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 sm:p-6"
+                  className={`bg-white dark:bg-zinc-900 border-2 rounded-xl p-4 sm:p-6 ${
+                    scenario.fairness === 'fair'
+                      ? 'border-emerald-300 dark:border-emerald-500/50'
+                      : scenario.fairness === 'slight'
+                      ? 'border-blue-300 dark:border-blue-500/50'
+                      : 'border-slate-200 dark:border-zinc-800'
+                  }`}
                 >
                   <div className="flex items-center justify-between mb-4">
-                    <span className="text-sm text-slate-500 dark:text-slate-400">
-                      Trade with <strong className="text-slate-700 dark:text-slate-200">{scenario.partnerRoster.teamName || scenario.partnerRoster.ownerName}</strong>
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-slate-500 dark:text-slate-400">
+                        Trade with <strong className="text-slate-700 dark:text-slate-200">{scenario.partnerRoster.teamName || scenario.partnerRoster.ownerName}</strong>
+                      </span>
+                      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded uppercase ${
+                        scenario.fairness === 'fair'
+                          ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'
+                          : scenario.fairness === 'slight'
+                          ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400'
+                          : scenario.fairness === 'unfair'
+                          ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400'
+                          : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
+                      }`}>
+                        {scenario.fairness}
+                      </span>
+                    </div>
                     <span className={`text-xs font-semibold px-2 py-1 rounded-lg ${
                       Math.abs(scenario.differencePercent) < 5
                         ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'
                         : 'bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-slate-300'
                     }`}>
-                      {scenario.difference >= 0 ? '+' : ''}{scenario.difference.toLocaleString()} ({scenario.differencePercent.toFixed(1)}%)
+                      {scenario.adjustedDifference >= 0 ? '+' : ''}{scenario.adjustedDifference.toLocaleString()} adj
                     </span>
                   </div>
 
@@ -889,7 +953,10 @@ export function TradeFinder() {
                     {/* Give Side */}
                     <div>
                       <div className="text-xs font-semibold text-red-600 dark:text-red-400 uppercase tracking-wider mb-2">
-                        You Give ({scenario.giveTotal.toLocaleString()})
+                        You Give
+                        <span className="font-normal text-slate-500 dark:text-slate-400 ml-1">
+                          ({scenario.giveAdjusted.toLocaleString()} adj)
+                        </span>
                       </div>
                       <div className="space-y-2">
                         {scenario.give.map((asset, i) => (
@@ -917,7 +984,10 @@ export function TradeFinder() {
                     {/* Get Side */}
                     <div>
                       <div className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider mb-2">
-                        You Get ({scenario.getTotal.toLocaleString()})
+                        You Get
+                        <span className="font-normal text-slate-500 dark:text-slate-400 ml-1">
+                          ({scenario.getAdjusted.toLocaleString()} adj)
+                        </span>
                       </div>
                       <div className="space-y-2">
                         {scenario.get.map((asset, i) => (
@@ -934,6 +1004,18 @@ export function TradeFinder() {
                       </div>
                     </div>
                   </div>
+                  
+                  {/* Value Adjustment Info */}
+                  {scenario.difference !== scenario.adjustedDifference && (
+                    <div className="mt-3 pt-3 border-t border-slate-100 dark:border-zinc-800 flex items-start gap-1.5">
+                      <Info className="h-3 w-3 text-slate-400 mt-0.5 shrink-0" />
+                      <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                        Raw difference: {scenario.difference >= 0 ? '+' : ''}{scenario.difference.toLocaleString()} → 
+                        Adjusted: {scenario.adjustedDifference >= 0 ? '+' : ''}{scenario.adjustedDifference.toLocaleString()} 
+                        (stud factor, consolidation, piece count)
+                      </span>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
