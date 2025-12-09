@@ -599,14 +599,17 @@ export function TradeFinder() {
             const comboAdjusted = comboValue.adjustedTotal;
             
             if (comboAdjusted >= minValue && comboAdjusted <= maxValue) {
-              // Get full trade analysis
+              // Get full trade analysis (includes tier mismatch penalties)
               const analysis = tradeMode === 'dump'
                 ? analyzeTrade(selectedAssets as ValueAdjustmentAsset[], combo as ValueAdjustmentAsset[])
                 : analyzeTrade(combo as ValueAdjustmentAsset[], selectedAssets as ValueAdjustmentAsset[]);
               
+              // Use the analysis values which include tier mismatch adjustments
+              const giveAdjusted = tradeMode === 'dump' ? analysis.side1.adjustedTotal : analysis.side1.adjustedTotal;
+              const getAdjusted = tradeMode === 'dump' ? analysis.side2.adjustedTotal : analysis.side2.adjustedTotal;
               const rawDiff = comboValue.rawTotal - selectedValueInfo.raw;
-              const adjustedDiff = comboAdjusted - adjustedValue;
-              const diffPercent = adjustedValue > 0 ? (adjustedDiff / adjustedValue) * 100 : 0;
+              const adjustedDiff = getAdjusted - giveAdjusted;
+              const diffPercent = giveAdjusted > 0 ? (adjustedDiff / giveAdjusted) * 100 : 0;
 
               if (tradeMode === 'dump') {
                 newScenarios.push({
@@ -614,8 +617,8 @@ export function TradeFinder() {
                   get: combo,
                   giveTotal: selectedValueInfo.raw,
                   getTotal: comboValue.rawTotal,
-                  giveAdjusted: adjustedValue,
-                  getAdjusted: comboAdjusted,
+                  giveAdjusted: giveAdjusted,
+                  getAdjusted: getAdjusted,
                   difference: rawDiff,
                   adjustedDifference: adjustedDiff,
                   differencePercent: diffPercent,
@@ -628,8 +631,8 @@ export function TradeFinder() {
                   get: selectedAssets,
                   giveTotal: comboValue.rawTotal,
                   getTotal: selectedValueInfo.raw,
-                  giveAdjusted: comboAdjusted,
-                  getAdjusted: adjustedValue,
+                  giveAdjusted: giveAdjusted,
+                  getAdjusted: getAdjusted,
                   difference: -rawDiff,
                   adjustedDifference: -adjustedDiff,
                   differencePercent: -diffPercent,

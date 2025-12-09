@@ -14,6 +14,7 @@ import {
   Users,
   RotateCcw,
   Info,
+  AlertTriangle,
 } from 'lucide-react';
 import { analyzeTrade, calculateSideValue, type TradeAsset as ValueAdjustmentAsset } from '../lib/trade-value-adjustment';
 
@@ -471,6 +472,7 @@ export function TradeEvaluator() {
         valueAdjustment: analysis.valueAdjustment,
         fairness: analysis.fairness,
         explanation: analysis.explanation,
+        tierMismatchExplanation: analysis.tierMismatchExplanation,
       };
     }
     
@@ -496,6 +498,7 @@ export function TradeEvaluator() {
       valueAdjustment: adjustedDifference,
       fairness,
       explanation: '',
+      tierMismatchExplanation: '',
     };
   }, [totals, tradeSides]);
 
@@ -588,7 +591,16 @@ export function TradeEvaluator() {
               <Info className="h-3 w-3 text-slate-400 mt-0.5 shrink-0" />
               <span className="text-[10px] text-slate-500 dark:text-slate-400">
                 <span className="font-medium">Value Adjustment:</span> Raw difference was {tradeAnalysis.rawDifference.toLocaleString()}, 
-                adjusted to {tradeAnalysis.adjustedDifference.toLocaleString()} based on stud factor, consolidation, and piece count.
+                adjusted to {tradeAnalysis.adjustedDifference.toLocaleString()} based on stud factor, consolidation, piece count, and tier matching.
+              </span>
+            </div>
+          )}
+          {/* Tier Mismatch Warning */}
+          {tradeAnalysis.tierMismatchExplanation && (
+            <div className="mt-1.5 pt-1.5 border-t border-slate-200/50 dark:border-zinc-700/50 flex items-start gap-1.5">
+              <AlertTriangle className="h-3 w-3 text-amber-500 mt-0.5 shrink-0" />
+              <span className="text-[10px] text-amber-600 dark:text-amber-400">
+                <span className="font-medium">Tier Warning:</span> {tradeAnalysis.tierMismatchExplanation}
               </span>
             </div>
           )}
