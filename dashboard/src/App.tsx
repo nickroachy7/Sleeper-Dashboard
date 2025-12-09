@@ -10,6 +10,7 @@ import Drafts from './pages/Drafts';
 import { KTCValues } from './pages/KTCValues';
 import { SyncStatus } from './pages/SyncStatus';
 import { TradeEvaluator } from './pages/TradeEvaluator';
+import { TradeFinder } from './pages/TradeFinder';
 
 function App() {
   return (
@@ -24,6 +25,7 @@ function App() {
         <Route path="drafts" element={<Drafts />} />
         <Route path="ktc-values" element={<KTCValues />} />
         <Route path="trade-evaluator" element={<TradeEvaluator />} />
+        <Route path="trade-finder" element={<TradeFinder />} />
         <Route path="sync-status" element={<SyncStatus />} />
       </Route>
     </Routes>

@@ -12,6 +12,7 @@ import {
   Crown,
   RefreshCw,
   Scale,
+  Target,
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -38,6 +39,7 @@ const navSections: NavSection[] = [
     title: 'Tools',
     items: [
       { to: '/trade-evaluator', icon: Scale, label: 'Trade Evaluator', description: 'Build & evaluate trades' },
+      { to: '/trade-finder', icon: Target, label: 'Trade Finder', description: 'Find trade scenarios' },
       { to: '/ktc-values', icon: Crown, label: 'KTC Values', description: 'Dynasty rankings' },
     ],
   },
