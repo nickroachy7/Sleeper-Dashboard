@@ -67,6 +67,37 @@ export default function Transactions() {
     },
   });
 
+  // Fetch roster_id to draft_slot mapping from the startup draft (earliest draft)
+  // In dynasty leagues, each roster is assigned a permanent draft slot from the startup draft
+  const { data: rosterToDraftSlot } = useQuery({
+    queryKey: ['roster-draft-slot-mapping'],
+    queryFn: async () => {
+      // Get the earliest draft (startup draft) to determine roster -> draft_slot mapping
+      const { data: drafts } = await supabase
+        .from('drafts')
+        .select('draft_id, season')
+        .order('season', { ascending: true })
+        .limit(1);
+      
+      if (!drafts?.length) return new Map<number, number>();
+      
+      const startupDraftId = drafts[0].draft_id;
+      
+      // Get round 1 picks from startup draft to map roster_id -> draft_slot
+      const { data: startupPicks } = await supabase
+        .from('draft_picks')
+        .select('roster_id, draft_slot')
+        .eq('draft_id', startupDraftId)
+        .eq('round', 1);
+      
+      const mapping = new Map<number, number>();
+      (startupPicks as any[])?.forEach((pick: any) => {
+        mapping.set(pick.roster_id, pick.draft_slot);
+      });
+      return mapping;
+    },
+  });
+
   // Fetch draft picks with player info to show what was picked
   const { data: draftPickResults } = useQuery({
     queryKey: ['draft-pick-results'],
@@ -147,9 +178,14 @@ export default function Transactions() {
 
   // Get the player picked with a traded draft pick (if draft already happened)
   const getPickResult = (pick: any): { playerId: string; player: Player | undefined } | null => {
-    if (!draftPickResults) return null;
-    // roster_id in the pick is the original draft slot position
-    const key = `${pick.season}-${pick.round}-${pick.roster_id}`;
+    if (!draftPickResults || !rosterToDraftSlot) return null;
+    
+    // The pick's roster_id represents "this roster's pick" - we need to map it to the actual draft_slot
+    // In dynasty leagues, roster_id doesn't equal draft_slot - we use the startup draft mapping
+    const draftSlot = rosterToDraftSlot.get(pick.roster_id);
+    if (!draftSlot) return null;
+    
+    const key = `${pick.season}-${pick.round}-${draftSlot}`;
     const playerId = draftPickResults.get(key);
     if (!playerId) return null;
     return { playerId, player: getPlayer(playerId) };

@@ -65,6 +65,7 @@ export default function Dashboard() {
         playersRes,
         playerValuesRes,
         draftPicksRes,
+        draftsRes,
       ] = await Promise.all([
         supabase.from('leagues').select('*').order('created_at', { ascending: false }).limit(1),
         supabase.from('rosters').select('*').order('wins', { ascending: false }),
@@ -73,7 +74,8 @@ export default function Dashboard() {
         supabase.from('league_users').select('user_id, team_name, display_name'),
         supabase.from('players').select('player_id, full_name, position, team'),
         supabase.from('player_values').select('player_id, value'),
-        supabase.from('draft_picks').select(`draft_slot, round, player_id, drafts!inner(season)`).not('player_id', 'is', null),
+        supabase.from('draft_picks').select(`draft_slot, round, player_id, roster_id, draft_id, drafts!inner(season)`).not('player_id', 'is', null),
+        supabase.from('drafts').select('draft_id, season').order('season', { ascending: true }).limit(1),
       ]);
 
       // Build player map
@@ -90,6 +92,18 @@ export default function Dashboard() {
         const key = `${pick.drafts.season}-${pick.round}-${pick.draft_slot}`;
         draftPickResultsMap.set(key, pick.player_id);
       });
+
+      // Build roster_id to draft_slot mapping from startup draft
+      // In dynasty leagues, each roster's draft slot is determined by their position in the startup draft
+      const rosterToDraftSlotMap = new Map<number, number>();
+      const startupDraftId = draftsRes.data?.[0]?.draft_id;
+      if (startupDraftId) {
+        (draftPicksRes.data as any[] || [])
+          .filter((pick: any) => pick.draft_id === startupDraftId && pick.round === 1)
+          .forEach((pick: any) => {
+            rosterToDraftSlotMap.set(pick.roster_id, pick.draft_slot);
+          });
+      }
 
       // Build roster to owner map
       const rosterToOwner = new Map<number, string>();
@@ -159,6 +173,7 @@ export default function Dashboard() {
         players: playerMap,
         playerValues: playerValuesMap,
         draftPickResults: draftPickResultsMap,
+        rosterToDraftSlot: rosterToDraftSlotMap,
       };
     },
   });
@@ -201,14 +216,20 @@ export default function Dashboard() {
     );
   }
 
-  const { league, standings, transactions, transactionCount, players, playerValues, draftPickResults } = dashboardData;
+  const { league, standings, transactions, transactionCount, players, playerValues, draftPickResults, rosterToDraftSlot } = dashboardData;
 
   const getPlayer = (playerId: string): Player | undefined => players?.get(playerId);
   const getPlayerValue = (playerId: string): number => playerValues?.get(playerId) || 0;
   
   const getPickResult = (pick: any): { playerId: string; player: Player | undefined } | null => {
-    if (!draftPickResults) return null;
-    const key = `${pick.season}-${pick.round}-${pick.roster_id}`;
+    if (!draftPickResults || !rosterToDraftSlot) return null;
+    
+    // The pick's roster_id represents "this roster's pick" - we need to map it to the actual draft_slot
+    // In dynasty leagues, roster_id doesn't equal draft_slot - we use the startup draft mapping
+    const draftSlot = rosterToDraftSlot.get(pick.roster_id);
+    if (!draftSlot) return null;
+    
+    const key = `${pick.season}-${pick.round}-${draftSlot}`;
     const playerId = draftPickResults.get(key);
     if (!playerId) return null;
     return { playerId, player: getPlayer(playerId) };
