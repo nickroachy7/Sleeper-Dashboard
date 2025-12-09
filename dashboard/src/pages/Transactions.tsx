@@ -13,7 +13,8 @@ import {
   Minus,
   Filter,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  ArrowUpDown
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useState, useMemo } from 'react';
@@ -47,6 +48,7 @@ const ITEMS_PER_PAGE = 50;
 
 export default function Transactions() {
   const [typeFilter, setTypeFilter] = useState<string>('all');
+  const [sortBy, setSortBy] = useState<string>('recent');
   const [currentPage, setCurrentPage] = useState(1);
   const { data: players } = useQuery({
     queryKey: ['players'],
@@ -192,23 +194,79 @@ export default function Transactions() {
     return { playerId, player: getPlayer(playerId) };
   };
 
-  // Filter transactions by type - must be before early returns to maintain hooks order
-  const filteredTransactions = useMemo(() => {
+  // Calculate transaction value metrics for sorting
+  const getTransactionValueMetrics = (tx: any): { totalValue: number; netValue: number; addedValue: number; droppedValue: number } => {
+    const adds = tx.adds ? Object.keys(tx.adds) : [];
+    const drops = tx.drops ? Object.keys(tx.drops) : [];
+    
+    const addedValue = adds.reduce((sum: number, playerId: string) => sum + getPlayerValue(playerId), 0);
+    const droppedValue = drops.reduce((sum: number, playerId: string) => sum + getPlayerValue(playerId), 0);
+    
+    // For trades, also consider draft picks
+    let pickValue = 0;
+    if (tx.draft_picks && Array.isArray(tx.draft_picks)) {
+      tx.draft_picks.forEach((pick: any) => {
+        const pickBaseValue = pick.round === 1 ? 5000 : pick.round === 2 ? 2000 : pick.round === 3 ? 800 : 400;
+        pickValue += pickBaseValue;
+      });
+    }
+    
+    return {
+      totalValue: addedValue + droppedValue + pickValue,
+      netValue: addedValue - droppedValue,
+      addedValue,
+      droppedValue
+    };
+  };
+
+  // Filter and sort transactions
+  const filteredAndSortedTransactions = useMemo(() => {
     if (!transactions) return [];
-    if (typeFilter === 'all') return transactions;
-    return transactions.filter((tx: any) => tx.type === typeFilter);
-  }, [transactions, typeFilter]);
+    
+    let filtered = typeFilter === 'all' 
+      ? transactions 
+      : transactions.filter((tx: any) => tx.type === typeFilter);
+    
+    // Apply sorting
+    if (sortBy === 'recent') {
+      // Already sorted by date from the query
+      return filtered;
+    }
+    
+    return [...filtered].sort((a: any, b: any) => {
+      const metricsA = getTransactionValueMetrics(a);
+      const metricsB = getTransactionValueMetrics(b);
+      
+      switch (sortBy) {
+        case 'value-high':
+          return metricsB.totalValue - metricsA.totalValue;
+        case 'value-low':
+          return metricsA.totalValue - metricsB.totalValue;
+        case 'best-moves':
+          return metricsB.netValue - metricsA.netValue;
+        case 'worst-moves':
+          return metricsA.netValue - metricsB.netValue;
+        default:
+          return 0;
+      }
+    });
+  }, [transactions, typeFilter, sortBy, playerValues]);
 
   // Paginate filtered transactions
-  const totalPages = Math.ceil(filteredTransactions.length / ITEMS_PER_PAGE);
+  const totalPages = Math.ceil(filteredAndSortedTransactions.length / ITEMS_PER_PAGE);
   const paginatedTransactions = useMemo(() => {
     const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-    return filteredTransactions.slice(startIndex, startIndex + ITEMS_PER_PAGE);
-  }, [filteredTransactions, currentPage]);
+    return filteredAndSortedTransactions.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  }, [filteredAndSortedTransactions, currentPage]);
 
-  // Reset to page 1 when filter changes
+  // Reset to page 1 when filter or sort changes
   const handleFilterChange = (newFilter: string) => {
     setTypeFilter(newFilter);
+    setCurrentPage(1);
+  };
+
+  const handleSortChange = (newSort: string) => {
+    setSortBy(newSort);
     setCurrentPage(1);
   };
 
@@ -691,19 +749,37 @@ export default function Transactions() {
           </div>
           
           {/* Filter Dropdown */}
-          <div className="flex items-center gap-2">
-            <Filter className="h-4 w-4 text-slate-400" />
-            <select
-              value={typeFilter}
-              onChange={(e) => handleFilterChange(e.target.value)}
-              className="px-3 py-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg text-sm font-medium focus:outline-none focus:ring-2 focus:ring-accent-500 dark:focus:ring-accent-400 dark:text-white"
-            >
-              <option value="all">All Types</option>
-              <option value="trade">Trades</option>
-              <option value="waiver">Waivers</option>
-              <option value="free_agent">Free Agent</option>
-              <option value="commissioner">Commissioner</option>
-            </select>
+          <div className="flex items-center gap-2 sm:gap-4">
+            <div className="flex items-center gap-2">
+              <Filter className="h-4 w-4 text-slate-400" />
+              <select
+                value={typeFilter}
+                onChange={(e) => handleFilterChange(e.target.value)}
+                className="px-3 py-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg text-sm font-medium focus:outline-none focus:ring-2 focus:ring-accent-500 dark:focus:ring-accent-400 dark:text-white"
+              >
+                <option value="all">All Types</option>
+                <option value="trade">Trades</option>
+                <option value="waiver">Waivers</option>
+                <option value="free_agent">Free Agent</option>
+                <option value="commissioner">Commissioner</option>
+              </select>
+            </div>
+            
+            {/* Sort Dropdown */}
+            <div className="flex items-center gap-2">
+              <ArrowUpDown className="h-4 w-4 text-slate-400" />
+              <select
+                value={sortBy}
+                onChange={(e) => handleSortChange(e.target.value)}
+                className="px-3 py-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg text-sm font-medium focus:outline-none focus:ring-2 focus:ring-accent-500 dark:focus:ring-accent-400 dark:text-white"
+              >
+                <option value="recent">Most Recent</option>
+                <option value="value-high">Highest Value</option>
+                <option value="value-low">Lowest Value</option>
+                <option value="best-moves">Best Moves (Net +)</option>
+                <option value="worst-moves">Worst Moves (Net -)</option>
+              </select>
+            </div>
           </div>
         </div>
         <p className="text-slate-500 dark:text-slate-400 text-xs sm:text-sm mt-1">
@@ -735,7 +811,7 @@ export default function Transactions() {
           <div>
             <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Activity</h2>
             <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-              {typeFilter === 'all' ? 'All transactions' : `Showing ${typeFilter.replace('_', ' ')}s`} • {filteredTransactions.length} results
+              {typeFilter === 'all' ? 'All transactions' : `Showing ${typeFilter.replace('_', ' ')}s`} • {filteredAndSortedTransactions.length} results
             </p>
           </div>
         </div>
@@ -759,7 +835,7 @@ export default function Transactions() {
         {totalPages > 1 && (
           <div className="mt-6 flex items-center justify-between">
             <p className="text-sm text-slate-500 dark:text-slate-400">
-              Showing {((currentPage - 1) * ITEMS_PER_PAGE) + 1}-{Math.min(currentPage * ITEMS_PER_PAGE, filteredTransactions.length)} of {filteredTransactions.length}
+              Showing {((currentPage - 1) * ITEMS_PER_PAGE) + 1}-{Math.min(currentPage * ITEMS_PER_PAGE, filteredAndSortedTransactions.length)} of {filteredAndSortedTransactions.length}
             </p>
             <div className="flex items-center gap-2">
               <button
