@@ -679,34 +679,85 @@ export default function Dashboard() {
           </Link>
         </div>
 
-        {/* Top 3 */}
-        <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-3 sm:mb-4">
-          {standings.slice(0, 3).map((team: any, idx: number) => (
+        {/* Top 3 - Podium Style: 2nd (left), 1st (center, tallest), 3rd (right, shortest) */}
+        <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-3 sm:mb-4 items-end">
+          {/* 2nd Place - Left, Medium Height */}
+          {standings[1] && (
             <div
-              key={team.id}
-              className={`rounded-xl p-3 sm:p-6 border ${getRankBgClass(idx + 1)}`}
+              className={`rounded-xl border ${getRankBgClass(2)} pt-3 sm:pt-5 pb-3 sm:pb-5 px-3 sm:px-5 flex flex-col min-h-[120px] sm:min-h-[180px]`}
             >
               <div className="flex items-center gap-1.5 sm:gap-2 mb-2 sm:mb-3">
                 <div className="[&>svg]:h-4 [&>svg]:w-4 sm:[&>svg]:h-5 sm:[&>svg]:w-5">
-                  {getRankIcon(idx + 1)}
+                  {getRankIcon(2)}
                 </div>
                 <span className="text-[10px] sm:text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide hidden sm:inline">
-                  {idx === 0 ? 'First' : idx === 1 ? 'Second' : 'Third'} Place
+                  Second Place
                 </span>
                 <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide sm:hidden">
-                  {idx === 0 ? '1st' : idx === 1 ? '2nd' : '3rd'}
+                  2ND
                 </span>
               </div>
-              <h3 className="font-bold text-slate-900 dark:text-white text-xs sm:text-lg truncate">{team.teamName}</h3>
-              <p className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 mt-0.5 sm:mt-1 truncate hidden sm:block">{team.ownerName}</p>
-              <div className="mt-2 sm:mt-4 flex items-baseline gap-1 sm:gap-2">
+              <h3 className="font-bold text-slate-900 dark:text-white text-xs sm:text-lg truncate">{standings[1].teamName}</h3>
+              <p className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 mt-0.5 sm:mt-1 truncate hidden sm:block">{standings[1].ownerName}</p>
+              <div className="mt-auto pt-2 sm:pt-3 flex items-baseline gap-1 sm:gap-2">
                 <span className="text-lg sm:text-2xl font-bold text-slate-900 dark:text-white">
-                  {team.wins}-{team.losses}
+                  {standings[1].wins}-{standings[1].losses}
                 </span>
-                <span className="text-[10px] sm:text-sm text-slate-500 dark:text-slate-400 hidden sm:inline">{team.totalPoints.toFixed(1)} pts</span>
               </div>
             </div>
-          ))}
+          )}
+
+          {/* 1st Place - Center, Tallest */}
+          {standings[0] && (
+            <div
+              className={`rounded-xl border ${getRankBgClass(1)} pt-3 sm:pt-5 pb-4 sm:pb-6 px-3 sm:px-5 flex flex-col min-h-[140px] sm:min-h-[220px]`}
+            >
+              <div className="flex items-center gap-1.5 sm:gap-2 mb-2 sm:mb-3">
+                <div className="[&>svg]:h-5 [&>svg]:w-5 sm:[&>svg]:h-6 sm:[&>svg]:w-6">
+                  {getRankIcon(1)}
+                </div>
+                <span className="text-[10px] sm:text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide hidden sm:inline">
+                  First Place
+                </span>
+                <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide sm:hidden">
+                  1ST
+                </span>
+              </div>
+              <h3 className="font-bold text-slate-900 dark:text-white text-xs sm:text-lg truncate">{standings[0].teamName}</h3>
+              <p className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 mt-0.5 sm:mt-1 truncate hidden sm:block">{standings[0].ownerName}</p>
+              <div className="mt-auto pt-2 sm:pt-4 flex items-baseline gap-1 sm:gap-2">
+                <span className="text-lg sm:text-2xl font-bold text-slate-900 dark:text-white">
+                  {standings[0].wins}-{standings[0].losses}
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* 3rd Place - Right, Shortest */}
+          {standings[2] && (
+            <div
+              className={`rounded-xl border ${getRankBgClass(3)} pt-3 sm:pt-4 pb-2.5 sm:pb-4 px-3 sm:px-5 flex flex-col min-h-[100px] sm:min-h-[140px]`}
+            >
+              <div className="flex items-center gap-1.5 sm:gap-2 mb-1.5 sm:mb-2">
+                <div className="[&>svg]:h-4 [&>svg]:w-4 sm:[&>svg]:h-5 sm:[&>svg]:w-5">
+                  {getRankIcon(3)}
+                </div>
+                <span className="text-[10px] sm:text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide hidden sm:inline">
+                  Third Place
+                </span>
+                <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide sm:hidden">
+                  3RD
+                </span>
+              </div>
+              <h3 className="font-bold text-slate-900 dark:text-white text-xs sm:text-lg truncate">{standings[2].teamName}</h3>
+              <p className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate hidden sm:block">{standings[2].ownerName}</p>
+              <div className="mt-auto pt-1.5 sm:pt-3 flex items-baseline gap-1 sm:gap-2">
+                <span className="text-lg sm:text-2xl font-bold text-slate-900 dark:text-white">
+                  {standings[2].wins}-{standings[2].losses}
+                </span>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Full Table */}
