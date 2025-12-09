@@ -1,19 +1,15 @@
-import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import {
   Search,
-  Plus,
   X,
   ChevronDown,
   Loader2,
-  Target,
+  ArrowLeftRight,
   TrendingUp,
   TrendingDown,
-  Sparkles,
-  Check,
-  RefreshCw,
-  ArrowRight,
+  Users,
 } from 'lucide-react';
 
 // Types
@@ -49,6 +45,7 @@ interface Roster {
   losses: number;
   fpts: number;
   ownerName: string;
+  teamName: string | null;
 }
 
 interface TradedPick {
@@ -68,20 +65,19 @@ interface TradeAsset {
   pickYear?: string;
   pickRound?: number;
   pickTier?: string;
-  originalRosterId?: number;
 }
 
 interface TradeScenario {
-  partnerRosterId: number;
-  partnerName: string;
-  theyGive: TradeAsset[];
-  theyGiveTotal: number;
-  youGive: TradeAsset[];
-  youGiveTotal: number;
+  give: TradeAsset[];
+  get: TradeAsset[];
+  giveTotal: number;
+  getTotal: number;
   difference: number;
-  percentDiff: number;
-  fairness: 'fair' | 'slight' | 'unfair';
+  differencePercent: number;
+  partnerRoster: Roster;
 }
+
+type TradeMode = 'dump' | 'acquire';
 
 // Position badge classes
 const getPositionBadgeClass = (position: string): string => {
@@ -136,22 +132,22 @@ function useClickOutside(ref: React.RefObject<HTMLElement | null>, callback: () 
   }, [ref, callback]);
 }
 
-// Asset Dropdown Modal
+// Asset selection dropdown
 function AssetDropdown({
   isOpen,
   onClose,
   title,
-  searchable = false,
   items,
-  onSelect,
+  selectedIds,
+  onToggle,
   emptyMessage = 'No items available',
 }: {
   isOpen: boolean;
   onClose: () => void;
   title: string;
-  searchable?: boolean;
   items: TradeAsset[];
-  onSelect: (item: TradeAsset) => void;
+  selectedIds: string[];
+  onToggle: (item: TradeAsset) => void;
   emptyMessage?: string;
 }) {
   const [search, setSearch] = useState('');
@@ -161,11 +157,11 @@ function AssetDropdown({
   useClickOutside(dropdownRef, onClose);
 
   useEffect(() => {
-    if (isOpen && searchable && inputRef.current) {
+    if (isOpen && inputRef.current) {
       setTimeout(() => inputRef.current?.focus(), 50);
     }
     if (!isOpen) setSearch('');
-  }, [isOpen, searchable]);
+  }, [isOpen]);
 
   const filteredItems = useMemo(() => {
     if (!search) return items;
@@ -194,25 +190,24 @@ function AssetDropdown({
           </button>
         </div>
 
-        {searchable && (
-          <div className="p-3 border-b border-slate-200 dark:border-zinc-700">
-            <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 dark:text-slate-500" />
-              <input
-                ref={inputRef}
-                type="text"
-                placeholder="Search..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-9 pr-4 py-2.5 text-sm bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-transparent transition-colors"
-              />
-            </div>
+        <div className="p-3 border-b border-slate-200 dark:border-zinc-700">
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 dark:text-slate-500" />
+            <input
+              ref={inputRef}
+              type="text"
+              placeholder="Search players or picks..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full pl-9 pr-4 py-2.5 text-sm bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-transparent transition-colors"
+            />
           </div>
-        )}
+        </div>
 
         <div className="px-4 py-2 bg-slate-50 dark:bg-zinc-800/30 border-b border-slate-100 dark:border-zinc-800">
           <span className="text-xs text-slate-500 dark:text-slate-400">
-            {filteredItems.length} {filteredItems.length === 1 ? 'asset' : 'assets'}
+            {selectedIds.length > 0 ? `${selectedIds.length} selected • ` : ''}
+            Showing {filteredItems.length} {filteredItems.length === 1 ? 'asset' : 'assets'}
           </span>
         </div>
 
@@ -223,34 +218,111 @@ function AssetDropdown({
             <table className="w-full">
               <thead>
                 <tr className="bg-slate-50 dark:bg-zinc-800/50 border-b border-slate-200 dark:border-zinc-700">
+                  <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider w-8"></th>
                   <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Asset</th>
                   <th className="px-4 py-2.5 text-center text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Type</th>
                   <th className="px-4 py-2.5 text-right text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Value</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-zinc-800">
-                {filteredItems.map((item) => (
-                  <tr
-                    key={item.id}
-                    onClick={() => { onSelect(item); onClose(); }}
-                    className="hover:bg-slate-50 dark:hover:bg-zinc-800/50 cursor-pointer transition-colors"
-                  >
-                    <td className="px-4 py-3">
-                      <span className="text-sm text-slate-900 dark:text-white font-medium">{item.name}</span>
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      <span className={`px-2 py-0.5 text-xs font-medium rounded-lg ${getPositionBadgeClass(item.type === 'player' ? (item.position || '') : 'PICK')}`}>
-                        {item.type === 'player' ? item.position : 'PICK'}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <span className="text-sm font-bold text-accent-600 dark:text-accent-400">{item.value.toLocaleString()}</span>
-                    </td>
-                  </tr>
-                ))}
+                {filteredItems.map((item) => {
+                  const isSelected = selectedIds.includes(item.id);
+                  return (
+                    <tr
+                      key={item.id}
+                      onClick={() => onToggle(item)}
+                      className={`cursor-pointer transition-colors ${isSelected ? 'bg-accent-50 dark:bg-accent-900/20' : 'hover:bg-slate-50 dark:hover:bg-zinc-800/50'}`}
+                    >
+                      <td className="px-4 py-3">
+                        <div className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-colors ${isSelected ? 'bg-accent-500 border-accent-500' : 'border-slate-300 dark:border-zinc-600'}`}>
+                          {isSelected && <span className="text-white text-xs">✓</span>}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="text-sm text-slate-900 dark:text-white font-medium">{item.name}</span>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <span className={`px-2 py-0.5 text-xs font-medium rounded-lg ${getPositionBadgeClass(item.type === 'player' ? (item.position || '') : 'PICK')}`}>
+                          {item.type === 'player' ? item.position : 'PICK'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <span className="text-sm font-bold text-accent-600 dark:text-accent-400">{item.value.toLocaleString()}</span>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           )}
+        </div>
+        
+        <div className="px-4 py-3 bg-slate-50 dark:bg-zinc-800/50 border-t border-slate-200 dark:border-zinc-700 flex justify-end">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 bg-accent-500 hover:bg-accent-600 text-white text-sm font-medium rounded-lg transition-colors"
+          >
+            Done
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
+// Team selector dropdown
+function TeamDropdown({
+  isOpen,
+  onClose,
+  title,
+  rosters,
+  excludeRosterId,
+  onSelect,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  title: string;
+  rosters: Roster[];
+  excludeRosterId?: number;
+  onSelect: (roster: Roster) => void;
+}) {
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useClickOutside(dropdownRef, onClose);
+
+  if (!isOpen) return null;
+
+  const filteredRosters = rosters.filter(r => r.roster_id !== excludeRosterId);
+
+  return (
+    <>
+      <div className="fixed inset-0 bg-black/50 z-40" onClick={onClose} />
+      <div
+        ref={dropdownRef}
+        className="fixed z-50 left-4 right-4 top-1/2 -translate-y-1/2 max-w-md mx-auto bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-2xl overflow-hidden"
+      >
+        <div className="px-4 py-3 bg-slate-50 dark:bg-zinc-800/50 border-b border-slate-200 dark:border-zinc-700 flex items-center justify-between">
+          <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{title}</span>
+          <button onClick={onClose} className="p-1.5 hover:bg-slate-200 dark:hover:bg-zinc-700 rounded-lg transition-colors">
+            <X className="h-4 w-4 text-slate-400" />
+          </button>
+        </div>
+
+        <div className="max-h-96 overflow-y-auto overscroll-contain divide-y divide-slate-100 dark:divide-zinc-800">
+          {filteredRosters.map((roster) => (
+            <button
+              key={roster.roster_id}
+              onClick={() => { onSelect(roster); onClose(); }}
+              className="w-full px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-zinc-800/50 transition-colors flex items-center justify-between"
+            >
+              <span className="text-sm text-slate-900 dark:text-white font-medium">
+                {roster.teamName || roster.ownerName}
+              </span>
+              <span className="text-xs text-slate-500 dark:text-slate-400">
+                {roster.wins}-{roster.losses}
+              </span>
+            </button>
+          ))}
         </div>
       </div>
     </>
@@ -258,13 +330,22 @@ function AssetDropdown({
 }
 
 export function TradeFinder() {
-  const [myRosterId, setMyRosterId] = useState<number>(0);
-  const [wantedAssets, setWantedAssets] = useState<TradeAsset[]>([]);
-  const [activeDropdown, setActiveDropdown] = useState<'player' | 'pick' | null>(null);
+  const [tradeMode, setTradeMode] = useState<TradeMode>('dump');
+  const [myRoster, setMyRoster] = useState<Roster | null>(null);
+  const [targetRoster, setTargetRoster] = useState<Roster | null>(null);
+  const [selectedAssetIds, setSelectedAssetIds] = useState<string[]>([]);
+  const [tolerance, setTolerance] = useState(10);
   const [scenarios, setScenarios] = useState<TradeScenario[]>([]);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [tolerance, setTolerance] = useState<number>(15); // % tolerance for fair trades
+  const [isSearching, setIsSearching] = useState(false);
+  const [dropdownOpen, setDropdownOpen] = useState<'myTeam' | 'targetTeam' | 'assets' | null>(null);
 
+  // Reset when mode changes
+  useEffect(() => {
+    setSelectedAssetIds([]);
+    setScenarios([]);
+  }, [tradeMode, myRoster, targetRoster]);
+
+  // Fetch rosters
   const { data: rosters, isLoading: rostersLoading } = useQuery({
     queryKey: ['rosters-finder'],
     queryFn: async () => {
@@ -273,12 +354,17 @@ export function TradeFinder() {
       if (!rostersData?.length) return [];
       return (rostersData as any[]).map((roster: any) => {
         const owner = (users as any[])?.find((u: any) => u.user_id === roster.owner_id);
-        return { ...roster, ownerName: owner?.display_name || owner?.username || 'Unknown' };
+        return { 
+          ...roster, 
+          ownerName: owner?.display_name || owner?.username || 'Unknown',
+          teamName: owner?.team_name || null,
+        };
       }) as Roster[];
     },
   });
 
-  const { data: players } = useQuery({
+  // Fetch players (used for type reference in playerValues query)
+  useQuery({
     queryKey: ['players-finder'],
     queryFn: async () => {
       const { data } = await supabase.from('players').select('player_id, full_name, position, team');
@@ -286,6 +372,7 @@ export function TradeFinder() {
     },
   });
 
+  // Fetch player values
   const { data: playerValues, isLoading: valuesLoading } = useQuery({
     queryKey: ['playerValues-finder'],
     queryFn: async () => {
@@ -301,6 +388,7 @@ export function TradeFinder() {
     },
   });
 
+  // Fetch pick values
   const { data: pickValues, isLoading: picksLoading } = useQuery({
     queryKey: ['pickValues-finder'],
     queryFn: async () => {
@@ -309,6 +397,7 @@ export function TradeFinder() {
     },
   });
 
+  // Fetch traded picks
   const { data: tradedPicks } = useQuery({
     queryKey: ['tradedPicks-finder'],
     queryFn: async () => {
@@ -317,7 +406,7 @@ export function TradeFinder() {
     },
   });
 
-  // Get all picks owned by a specific roster
+  // Get picks owned by a roster
   const getPicksOwnedByRoster = useCallback((rosterId: number): TradeAsset[] => {
     if (!rosters || !pickValues || !tradedPicks) return [];
     const picks: TradeAsset[] = [];
@@ -349,7 +438,6 @@ export function TradeFinder() {
                 pickYear: year,
                 pickRound: round,
                 pickTier: tier,
-                originalRosterId: originalRoster.roster_id,
               });
             }
           }
@@ -359,526 +447,536 @@ export function TradeFinder() {
     return picks.sort((a, b) => b.value - a.value);
   }, [rosters, pickValues, tradedPicks]);
 
-  // Get all players owned by a specific roster
-  const getPlayersOwnedByRoster = useCallback((rosterId: number): TradeAsset[] => {
-    if (!rosters) return [];
-    const roster = rosters.find((r) => r.roster_id === rosterId);
-    if (!roster || !roster.players) return [];
-
-    const playerAssets: TradeAsset[] = [];
-    for (const playerId of roster.players) {
-      const pv = playerValues?.get(playerId);
-      if (pv && pv.player) {
-        playerAssets.push({
-          id: `player-${playerId}`,
+  // Get players owned by a roster
+  const getPlayersOwnedByRoster = useCallback((roster: Roster): TradeAsset[] => {
+    if (!playerValues) return [];
+    const assets: TradeAsset[] = [];
+    
+    (roster.players || []).forEach((pid: string) => {
+      const pv = playerValues.get(pid);
+      if (pv && pv.value > 0) {
+        assets.push({
+          id: `player-${pid}`,
           type: 'player',
           name: pv.player.full_name,
           value: pv.value,
           position: pv.player.position,
           team: pv.player.team,
         });
-      } else {
-        const player = players?.find((p) => p.player_id === playerId);
-        if (player) {
-          playerAssets.push({
-            id: `player-${playerId}`,
-            type: 'player',
-            name: player.full_name,
-            value: 0,
-            position: player.position,
-            team: player.team,
-          });
-        }
       }
-    }
-    return playerAssets.sort((a, b) => b.value !== a.value ? b.value - a.value : a.name.localeCompare(b.name));
-  }, [rosters, playerValues, players]);
-
-  // Get all assets from other teams (for selecting what you want)
-  const getAllOtherTeamsAssets = useMemo(() => {
-    if (!rosters || myRosterId === 0) return [];
-    const assets: TradeAsset[] = [];
-    
-    for (const roster of rosters) {
-      if (roster.roster_id === myRosterId) continue;
-      
-      // Add players
-      const playerAssets = getPlayersOwnedByRoster(roster.roster_id);
-      assets.push(...playerAssets);
-      
-      // Add picks
-      const pickAssets = getPicksOwnedByRoster(roster.roster_id);
-      assets.push(...pickAssets);
-    }
-    
-    // Remove already selected assets
-    const selectedIds = new Set(wantedAssets.map(a => a.id));
-    return assets.filter(a => !selectedIds.has(a.id)).sort((a, b) => b.value - a.value);
-  }, [rosters, myRosterId, wantedAssets, getPlayersOwnedByRoster, getPicksOwnedByRoster]);
-
-  // Find which roster owns an asset
-  const findAssetOwner = useCallback((asset: TradeAsset): number | null => {
-    if (!rosters) return null;
-    
-    if (asset.type === 'player') {
-      const playerId = asset.id.replace('player-', '');
-      for (const roster of rosters) {
-        if (roster.players?.includes(playerId)) {
-          return roster.roster_id;
-        }
-      }
-    } else if (asset.type === 'pick') {
-      // Parse pick info from ID
-      const parts = asset.id.split('-');
-      const year = parts[1];
-      const round = parseInt(parts[2]);
-      const originalRosterId = parseInt(parts[3]);
-      
-      const tradedPick = tradedPicks?.find(
-        (tp) => tp.season === year && tp.round === round && tp.roster_id === originalRosterId
-      );
-      return tradedPick ? tradedPick.owner_id : originalRosterId;
-    }
-    return null;
-  }, [rosters, tradedPicks]);
-
-  const addWantedAsset = useCallback((asset: TradeAsset) => {
-    setWantedAssets(prev => [...prev, asset]);
-    setScenarios([]); // Clear scenarios when assets change
-  }, []);
-
-  const removeWantedAsset = useCallback((assetId: string) => {
-    setWantedAssets(prev => prev.filter(a => a.id !== assetId));
-    setScenarios([]); // Clear scenarios when assets change
-  }, []);
-
-  const resetFinder = useCallback(() => {
-    setWantedAssets([]);
-    setScenarios([]);
-  }, []);
-
-  // Generate trade scenarios
-  const generateScenarios = useCallback(() => {
-    if (!rosters || myRosterId === 0 || wantedAssets.length === 0) return;
-    
-    setIsGenerating(true);
-    
-    // Group wanted assets by owner
-    const assetsByOwner = new Map<number, TradeAsset[]>();
-    for (const asset of wantedAssets) {
-      const ownerId = findAssetOwner(asset);
-      if (ownerId && ownerId !== myRosterId) {
-        const existing = assetsByOwner.get(ownerId) || [];
-        existing.push(asset);
-        assetsByOwner.set(ownerId, existing);
-      }
-    }
-
-    const myAssets = [
-      ...getPlayersOwnedByRoster(myRosterId),
-      ...getPicksOwnedByRoster(myRosterId),
-    ].sort((a, b) => b.value - a.value);
-
-    const generatedScenarios: TradeScenario[] = [];
-
-    // For each trade partner
-    for (const [partnerId, theirAssets] of assetsByOwner) {
-      const partnerRoster = rosters.find(r => r.roster_id === partnerId);
-      if (!partnerRoster) continue;
-
-      const targetValue = theirAssets.reduce((sum, a) => sum + a.value, 0);
-      const toleranceValue = targetValue * (tolerance / 100);
-      const minValue = targetValue - toleranceValue;
-      const maxValue = targetValue + toleranceValue;
-
-      // Find combinations of my assets that match the value
-      const findCombinations = (
-        assets: TradeAsset[],
-        _target: number,
-        min: number,
-        max: number,
-        maxAssets: number = 4
-      ): TradeAsset[][] => {
-        const results: TradeAsset[][] = [];
-        
-        // Helper function for combination search
-        const search = (index: number, current: TradeAsset[], currentValue: number) => {
-          if (current.length > maxAssets) return;
-          if (currentValue >= min && currentValue <= max) {
-            results.push([...current]);
-          }
-          if (currentValue >= max || index >= assets.length) return;
-          
-          for (let i = index; i < assets.length && results.length < 10; i++) {
-            current.push(assets[i]);
-            search(i + 1, current, currentValue + assets[i].value);
-            current.pop();
-          }
-        };
-
-        search(0, [], 0);
-        return results;
-      };
-
-      const combinations = findCombinations(myAssets, targetValue, minValue, maxValue);
-
-      // Create scenarios from combinations
-      for (const combo of combinations.slice(0, 3)) { // Limit to 3 scenarios per partner
-        const myTotal = combo.reduce((sum, a) => sum + a.value, 0);
-        const difference = Math.abs(myTotal - targetValue);
-        const percentDiff = targetValue > 0 ? (difference / targetValue) * 100 : 0;
-
-        let fairness: 'fair' | 'slight' | 'unfair';
-        if (percentDiff <= 5) fairness = 'fair';
-        else if (percentDiff <= 15) fairness = 'slight';
-        else fairness = 'unfair';
-
-        generatedScenarios.push({
-          partnerRosterId: partnerId,
-          partnerName: partnerRoster.ownerName,
-          theyGive: theirAssets,
-          theyGiveTotal: targetValue,
-          youGive: combo,
-          youGiveTotal: myTotal,
-          difference,
-          percentDiff,
-          fairness,
-        });
-      }
-    }
-
-    // Sort by fairness (fair first) then by difference
-    generatedScenarios.sort((a, b) => {
-      const fairnessOrder = { fair: 0, slight: 1, unfair: 2 };
-      if (fairnessOrder[a.fairness] !== fairnessOrder[b.fairness]) {
-        return fairnessOrder[a.fairness] - fairnessOrder[b.fairness];
-      }
-      return a.difference - b.difference;
     });
+    
+    return assets.sort((a, b) => b.value - a.value);
+  }, [playerValues]);
 
-    setScenarios(generatedScenarios);
-    setIsGenerating(false);
-  }, [rosters, myRosterId, wantedAssets, tolerance, findAssetOwner, getPlayersOwnedByRoster, getPicksOwnedByRoster]);
+  // Get all assets for the active selection team
+  const availableAssets = useMemo(() => {
+    const roster = tradeMode === 'dump' ? myRoster : targetRoster;
+    if (!roster) return [];
+    
+    const playerAssets = getPlayersOwnedByRoster(roster);
+    const pickAssets = getPicksOwnedByRoster(roster.roster_id);
+    
+    return [...playerAssets, ...pickAssets];
+  }, [tradeMode, myRoster, targetRoster, getPlayersOwnedByRoster, getPicksOwnedByRoster]);
 
-  const wantedTotal = useMemo(() => {
-    return wantedAssets.reduce((sum, a) => sum + a.value, 0);
-  }, [wantedAssets]);
+  // Selected assets with full details
+  const selectedAssets = useMemo(() => {
+    return availableAssets.filter(a => selectedAssetIds.includes(a.id));
+  }, [availableAssets, selectedAssetIds]);
+
+  // Total value of selected assets
+  const selectedValue = useMemo(() => {
+    return selectedAssets.reduce((sum, a) => sum + a.value, 0);
+  }, [selectedAssets]);
+
+  // Toggle asset selection
+  const handleAssetToggle = (asset: TradeAsset) => {
+    setSelectedAssetIds(prev => 
+      prev.includes(asset.id) 
+        ? prev.filter(id => id !== asset.id)
+        : [...prev, asset.id]
+    );
+  };
+
+  // Find trade scenarios
+  const findTrades = useCallback(() => {
+    if (!rosters || selectedAssets.length === 0) return;
+    
+    setIsSearching(true);
+    setScenarios([]);
+
+    setTimeout(() => {
+      try {
+        const minValue = selectedValue * (1 - tolerance / 100);
+        const maxValue = selectedValue * (1 + tolerance / 100);
+        const newScenarios: TradeScenario[] = [];
+
+        // Teams to search for matching packages
+        const teamsToSearch = tradeMode === 'dump'
+          ? rosters.filter(r => r.roster_id !== myRoster?.roster_id)
+          : myRoster ? [myRoster] : [];
+
+        teamsToSearch.forEach(searchRoster => {
+          const searchAssets = [
+            ...getPlayersOwnedByRoster(searchRoster),
+            ...getPicksOwnedByRoster(searchRoster.roster_id),
+          ];
+
+          // Generate combinations of 1-3 assets
+          const combinations: TradeAsset[][] = [];
+          
+          // 1 asset
+          searchAssets.forEach(a => combinations.push([a]));
+          
+          // 2 assets
+          for (let i = 0; i < searchAssets.length; i++) {
+            for (let j = i + 1; j < searchAssets.length; j++) {
+              combinations.push([searchAssets[i], searchAssets[j]]);
+            }
+          }
+          
+          // 3 assets (limit to top 25 by value to avoid too many combos)
+          const topAssets = searchAssets.slice(0, 25);
+          for (let i = 0; i < topAssets.length; i++) {
+            for (let j = i + 1; j < topAssets.length; j++) {
+              for (let k = j + 1; k < topAssets.length; k++) {
+                combinations.push([topAssets[i], topAssets[j], topAssets[k]]);
+              }
+            }
+          }
+
+          // Find matching combinations
+          combinations.forEach(combo => {
+            const comboValue = combo.reduce((sum, a) => sum + a.value, 0);
+            
+            if (comboValue >= minValue && comboValue <= maxValue) {
+              const diff = comboValue - selectedValue;
+              const diffPercent = (diff / selectedValue) * 100;
+
+              if (tradeMode === 'dump') {
+                newScenarios.push({
+                  give: selectedAssets,
+                  get: combo,
+                  giveTotal: selectedValue,
+                  getTotal: comboValue,
+                  difference: diff,
+                  differencePercent: diffPercent,
+                  partnerRoster: searchRoster,
+                });
+              } else {
+                newScenarios.push({
+                  give: combo,
+                  get: selectedAssets,
+                  giveTotal: comboValue,
+                  getTotal: selectedValue,
+                  difference: -diff,
+                  differencePercent: -diffPercent,
+                  partnerRoster: targetRoster!,
+                });
+              }
+            }
+          });
+        });
+
+        // Sort by absolute difference (closest matches first)
+        newScenarios.sort((a, b) => Math.abs(a.difference) - Math.abs(b.difference));
+        setScenarios(newScenarios.slice(0, 50));
+      } finally {
+        setIsSearching(false);
+      }
+    }, 100);
+  }, [rosters, myRoster, targetRoster, selectedAssets, selectedValue, tolerance, tradeMode, getPlayersOwnedByRoster, getPicksOwnedByRoster]);
 
   const isLoading = rostersLoading || valuesLoading || picksLoading;
+  const canSearch = tradeMode === 'dump'
+    ? myRoster && selectedAssetIds.length > 0
+    : myRoster && targetRoster && selectedAssetIds.length > 0;
 
   if (isLoading) {
     return (
-      <div className="p-4 max-w-6xl mx-auto">
-        <div className="flex items-center justify-center h-64">
-          <Loader2 className="h-8 w-8 animate-spin text-accent-500" />
-        </div>
+      <div className="min-h-screen bg-slate-50 dark:bg-zinc-950 flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-accent-500" />
       </div>
     );
   }
 
   return (
-    <div className="p-3 sm:p-4 max-w-6xl mx-auto">
-      {/* Header */}
-      <div className="mb-4 flex items-center justify-between">
-        <div>
-          <h1 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-            <Target className="h-5 w-5 text-accent-500" />
+    <div className="min-h-screen bg-slate-50 dark:bg-zinc-950">
+      <div className="max-w-4xl mx-auto px-4 py-6 sm:py-8">
+        {/* Header */}
+        <div className="mb-6">
+          <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white">
             Trade Finder
           </h1>
-          <p className="text-slate-500 dark:text-slate-400 text-xs mt-0.5">Select assets you want, get trade scenarios</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+            Find trade scenarios based on KTC values
+          </p>
         </div>
-        {wantedAssets.length > 0 && (
-          <button
-            onClick={resetFinder}
-            className="flex items-center gap-1 px-2 py-1 text-slate-500 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-zinc-800 rounded text-xs font-medium"
-          >
-            <RefreshCw className="h-3 w-3" />
-            Reset
-          </button>
+
+        {/* Mode Toggle */}
+        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 sm:p-6 mb-6">
+          <div className="mb-4">
+            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+              What do you want to do?
+            </span>
+          </div>
+          
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              onClick={() => setTradeMode('dump')}
+              className={`p-4 rounded-xl border-2 transition-all flex flex-col items-center gap-2 ${
+                tradeMode === 'dump'
+                  ? 'border-accent-500 bg-accent-50 dark:bg-accent-900/20'
+                  : 'border-slate-200 dark:border-zinc-700 hover:border-slate-300 dark:hover:border-zinc-600'
+              }`}
+            >
+              <TrendingDown className={`h-6 w-6 ${tradeMode === 'dump' ? 'text-accent-500' : 'text-slate-400'}`} />
+              <span className={`text-sm font-medium text-center ${tradeMode === 'dump' ? 'text-accent-600 dark:text-accent-400' : 'text-slate-600 dark:text-slate-300'}`}>
+                I have assets to trade away
+              </span>
+            </button>
+            
+            <button
+              onClick={() => setTradeMode('acquire')}
+              className={`p-4 rounded-xl border-2 transition-all flex flex-col items-center gap-2 ${
+                tradeMode === 'acquire'
+                  ? 'border-accent-500 bg-accent-50 dark:bg-accent-900/20'
+                  : 'border-slate-200 dark:border-zinc-700 hover:border-slate-300 dark:hover:border-zinc-600'
+              }`}
+            >
+              <TrendingUp className={`h-6 w-6 ${tradeMode === 'acquire' ? 'text-accent-500' : 'text-slate-400'}`} />
+              <span className={`text-sm font-medium text-center ${tradeMode === 'acquire' ? 'text-accent-600 dark:text-accent-400' : 'text-slate-600 dark:text-slate-300'}`}>
+                I want a specific player
+              </span>
+            </button>
+          </div>
+        </div>
+
+        {/* Configuration */}
+        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 sm:p-6 mb-6">
+          {tradeMode === 'dump' ? (
+            <>
+              <div className="mb-4">
+                <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                  Step 1: Select your team
+                </span>
+              </div>
+              
+              <button
+                onClick={() => setDropdownOpen('myTeam')}
+                className="w-full p-4 rounded-xl border border-slate-200 dark:border-zinc-700 hover:border-slate-300 dark:hover:border-zinc-600 transition-colors flex items-center justify-between mb-6"
+              >
+                <div className="flex items-center gap-3">
+                  <Users className="h-5 w-5 text-slate-400" />
+                  <span className={`text-sm font-medium ${myRoster ? 'text-slate-900 dark:text-white' : 'text-slate-400'}`}>
+                    {myRoster ? (myRoster.teamName || myRoster.ownerName) : 'Select your team'}
+                  </span>
+                </div>
+                <ChevronDown className="h-5 w-5 text-slate-400" />
+              </button>
+
+              {myRoster && (
+                <>
+                  <div className="mb-4">
+                    <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                      Step 2: Select assets to trade away
+                    </span>
+                  </div>
+                  
+                  <button
+                    onClick={() => setDropdownOpen('assets')}
+                    className="w-full p-4 rounded-xl border border-slate-200 dark:border-zinc-700 hover:border-slate-300 dark:hover:border-zinc-600 transition-colors flex items-center justify-between"
+                  >
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <Search className="h-5 w-5 text-slate-400" />
+                      {selectedAssets.length === 0 ? (
+                        <span className="text-sm text-slate-400">Select players or picks...</span>
+                      ) : (
+                        <div className="flex flex-wrap gap-2">
+                          {selectedAssets.map(asset => (
+                            <span
+                              key={asset.id}
+                              className={`px-2 py-1 text-xs font-medium rounded-lg ${getPositionBadgeClass(asset.type === 'player' ? (asset.position || '') : 'PICK')}`}
+                            >
+                              {asset.name}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <ChevronDown className="h-5 w-5 text-slate-400 shrink-0" />
+                  </button>
+
+                  {selectedAssets.length > 0 && (
+                    <div className="mt-4 p-3 bg-accent-50 dark:bg-accent-900/20 rounded-lg">
+                      <span className="text-sm text-accent-700 dark:text-accent-300">
+                        Total value: <strong>{selectedValue.toLocaleString()}</strong> KTC
+                      </span>
+                    </div>
+                  )}
+                </>
+              )}
+            </>
+          ) : (
+            <>
+              <div className="mb-4">
+                <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                  Step 1: Select the team you want to trade with
+                </span>
+              </div>
+              
+              <button
+                onClick={() => setDropdownOpen('targetTeam')}
+                className="w-full p-4 rounded-xl border border-slate-200 dark:border-zinc-700 hover:border-slate-300 dark:hover:border-zinc-600 transition-colors flex items-center justify-between mb-6"
+              >
+                <div className="flex items-center gap-3">
+                  <Users className="h-5 w-5 text-slate-400" />
+                  <span className={`text-sm font-medium ${targetRoster ? 'text-slate-900 dark:text-white' : 'text-slate-400'}`}>
+                    {targetRoster ? (targetRoster.teamName || targetRoster.ownerName) : 'Select team to trade with'}
+                  </span>
+                </div>
+                <ChevronDown className="h-5 w-5 text-slate-400" />
+              </button>
+
+              {targetRoster && (
+                <>
+                  <div className="mb-4">
+                    <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                      Step 2: Select player/picks you want from them
+                    </span>
+                  </div>
+                  
+                  <button
+                    onClick={() => setDropdownOpen('assets')}
+                    className="w-full p-4 rounded-xl border border-slate-200 dark:border-zinc-700 hover:border-slate-300 dark:hover:border-zinc-600 transition-colors flex items-center justify-between mb-6"
+                  >
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <Search className="h-5 w-5 text-slate-400" />
+                      {selectedAssets.length === 0 ? (
+                        <span className="text-sm text-slate-400">Select players or picks you want...</span>
+                      ) : (
+                        <div className="flex flex-wrap gap-2">
+                          {selectedAssets.map(asset => (
+                            <span
+                              key={asset.id}
+                              className={`px-2 py-1 text-xs font-medium rounded-lg ${getPositionBadgeClass(asset.type === 'player' ? (asset.position || '') : 'PICK')}`}
+                            >
+                              {asset.name}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <ChevronDown className="h-5 w-5 text-slate-400 shrink-0" />
+                  </button>
+
+                  {selectedAssets.length > 0 && (
+                    <div className="p-3 bg-accent-50 dark:bg-accent-900/20 rounded-lg mb-6">
+                      <span className="text-sm text-accent-700 dark:text-accent-300">
+                        Target value: <strong>{selectedValue.toLocaleString()}</strong> KTC
+                      </span>
+                    </div>
+                  )}
+
+                  <div className="mb-4">
+                    <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                      Step 3: Select your team
+                    </span>
+                  </div>
+                  
+                  <button
+                    onClick={() => setDropdownOpen('myTeam')}
+                    className="w-full p-4 rounded-xl border border-slate-200 dark:border-zinc-700 hover:border-slate-300 dark:hover:border-zinc-600 transition-colors flex items-center justify-between"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Users className="h-5 w-5 text-slate-400" />
+                      <span className={`text-sm font-medium ${myRoster ? 'text-slate-900 dark:text-white' : 'text-slate-400'}`}>
+                        {myRoster ? (myRoster.teamName || myRoster.ownerName) : 'Select your team'}
+                      </span>
+                    </div>
+                    <ChevronDown className="h-5 w-5 text-slate-400" />
+                  </button>
+                </>
+              )}
+            </>
+          )}
+        </div>
+
+        {/* Tolerance Slider */}
+        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 sm:p-6 mb-6">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+              Value Tolerance
+            </span>
+            <span className="text-sm font-bold text-accent-600 dark:text-accent-400">
+              ±{tolerance}%
+            </span>
+          </div>
+          
+          <input
+            type="range"
+            min={5}
+            max={25}
+            step={5}
+            value={tolerance}
+            onChange={(e) => setTolerance(Number(e.target.value))}
+            className="w-full h-2 bg-slate-200 dark:bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-accent-500"
+          />
+          
+          <div className="flex justify-between text-xs text-slate-400 mt-2">
+            <span>5%</span>
+            <span>15%</span>
+            <span>25%</span>
+          </div>
+        </div>
+
+        {/* Search Button */}
+        <button
+          onClick={findTrades}
+          disabled={!canSearch || isSearching}
+          className={`w-full py-4 rounded-xl font-semibold text-white transition-colors flex items-center justify-center gap-2 ${
+            canSearch && !isSearching
+              ? 'bg-accent-500 hover:bg-accent-600'
+              : 'bg-slate-300 dark:bg-zinc-700 cursor-not-allowed'
+          }`}
+        >
+          {isSearching ? (
+            <>
+              <Loader2 className="h-5 w-5 animate-spin" />
+              Searching...
+            </>
+          ) : (
+            <>
+              <Search className="h-5 w-5" />
+              Find Trade Scenarios
+            </>
+          )}
+        </button>
+
+        {/* Results */}
+        {scenarios.length > 0 && (
+          <div className="mt-8">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold text-slate-900 dark:text-white">
+                Trade Scenarios
+              </h2>
+              <span className="text-sm text-slate-500 dark:text-slate-400">
+                {scenarios.length} found
+              </span>
+            </div>
+
+            <div className="space-y-4">
+              {scenarios.map((scenario, idx) => (
+                <div
+                  key={idx}
+                  className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 sm:p-6"
+                >
+                  <div className="flex items-center justify-between mb-4">
+                    <span className="text-sm text-slate-500 dark:text-slate-400">
+                      Trade with <strong className="text-slate-700 dark:text-slate-200">{scenario.partnerRoster.teamName || scenario.partnerRoster.ownerName}</strong>
+                    </span>
+                    <span className={`text-xs font-semibold px-2 py-1 rounded-lg ${
+                      Math.abs(scenario.differencePercent) < 5
+                        ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'
+                        : 'bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-slate-300'
+                    }`}>
+                      {scenario.difference >= 0 ? '+' : ''}{scenario.difference.toLocaleString()} ({scenario.differencePercent.toFixed(1)}%)
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-[1fr,auto,1fr] gap-4 items-start">
+                    {/* Give Side */}
+                    <div>
+                      <div className="text-xs font-semibold text-red-600 dark:text-red-400 uppercase tracking-wider mb-2">
+                        You Give ({scenario.giveTotal.toLocaleString()})
+                      </div>
+                      <div className="space-y-2">
+                        {scenario.give.map((asset, i) => (
+                          <div key={i} className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                              <span className={`px-1.5 py-0.5 text-xs font-medium rounded ${getPositionBadgeClass(asset.type === 'player' ? (asset.position || '') : 'PICK')}`}>
+                                {asset.type === 'player' ? asset.position : 'PICK'}
+                              </span>
+                              <span className="text-sm text-slate-700 dark:text-slate-200">{asset.name}</span>
+                            </div>
+                            <span className="text-xs text-slate-500">{asset.value.toLocaleString()}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Arrow */}
+                    <div className="hidden sm:flex items-center justify-center h-full">
+                      <ArrowLeftRight className="h-6 w-6 text-slate-300 dark:text-zinc-600" />
+                    </div>
+                    <div className="sm:hidden flex justify-center">
+                      <ArrowLeftRight className="h-5 w-5 text-slate-300 dark:text-zinc-600 rotate-90" />
+                    </div>
+
+                    {/* Get Side */}
+                    <div>
+                      <div className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider mb-2">
+                        You Get ({scenario.getTotal.toLocaleString()})
+                      </div>
+                      <div className="space-y-2">
+                        {scenario.get.map((asset, i) => (
+                          <div key={i} className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                              <span className={`px-1.5 py-0.5 text-xs font-medium rounded ${getPositionBadgeClass(asset.type === 'player' ? (asset.position || '') : 'PICK')}`}>
+                                {asset.type === 'player' ? asset.position : 'PICK'}
+                              </span>
+                              <span className="text-sm text-slate-700 dark:text-slate-200">{asset.name}</span>
+                            </div>
+                            <span className="text-xs text-slate-500">{asset.value.toLocaleString()}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {scenarios.length === 0 && selectedAssets.length > 0 && !isSearching && (
+          <div className="mt-8 p-6 bg-slate-100 dark:bg-zinc-800/50 rounded-xl text-center">
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              Click "Find Trade Scenarios" to discover matching trades based on your selected assets.
+            </p>
+          </div>
         )}
       </div>
 
-      {/* Step 1: Select Your Team */}
-      <div className="mb-4 bg-white dark:bg-zinc-900 rounded-xl border border-slate-200 dark:border-zinc-800 p-4">
-        <div className="flex items-center gap-2 mb-3">
-          <div className="w-6 h-6 bg-accent-500 text-white rounded-full flex items-center justify-center text-xs font-bold">1</div>
-          <h2 className="text-sm font-semibold text-slate-900 dark:text-white">Select Your Team</h2>
-        </div>
-        <div className="relative max-w-xs">
-          <select
-            value={myRosterId}
-            onChange={(e) => {
-              setMyRosterId(parseInt(e.target.value));
-              setWantedAssets([]);
-              setScenarios([]);
-            }}
-            className="w-full px-3 py-2 bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg text-sm font-medium text-slate-900 dark:text-white appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-accent-500"
-          >
-            <option value={0}>Select your team...</option>
-            {rosters?.map((r) => (
-              <option key={r.roster_id} value={r.roster_id}>{r.ownerName}</option>
-            ))}
-          </select>
-          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
-        </div>
-      </div>
+      {/* Dropdowns */}
+      <TeamDropdown
+        isOpen={dropdownOpen === 'myTeam'}
+        onClose={() => setDropdownOpen(null)}
+        title="Select Your Team"
+        rosters={rosters || []}
+        excludeRosterId={targetRoster?.roster_id}
+        onSelect={(roster) => setMyRoster(roster)}
+      />
 
-      {/* Step 2: Select Assets You Want */}
-      {myRosterId > 0 && (
-        <div className="mb-4 bg-white dark:bg-zinc-900 rounded-xl border border-slate-200 dark:border-zinc-800 p-4">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <div className="w-6 h-6 bg-accent-500 text-white rounded-full flex items-center justify-center text-xs font-bold">2</div>
-              <h2 className="text-sm font-semibold text-slate-900 dark:text-white">Select Assets You Want</h2>
-            </div>
-            {wantedAssets.length > 0 && (
-              <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
-                Total: <span className="text-accent-600 dark:text-accent-400 font-bold">{wantedTotal.toLocaleString()}</span>
-              </span>
-            )}
-          </div>
+      <TeamDropdown
+        isOpen={dropdownOpen === 'targetTeam'}
+        onClose={() => setDropdownOpen(null)}
+        title="Select Team to Trade With"
+        rosters={rosters || []}
+        excludeRosterId={myRoster?.roster_id}
+        onSelect={(roster) => setTargetRoster(roster)}
+      />
 
-          {/* Selected Assets */}
-          {wantedAssets.length > 0 && (
-            <div className="space-y-1.5 mb-3">
-              {wantedAssets.map((asset) => {
-                const ownerId = findAssetOwner(asset);
-                const owner = rosters?.find(r => r.roster_id === ownerId);
-                return (
-                  <div
-                    key={asset.id}
-                    className="flex items-center justify-between px-3 py-2 rounded-lg bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/30"
-                  >
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${getPositionBadgeClass(asset.position || 'PICK')}`}>
-                        {asset.type === 'player' ? asset.position : 'PICK'}
-                      </span>
-                      <span className="text-sm font-medium text-slate-900 dark:text-white truncate">{asset.name}</span>
-                      <span className="text-xs text-slate-500 dark:text-slate-400">from {owner?.ownerName}</span>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">{asset.value.toLocaleString()}</span>
-                      <button onClick={() => removeWantedAsset(asset.id)} className="p-0.5 hover:bg-emerald-200 dark:hover:bg-emerald-500/20 rounded transition-colors">
-                        <X className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          {/* Add Buttons */}
-          <div className="flex gap-2">
-            <div className="relative flex-1">
-              <button
-                onClick={() => setActiveDropdown(activeDropdown === 'player' ? null : 'player')}
-                className="w-full flex items-center justify-center gap-1.5 py-2 border border-dashed border-slate-300 dark:border-zinc-600 rounded-lg text-xs text-slate-500 hover:border-accent-400 hover:text-accent-600 hover:bg-accent-50 dark:hover:bg-accent-500/5 transition-colors"
-              >
-                <Plus className="h-3.5 w-3.5" />
-                Add Player
-              </button>
-              <AssetDropdown
-                isOpen={activeDropdown === 'player'}
-                onClose={() => setActiveDropdown(null)}
-                title="Select Player"
-                searchable
-                items={getAllOtherTeamsAssets.filter(a => a.type === 'player')}
-                onSelect={addWantedAsset}
-                emptyMessage="No players available"
-              />
-            </div>
-            <div className="relative flex-1">
-              <button
-                onClick={() => setActiveDropdown(activeDropdown === 'pick' ? null : 'pick')}
-                className="w-full flex items-center justify-center gap-1.5 py-2 border border-dashed border-slate-300 dark:border-zinc-600 rounded-lg text-xs text-slate-500 hover:border-purple-400 hover:text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-500/5 transition-colors"
-              >
-                <Plus className="h-3.5 w-3.5" />
-                Add Pick
-              </button>
-              <AssetDropdown
-                isOpen={activeDropdown === 'pick'}
-                onClose={() => setActiveDropdown(null)}
-                title="Select Pick"
-                items={getAllOtherTeamsAssets.filter(a => a.type === 'pick')}
-                onSelect={addWantedAsset}
-                emptyMessage="No picks available"
-              />
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Step 3: Generate Scenarios */}
-      {wantedAssets.length > 0 && (
-        <div className="mb-4 bg-white dark:bg-zinc-900 rounded-xl border border-slate-200 dark:border-zinc-800 p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <div className="w-6 h-6 bg-accent-500 text-white rounded-full flex items-center justify-center text-xs font-bold">3</div>
-            <h2 className="text-sm font-semibold text-slate-900 dark:text-white">Generate Trade Scenarios</h2>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-3 mb-3">
-            <div className="flex items-center gap-2">
-              <label className="text-xs text-slate-500 dark:text-slate-400">Value tolerance:</label>
-              <select
-                value={tolerance}
-                onChange={(e) => setTolerance(parseInt(e.target.value))}
-                className="px-2 py-1 text-xs bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg text-slate-900 dark:text-white"
-              >
-                <option value={5}>±5%</option>
-                <option value={10}>±10%</option>
-                <option value={15}>±15%</option>
-                <option value={20}>±20%</option>
-                <option value={25}>±25%</option>
-              </select>
-            </div>
-          </div>
-
-          <button
-            onClick={generateScenarios}
-            disabled={isGenerating}
-            className="w-full flex items-center justify-center gap-2 py-2.5 bg-accent-500 hover:bg-accent-600 text-white rounded-lg text-sm font-semibold transition-colors disabled:opacity-50"
-          >
-            {isGenerating ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Sparkles className="h-4 w-4" />
-            )}
-            Find Trades
-          </button>
-        </div>
-      )}
-
-      {/* Results */}
-      {scenarios.length > 0 && (
-        <div className="space-y-3">
-          <h3 className="text-sm font-semibold text-slate-900 dark:text-white flex items-center gap-2">
-            <Check className="h-4 w-4 text-emerald-500" />
-            {scenarios.length} Trade Scenario{scenarios.length !== 1 ? 's' : ''} Found
-          </h3>
-
-          {scenarios.map((scenario, idx) => (
-            <div
-              key={idx}
-              className={`bg-white dark:bg-zinc-900 rounded-xl border-2 overflow-hidden ${
-                scenario.fairness === 'fair'
-                  ? 'border-emerald-300 dark:border-emerald-500/50'
-                  : scenario.fairness === 'slight'
-                  ? 'border-blue-300 dark:border-blue-500/50'
-                  : 'border-amber-300 dark:border-amber-500/50'
-              }`}
-            >
-              {/* Header */}
-              <div className={`px-4 py-2 flex items-center justify-between ${
-                scenario.fairness === 'fair'
-                  ? 'bg-emerald-50 dark:bg-emerald-500/10'
-                  : scenario.fairness === 'slight'
-                  ? 'bg-blue-50 dark:bg-blue-500/10'
-                  : 'bg-amber-50 dark:bg-amber-500/10'
-              }`}>
-                <div className="flex items-center gap-2">
-                  <span className={`px-2 py-0.5 text-xs font-bold rounded uppercase ${
-                    scenario.fairness === 'fair'
-                      ? 'bg-emerald-500 text-white'
-                      : scenario.fairness === 'slight'
-                      ? 'bg-blue-500 text-white'
-                      : 'bg-amber-500 text-white'
-                  }`}>
-                    {scenario.fairness === 'fair' ? 'Fair' : scenario.fairness === 'slight' ? 'Close' : 'Stretch'}
-                  </span>
-                  <span className="text-sm font-semibold text-slate-900 dark:text-white">
-                    Trade with {scenario.partnerName}
-                  </span>
-                </div>
-                <span className="text-xs text-slate-500 dark:text-slate-400">
-                  Diff: {scenario.difference.toLocaleString()} ({scenario.percentDiff.toFixed(1)}%)
-                </span>
-              </div>
-
-              {/* Trade Content */}
-              <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {/* You Get */}
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 uppercase">You Receive</span>
-                    <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">{scenario.theyGiveTotal.toLocaleString()}</span>
-                  </div>
-                  <div className="space-y-1">
-                    {scenario.theyGive.map((asset) => (
-                      <div key={asset.id} className="flex items-center justify-between px-2 py-1.5 bg-emerald-50 dark:bg-emerald-500/10 rounded-lg">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${getPositionBadgeClass(asset.position || 'PICK')}`}>
-                            {asset.type === 'player' ? asset.position : 'PICK'}
-                          </span>
-                          <span className="text-xs font-medium text-slate-900 dark:text-white truncate">{asset.name}</span>
-                        </div>
-                        <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">{asset.value.toLocaleString()}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Arrow (desktop) */}
-                <div className="hidden sm:flex items-center justify-center absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
-                  <ArrowRight className="h-5 w-5 text-slate-300 dark:text-zinc-600 rotate-180" />
-                </div>
-
-                {/* You Give */}
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-semibold text-red-600 dark:text-red-400 uppercase">You Send</span>
-                    <span className="text-xs font-bold text-red-600 dark:text-red-400">{scenario.youGiveTotal.toLocaleString()}</span>
-                  </div>
-                  <div className="space-y-1">
-                    {scenario.youGive.map((asset) => (
-                      <div key={asset.id} className="flex items-center justify-between px-2 py-1.5 bg-red-50 dark:bg-red-500/10 rounded-lg">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${getPositionBadgeClass(asset.position || 'PICK')}`}>
-                            {asset.type === 'player' ? asset.position : 'PICK'}
-                          </span>
-                          <span className="text-xs font-medium text-slate-900 dark:text-white truncate">{asset.name}</span>
-                        </div>
-                        <span className="text-xs font-semibold text-red-600 dark:text-red-400">{asset.value.toLocaleString()}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* Footer with value comparison */}
-              <div className="px-4 py-2 bg-slate-50 dark:bg-zinc-800/50 border-t border-slate-200 dark:border-zinc-700 flex items-center justify-center gap-2">
-                {scenario.youGiveTotal > scenario.theyGiveTotal ? (
-                  <>
-                    <TrendingDown className="h-4 w-4 text-red-500" />
-                    <span className="text-xs text-slate-600 dark:text-slate-300">
-                      You overpay by <span className="font-bold text-red-600 dark:text-red-400">{scenario.difference.toLocaleString()}</span>
-                    </span>
-                  </>
-                ) : scenario.youGiveTotal < scenario.theyGiveTotal ? (
-                  <>
-                    <TrendingUp className="h-4 w-4 text-emerald-500" />
-                    <span className="text-xs text-slate-600 dark:text-slate-300">
-                      You win by <span className="font-bold text-emerald-600 dark:text-emerald-400">{scenario.difference.toLocaleString()}</span>
-                    </span>
-                  </>
-                ) : (
-                  <span className="text-xs text-slate-500">Even trade</span>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* No Results */}
-      {wantedAssets.length > 0 && scenarios.length === 0 && !isGenerating && (
-        <div className="text-center py-8 text-slate-500 dark:text-slate-400">
-          <Target className="h-8 w-8 mx-auto mb-2 opacity-50" />
-          <p className="text-sm">Click "Find Trades" to generate scenarios</p>
-        </div>
-      )}
+      <AssetDropdown
+        isOpen={dropdownOpen === 'assets'}
+        onClose={() => setDropdownOpen(null)}
+        title={tradeMode === 'dump' ? 'Select Assets to Trade Away' : 'Select Assets You Want'}
+        items={availableAssets}
+        selectedIds={selectedAssetIds}
+        onToggle={handleAssetToggle}
+        emptyMessage="No players or picks available"
+      />
     </div>
   );
 }
-
-export default TradeFinder;
