@@ -90,6 +90,24 @@ const POSITION_BADGE_COLORS: Record<string, string> = {
   PICK: 'bg-purple-500 text-white',
 };
 
+// Position badge classes matching KTC Values page design
+const getPositionBadgeClass = (position: string): string => {
+  switch (position) {
+    case 'QB':
+      return 'bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-500/30';
+    case 'RB':
+      return 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30';
+    case 'WR':
+      return 'bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-500/30';
+    case 'TE':
+      return 'bg-orange-100 dark:bg-orange-500/20 text-orange-700 dark:text-orange-400 border border-orange-200 dark:border-orange-500/30';
+    case 'PICK':
+      return 'bg-cyan-100 dark:bg-cyan-500/20 text-cyan-700 dark:text-cyan-400 border border-cyan-200 dark:border-cyan-500/30';
+    default:
+      return 'bg-slate-100 dark:bg-zinc-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-zinc-600';
+  }
+};
+
 function getProjectedPickTier(roster_id: number, rosters: Roster[]): string {
   const sortedRosters = [...rosters].sort((a, b) => {
     const winsA = a.wins || 0;
@@ -125,7 +143,7 @@ function useClickOutside(ref: React.RefObject<HTMLElement | null>, callback: () 
   }, [ref, callback]);
 }
 
-// Full-screen modal dropdown for mobile usability
+// Full-screen modal dropdown styled like KTC Values page
 function AssetDropdown({
   isOpen,
   onClose,
@@ -174,60 +192,82 @@ function AssetDropdown({
       {/* Backdrop */}
       <div className="fixed inset-0 bg-black/50 z-40" onClick={onClose} />
       
-      {/* Modal */}
+      {/* Modal styled like KTC Values page */}
       <div
         ref={dropdownRef}
-        className="fixed z-50 left-4 right-4 top-1/2 -translate-y-1/2 max-w-md mx-auto bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-xl shadow-2xl overflow-hidden"
+        className="fixed z-50 left-4 right-4 top-1/2 -translate-y-1/2 max-w-lg mx-auto bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-2xl overflow-hidden"
       >
-        <div className="px-4 py-3 bg-slate-50 dark:bg-zinc-800 border-b border-slate-200 dark:border-zinc-700 flex items-center justify-between">
-          <span className="text-sm font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wide">{title}</span>
-          <button onClick={onClose} className="p-2 hover:bg-slate-200 dark:hover:bg-zinc-700 rounded-lg transition-colors">
-            <X className="h-5 w-5 text-slate-400" />
+        {/* Header */}
+        <div className="px-4 py-3 bg-slate-50 dark:bg-zinc-800/50 border-b border-slate-200 dark:border-zinc-700 flex items-center justify-between">
+          <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{title}</span>
+          <button onClick={onClose} className="p-1.5 hover:bg-slate-200 dark:hover:bg-zinc-700 rounded-lg transition-colors">
+            <X className="h-4 w-4 text-slate-400" />
           </button>
         </div>
 
+        {/* Search - styled like KTC Values page */}
         {searchable && (
-          <div className="p-3 border-b border-slate-100 dark:border-zinc-800">
+          <div className="p-3 border-b border-slate-200 dark:border-zinc-700">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 dark:text-slate-500" />
               <input
                 ref={inputRef}
                 type="text"
-                placeholder="Search players..."
+                placeholder="Search players or picks..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-11 pr-4 py-3 text-base bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-accent-500"
+                className="w-full pl-9 pr-4 py-2.5 text-sm bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-transparent transition-colors"
               />
             </div>
           </div>
         )}
 
-        <div className="max-h-80 overflow-y-auto overscroll-contain">
+        {/* Results count */}
+        <div className="px-4 py-2 bg-slate-50 dark:bg-zinc-800/30 border-b border-slate-100 dark:border-zinc-800">
+          <span className="text-xs text-slate-500 dark:text-slate-400">
+            Showing {filteredItems.length} {filteredItems.length === 1 ? 'asset' : 'assets'}
+          </span>
+        </div>
+
+        {/* Table-style list like KTC Values page */}
+        <div className="max-h-96 overflow-y-auto overscroll-contain">
           {filteredItems.length === 0 ? (
-            <div className="p-8 text-base text-slate-500 text-center">{emptyMessage}</div>
+            <div className="p-8 text-sm text-slate-500 text-center">{emptyMessage}</div>
           ) : (
-            <div className="p-2">
-              {filteredItems.map((item) => (
-                <button
-                  key={item.id}
-                  onClick={() => { onSelect(item); onClose(); }}
-                  className="w-full flex items-center justify-between p-3.5 hover:bg-slate-100 dark:hover:bg-zinc-800 rounded-lg text-left transition-colors"
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <span className={`px-2.5 py-1 rounded text-xs font-bold ${POSITION_BADGE_COLORS[item.position || 'PICK']}`}>
-                      {item.type === 'player' ? item.position : 'PICK'}
-                    </span>
-                    <div className="min-w-0">
-                      <span className="text-base font-semibold text-slate-900 dark:text-white block truncate">{item.name}</span>
-                      {item.team && <span className="text-sm text-slate-400">{item.team}</span>}
-                    </div>
-                  </div>
-                  <span className="text-base font-bold text-slate-600 dark:text-slate-300 tabular-nums ml-3 shrink-0">
-                    {item.value.toLocaleString()}
-                  </span>
-                </button>
-              ))}
-            </div>
+            <table className="w-full">
+              <thead>
+                <tr className="bg-slate-50 dark:bg-zinc-800/50 border-b border-slate-200 dark:border-zinc-700">
+                  <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Asset</th>
+                  <th className="px-4 py-2.5 text-center text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Type</th>
+                  <th className="px-4 py-2.5 text-center text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Team</th>
+                  <th className="px-4 py-2.5 text-right text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Value</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-zinc-800">
+                {filteredItems.map((item) => (
+                  <tr
+                    key={item.id}
+                    onClick={() => { onSelect(item); onClose(); }}
+                    className="hover:bg-slate-50 dark:hover:bg-zinc-800/50 cursor-pointer transition-colors"
+                  >
+                    <td className="px-4 py-3">
+                      <span className="text-sm text-slate-900 dark:text-white font-medium">{item.name}</span>
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <span className={`px-2 py-0.5 text-xs font-medium rounded-lg ${getPositionBadgeClass(item.type === 'player' ? (item.position || '') : 'PICK')}`}>
+                        {item.type === 'player' ? item.position : 'PICK'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <span className="text-sm text-slate-600 dark:text-slate-300 font-medium">{item.team || '-'}</span>
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <span className="text-sm font-bold text-accent-600 dark:text-accent-400">{item.value.toLocaleString()}</span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           )}
         </div>
       </div>
@@ -581,24 +621,22 @@ export function TradeEvaluator() {
                   </div>
                 ) : (
                   <div className="space-y-1">
-                    {/* Added Assets - Very Compact */}
+                    {/* Added Assets - KTC Values table row style */}
                     {side.assets.map((asset) => (
                       <div
                         key={asset.id}
-                        className={`flex items-center justify-between px-2 py-1.5 rounded border text-xs ${
-                          POSITION_COLORS[asset.position || 'PICK'] || POSITION_COLORS.PICK
-                        }`}
+                        className="flex items-center justify-between px-2 py-2 rounded-lg bg-slate-50 dark:bg-zinc-800/50 hover:bg-slate-100 dark:hover:bg-zinc-800 border border-slate-200 dark:border-zinc-700 transition-colors"
                       >
-                        <div className="flex items-center gap-1.5 min-w-0">
-                          <span className={`px-1 py-0.5 rounded text-[8px] font-bold ${POSITION_BADGE_COLORS[asset.position || 'PICK']}`}>
-                            {asset.type === 'player' ? asset.position : 'PK'}
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className={`px-1.5 py-0.5 rounded-lg text-[10px] font-medium ${getPositionBadgeClass(asset.position || 'PICK')}`}>
+                            {asset.type === 'player' ? asset.position : 'PICK'}
                           </span>
-                          <span className="font-medium truncate">{asset.name}</span>
+                          <span className="text-xs font-medium text-slate-900 dark:text-white truncate">{asset.name}</span>
                         </div>
-                        <div className="flex items-center gap-1 shrink-0">
-                          <span className="font-bold tabular-nums">{asset.value.toLocaleString()}</span>
-                          <button onClick={() => removeAsset(sideIndex, asset.id)} className="p-0.5 hover:bg-black/10 rounded">
-                            <X className="h-2.5 w-2.5" />
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="text-sm font-bold text-accent-600 dark:text-accent-400 tabular-nums">{asset.value.toLocaleString()}</span>
+                          <button onClick={() => removeAsset(sideIndex, asset.id)} className="p-0.5 hover:bg-slate-200 dark:hover:bg-zinc-700 rounded transition-colors">
+                            <X className="h-3 w-3 text-slate-400 hover:text-red-500" />
                           </button>
                         </div>
                       </div>
