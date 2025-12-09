@@ -694,207 +694,194 @@ export function TradeFinder() {
     <div className="min-h-screen bg-slate-50 dark:bg-zinc-950">
       <div className="max-w-4xl mx-auto px-4 py-6 sm:py-8">
         {/* Header */}
-        <div className="mb-6">
-          <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white">
+        <div className="mb-4 sm:mb-6">
+          <h1 className="text-xl sm:text-3xl font-bold text-slate-900 dark:text-white">
             Trade Finder
           </h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">
             Find trade scenarios based on KTC values
           </p>
         </div>
 
-        {/* Mode Toggle */}
-        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 sm:p-6 mb-6">
-          <div className="mb-4">
-            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-              What do you want to do?
-            </span>
-          </div>
-          
-          <div className="grid grid-cols-2 gap-3">
+        {/* Mode Toggle - Compact on mobile */}
+        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-3 sm:p-6 mb-3 sm:mb-6">
+          <div className="flex items-center gap-2">
             <button
               onClick={() => setTradeMode('dump')}
-              className={`p-4 rounded-xl border-2 transition-all flex flex-col items-center gap-2 ${
+              className={`flex-1 py-2.5 px-3 rounded-lg border-2 transition-all flex items-center justify-center gap-2 ${
                 tradeMode === 'dump'
                   ? 'border-accent-500 bg-accent-50 dark:bg-accent-900/20'
-                  : 'border-slate-200 dark:border-zinc-700 hover:border-slate-300 dark:hover:border-zinc-600'
+                  : 'border-slate-200 dark:border-zinc-700'
               }`}
             >
-              <TrendingDown className={`h-6 w-6 ${tradeMode === 'dump' ? 'text-accent-500' : 'text-slate-400'}`} />
-              <span className={`text-sm font-medium text-center ${tradeMode === 'dump' ? 'text-accent-600 dark:text-accent-400' : 'text-slate-600 dark:text-slate-300'}`}>
-                I have assets to trade away
+              <TrendingDown className={`h-4 w-4 sm:h-5 sm:w-5 ${tradeMode === 'dump' ? 'text-accent-500' : 'text-slate-400'}`} />
+              <span className={`text-xs sm:text-sm font-medium ${tradeMode === 'dump' ? 'text-accent-600 dark:text-accent-400' : 'text-slate-600 dark:text-slate-300'}`}>
+                Trade Away
               </span>
             </button>
             
             <button
               onClick={() => setTradeMode('acquire')}
-              className={`p-4 rounded-xl border-2 transition-all flex flex-col items-center gap-2 ${
+              className={`flex-1 py-2.5 px-3 rounded-lg border-2 transition-all flex items-center justify-center gap-2 ${
                 tradeMode === 'acquire'
                   ? 'border-accent-500 bg-accent-50 dark:bg-accent-900/20'
-                  : 'border-slate-200 dark:border-zinc-700 hover:border-slate-300 dark:hover:border-zinc-600'
+                  : 'border-slate-200 dark:border-zinc-700'
               }`}
             >
-              <TrendingUp className={`h-6 w-6 ${tradeMode === 'acquire' ? 'text-accent-500' : 'text-slate-400'}`} />
-              <span className={`text-sm font-medium text-center ${tradeMode === 'acquire' ? 'text-accent-600 dark:text-accent-400' : 'text-slate-600 dark:text-slate-300'}`}>
-                I want a specific player
+              <TrendingUp className={`h-4 w-4 sm:h-5 sm:w-5 ${tradeMode === 'acquire' ? 'text-accent-500' : 'text-slate-400'}`} />
+              <span className={`text-xs sm:text-sm font-medium ${tradeMode === 'acquire' ? 'text-accent-600 dark:text-accent-400' : 'text-slate-600 dark:text-slate-300'}`}>
+                Acquire
               </span>
             </button>
           </div>
         </div>
 
-        {/* Configuration */}
-        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 sm:p-6 mb-6">
+        {/* Configuration - Compact */}
+        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-3 sm:p-6 mb-3 sm:mb-6 space-y-3 sm:space-y-4">
           {tradeMode === 'dump' ? (
             <>
-              <div className="mb-4">
-                <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                  Step 1: Select your team
-                </span>
-              </div>
-              
               <button
                 onClick={() => setDropdownOpen('myTeam')}
-                className="w-full p-4 rounded-xl border border-slate-200 dark:border-zinc-700 hover:border-slate-300 dark:hover:border-zinc-600 transition-colors flex items-center justify-between mb-6"
+                className="w-full p-3 sm:p-4 rounded-lg border border-slate-200 dark:border-zinc-700 hover:border-slate-300 dark:hover:border-zinc-600 transition-colors flex items-center justify-between"
               >
-                <div className="flex items-center gap-3">
-                  <Users className="h-5 w-5 text-slate-400" />
-                  <span className={`text-sm font-medium ${myRoster ? 'text-slate-900 dark:text-white' : 'text-slate-400'}`}>
-                    {myRoster ? (myRoster.teamName || myRoster.ownerName) : 'Select your team'}
-                  </span>
+                <div className="flex items-center gap-2 sm:gap-3">
+                  <Users className="h-4 w-4 sm:h-5 sm:w-5 text-slate-400" />
+                  <div className="text-left">
+                    <span className="text-[10px] sm:text-xs text-slate-400 block">Your Team</span>
+                    <span className={`text-xs sm:text-sm font-medium ${myRoster ? 'text-slate-900 dark:text-white' : 'text-slate-400'}`}>
+                      {myRoster ? (myRoster.teamName || myRoster.ownerName) : 'Select team'}
+                    </span>
+                  </div>
                 </div>
-                <ChevronDown className="h-5 w-5 text-slate-400" />
+                <ChevronDown className="h-4 w-4 sm:h-5 sm:w-5 text-slate-400" />
               </button>
 
               {myRoster && (
-                <>
-                  <div className="mb-4">
-                    <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                      Step 2: Select assets to trade away
-                    </span>
-                  </div>
-                  
-                  <button
-                    onClick={() => setDropdownOpen('assets')}
-                    className="w-full p-4 rounded-xl border border-slate-200 dark:border-zinc-700 hover:border-slate-300 dark:hover:border-zinc-600 transition-colors flex items-center justify-between"
-                  >
-                    <div className="flex items-center gap-3 flex-wrap">
-                      <Search className="h-5 w-5 text-slate-400" />
+                <button
+                  onClick={() => setDropdownOpen('assets')}
+                  className="w-full p-3 sm:p-4 rounded-lg border border-slate-200 dark:border-zinc-700 hover:border-slate-300 dark:hover:border-zinc-600 transition-colors flex items-center justify-between"
+                >
+                  <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+                    <Search className="h-4 w-4 sm:h-5 sm:w-5 text-slate-400 shrink-0" />
+                    <div className="text-left min-w-0 flex-1">
+                      <span className="text-[10px] sm:text-xs text-slate-400 block">Assets to Trade</span>
                       {selectedAssets.length === 0 ? (
-                        <span className="text-sm text-slate-400">Select players or picks...</span>
+                        <span className="text-xs sm:text-sm text-slate-400">Select players or picks...</span>
                       ) : (
-                        <div className="flex flex-wrap gap-2">
-                          {selectedAssets.map(asset => (
+                        <div className="flex flex-wrap gap-1 mt-0.5">
+                          {selectedAssets.slice(0, 3).map(asset => (
                             <span
                               key={asset.id}
-                              className={`px-2 py-1 text-xs font-medium rounded-lg ${getPositionBadgeClass(asset.type === 'player' ? (asset.position || '') : 'PICK')}`}
+                              className={`px-1.5 py-0.5 text-[10px] sm:text-xs font-medium rounded ${getPositionBadgeClass(asset.type === 'player' ? (asset.position || '') : 'PICK')}`}
                             >
-                              {asset.name}
+                              {asset.name.length > 12 ? asset.name.slice(0, 12) + '...' : asset.name}
                             </span>
                           ))}
+                          {selectedAssets.length > 3 && (
+                            <span className="px-1.5 py-0.5 text-[10px] sm:text-xs font-medium text-slate-500 bg-slate-100 dark:bg-zinc-800 rounded">
+                              +{selectedAssets.length - 3}
+                            </span>
+                          )}
                         </div>
                       )}
                     </div>
-                    <ChevronDown className="h-5 w-5 text-slate-400 shrink-0" />
-                  </button>
+                  </div>
+                  <ChevronDown className="h-4 w-4 sm:h-5 sm:w-5 text-slate-400 shrink-0 ml-2" />
+                </button>
+              )}
 
-                  {selectedAssets.length > 0 && (
-                    <div className="mt-4 p-3 bg-accent-50 dark:bg-accent-900/20 rounded-lg">
-                      <div className="text-sm text-accent-700 dark:text-accent-300">
-                        Adjusted value: <strong>{selectedValueInfo.adjusted.toLocaleString()}</strong> KTC
-                        {selectedValueInfo.raw !== selectedValueInfo.adjusted && (
-                          <span className="text-xs text-slate-500 dark:text-slate-400 block mt-1">
-                            Raw: {selectedValueInfo.raw.toLocaleString()} • {selectedValueInfo.breakdown}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </>
+              {selectedAssets.length > 0 && (
+                <div className="px-3 py-2 bg-accent-50 dark:bg-accent-900/20 rounded-lg">
+                  <span className="text-xs sm:text-sm text-accent-700 dark:text-accent-300">
+                    Value: <strong>{selectedValueInfo.adjusted.toLocaleString()}</strong> KTC
+                    {selectedValueInfo.raw !== selectedValueInfo.adjusted && (
+                      <span className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 ml-2">
+                        (raw: {selectedValueInfo.raw.toLocaleString()})
+                      </span>
+                    )}
+                  </span>
+                </div>
               )}
             </>
           ) : (
             <>
-              <div className="mb-4">
-                <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                  Step 1: Select the team you want to trade with
-                </span>
-              </div>
-              
               <button
                 onClick={() => setDropdownOpen('targetTeam')}
-                className="w-full p-4 rounded-xl border border-slate-200 dark:border-zinc-700 hover:border-slate-300 dark:hover:border-zinc-600 transition-colors flex items-center justify-between mb-6"
+                className="w-full p-3 sm:p-4 rounded-lg border border-slate-200 dark:border-zinc-700 hover:border-slate-300 dark:hover:border-zinc-600 transition-colors flex items-center justify-between"
               >
-                <div className="flex items-center gap-3">
-                  <Users className="h-5 w-5 text-slate-400" />
-                  <span className={`text-sm font-medium ${targetRoster ? 'text-slate-900 dark:text-white' : 'text-slate-400'}`}>
-                    {targetRoster ? (targetRoster.teamName || targetRoster.ownerName) : 'Select team to trade with'}
-                  </span>
+                <div className="flex items-center gap-2 sm:gap-3">
+                  <Users className="h-4 w-4 sm:h-5 sm:w-5 text-slate-400" />
+                  <div className="text-left">
+                    <span className="text-[10px] sm:text-xs text-slate-400 block">Trade With</span>
+                    <span className={`text-xs sm:text-sm font-medium ${targetRoster ? 'text-slate-900 dark:text-white' : 'text-slate-400'}`}>
+                      {targetRoster ? (targetRoster.teamName || targetRoster.ownerName) : 'Select team'}
+                    </span>
+                  </div>
                 </div>
-                <ChevronDown className="h-5 w-5 text-slate-400" />
+                <ChevronDown className="h-4 w-4 sm:h-5 sm:w-5 text-slate-400" />
               </button>
 
               {targetRoster && (
                 <>
-                  <div className="mb-4">
-                    <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                      Step 2: Select player/picks you want from them
-                    </span>
-                  </div>
-                  
                   <button
                     onClick={() => setDropdownOpen('assets')}
-                    className="w-full p-4 rounded-xl border border-slate-200 dark:border-zinc-700 hover:border-slate-300 dark:hover:border-zinc-600 transition-colors flex items-center justify-between mb-6"
+                    className="w-full p-3 sm:p-4 rounded-lg border border-slate-200 dark:border-zinc-700 hover:border-slate-300 dark:hover:border-zinc-600 transition-colors flex items-center justify-between"
                   >
-                    <div className="flex items-center gap-3 flex-wrap">
-                      <Search className="h-5 w-5 text-slate-400" />
-                      {selectedAssets.length === 0 ? (
-                        <span className="text-sm text-slate-400">Select players or picks you want...</span>
-                      ) : (
-                        <div className="flex flex-wrap gap-2">
-                          {selectedAssets.map(asset => (
-                            <span
-                              key={asset.id}
-                              className={`px-2 py-1 text-xs font-medium rounded-lg ${getPositionBadgeClass(asset.type === 'player' ? (asset.position || '') : 'PICK')}`}
-                            >
-                              {asset.name}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                    <ChevronDown className="h-5 w-5 text-slate-400 shrink-0" />
-                  </button>
-
-                  {selectedAssets.length > 0 && (
-                    <div className="p-3 bg-accent-50 dark:bg-accent-900/20 rounded-lg mb-6">
-                      <div className="text-sm text-accent-700 dark:text-accent-300">
-                        Target value: <strong>{selectedValueInfo.adjusted.toLocaleString()}</strong> KTC
-                        {selectedValueInfo.raw !== selectedValueInfo.adjusted && (
-                          <span className="text-xs text-slate-500 dark:text-slate-400 block mt-1">
-                            Raw: {selectedValueInfo.raw.toLocaleString()} • {selectedValueInfo.breakdown}
-                          </span>
+                    <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+                      <Search className="h-4 w-4 sm:h-5 sm:w-5 text-slate-400 shrink-0" />
+                      <div className="text-left min-w-0 flex-1">
+                        <span className="text-[10px] sm:text-xs text-slate-400 block">Assets You Want</span>
+                        {selectedAssets.length === 0 ? (
+                          <span className="text-xs sm:text-sm text-slate-400">Select players or picks...</span>
+                        ) : (
+                          <div className="flex flex-wrap gap-1 mt-0.5">
+                            {selectedAssets.slice(0, 3).map(asset => (
+                              <span
+                                key={asset.id}
+                                className={`px-1.5 py-0.5 text-[10px] sm:text-xs font-medium rounded ${getPositionBadgeClass(asset.type === 'player' ? (asset.position || '') : 'PICK')}`}
+                              >
+                                {asset.name.length > 12 ? asset.name.slice(0, 12) + '...' : asset.name}
+                              </span>
+                            ))}
+                            {selectedAssets.length > 3 && (
+                              <span className="px-1.5 py-0.5 text-[10px] sm:text-xs font-medium text-slate-500 bg-slate-100 dark:bg-zinc-800 rounded">
+                                +{selectedAssets.length - 3}
+                              </span>
+                            )}
+                          </div>
                         )}
                       </div>
                     </div>
-                  )}
+                    <ChevronDown className="h-4 w-4 sm:h-5 sm:w-5 text-slate-400 shrink-0 ml-2" />
+                  </button>
 
-                  <div className="mb-4">
-                    <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                      Step 3: Select your team
-                    </span>
-                  </div>
-                  
-                  <button
-                    onClick={() => setDropdownOpen('myTeam')}
-                    className="w-full p-4 rounded-xl border border-slate-200 dark:border-zinc-700 hover:border-slate-300 dark:hover:border-zinc-600 transition-colors flex items-center justify-between"
-                  >
-                    <div className="flex items-center gap-3">
-                      <Users className="h-5 w-5 text-slate-400" />
-                      <span className={`text-sm font-medium ${myRoster ? 'text-slate-900 dark:text-white' : 'text-slate-400'}`}>
-                        {myRoster ? (myRoster.teamName || myRoster.ownerName) : 'Select your team'}
+                  {selectedAssets.length > 0 && (
+                    <div className="px-3 py-2 bg-accent-50 dark:bg-accent-900/20 rounded-lg">
+                      <span className="text-xs sm:text-sm text-accent-700 dark:text-accent-300">
+                        Target: <strong>{selectedValueInfo.adjusted.toLocaleString()}</strong> KTC
+                        {selectedValueInfo.raw !== selectedValueInfo.adjusted && (
+                          <span className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 ml-2">
+                            (raw: {selectedValueInfo.raw.toLocaleString()})
+                          </span>
+                        )}
                       </span>
                     </div>
-                    <ChevronDown className="h-5 w-5 text-slate-400" />
+                  )}
+
+                  <button
+                    onClick={() => setDropdownOpen('myTeam')}
+                    className="w-full p-3 sm:p-4 rounded-lg border border-slate-200 dark:border-zinc-700 hover:border-slate-300 dark:hover:border-zinc-600 transition-colors flex items-center justify-between"
+                  >
+                    <div className="flex items-center gap-2 sm:gap-3">
+                      <Users className="h-4 w-4 sm:h-5 sm:w-5 text-slate-400" />
+                      <div className="text-left">
+                        <span className="text-[10px] sm:text-xs text-slate-400 block">Your Team</span>
+                        <span className={`text-xs sm:text-sm font-medium ${myRoster ? 'text-slate-900 dark:text-white' : 'text-slate-400'}`}>
+                          {myRoster ? (myRoster.teamName || myRoster.ownerName) : 'Select team'}
+                        </span>
+                      </div>
+                    </div>
+                    <ChevronDown className="h-4 w-4 sm:h-5 sm:w-5 text-slate-400" />
                   </button>
                 </>
               )}
@@ -902,91 +889,75 @@ export function TradeFinder() {
           )}
         </div>
 
-        {/* Asset Preference & Tolerance */}
-        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 sm:p-6 mb-6 space-y-6">
-          {/* Asset Type Preference */}
-          <div>
-            <div className="mb-3">
-              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+        {/* Preference & Tolerance - Combined compact row on mobile */}
+        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-3 sm:p-6 mb-3 sm:mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-start gap-4 sm:gap-6">
+            {/* Asset Type Preference */}
+            <div className="flex-1">
+              <span className="text-[10px] sm:text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider block mb-2">
                 {tradeMode === 'dump' ? 'Prefer to receive' : 'Prefer to give up'}
               </span>
-              <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">Matching trades shown first</p>
+              <div className="flex gap-1.5 sm:gap-2">
+                <button
+                  onClick={() => setAssetPreference('all')}
+                  className={`flex-1 py-2 px-2 rounded-lg border-2 transition-all flex items-center justify-center gap-1 ${
+                    assetPreference === 'all'
+                      ? 'border-accent-500 bg-accent-50 dark:bg-accent-900/20'
+                      : 'border-slate-200 dark:border-zinc-700'
+                  }`}
+                >
+                  <span className={`text-[10px] sm:text-xs font-medium ${assetPreference === 'all' ? 'text-accent-600 dark:text-accent-400' : 'text-slate-500 dark:text-slate-400'}`}>
+                    Any
+                  </span>
+                </button>
+                <button
+                  onClick={() => setAssetPreference('players')}
+                  className={`flex-1 py-2 px-2 rounded-lg border-2 transition-all flex items-center justify-center gap-1 ${
+                    assetPreference === 'players'
+                      ? 'border-accent-500 bg-accent-50 dark:bg-accent-900/20'
+                      : 'border-slate-200 dark:border-zinc-700'
+                  }`}
+                >
+                  <User className={`h-3 w-3 sm:h-4 sm:w-4 ${assetPreference === 'players' ? 'text-accent-500' : 'text-slate-400'}`} />
+                  <span className={`text-[10px] sm:text-xs font-medium ${assetPreference === 'players' ? 'text-accent-600 dark:text-accent-400' : 'text-slate-500 dark:text-slate-400'}`}>
+                    Players
+                  </span>
+                </button>
+                <button
+                  onClick={() => setAssetPreference('picks')}
+                  className={`flex-1 py-2 px-2 rounded-lg border-2 transition-all flex items-center justify-center gap-1 ${
+                    assetPreference === 'picks'
+                      ? 'border-accent-500 bg-accent-50 dark:bg-accent-900/20'
+                      : 'border-slate-200 dark:border-zinc-700'
+                  }`}
+                >
+                  <FileText className={`h-3 w-3 sm:h-4 sm:w-4 ${assetPreference === 'picks' ? 'text-accent-500' : 'text-slate-400'}`} />
+                  <span className={`text-[10px] sm:text-xs font-medium ${assetPreference === 'picks' ? 'text-accent-600 dark:text-accent-400' : 'text-slate-500 dark:text-slate-400'}`}>
+                    Picks
+                  </span>
+                </button>
+              </div>
             </div>
-            
-            <div className="grid grid-cols-3 gap-2">
-              <button
-                onClick={() => setAssetPreference('all')}
-                className={`p-3 rounded-lg border-2 transition-all flex flex-col items-center gap-1.5 ${
-                  assetPreference === 'all'
-                    ? 'border-accent-500 bg-accent-50 dark:bg-accent-900/20'
-                    : 'border-slate-200 dark:border-zinc-700 hover:border-slate-300 dark:hover:border-zinc-600'
-                }`}
-              >
-                <div className="flex items-center gap-1">
-                  <User className={`h-4 w-4 ${assetPreference === 'all' ? 'text-accent-500' : 'text-slate-400'}`} />
-                  <span className={`text-xs ${assetPreference === 'all' ? 'text-accent-500' : 'text-slate-400'}`}>+</span>
-                  <FileText className={`h-4 w-4 ${assetPreference === 'all' ? 'text-accent-500' : 'text-slate-400'}`} />
-                </div>
-                <span className={`text-xs font-medium ${assetPreference === 'all' ? 'text-accent-600 dark:text-accent-400' : 'text-slate-600 dark:text-slate-400'}`}>
-                  No Preference
-                </span>
-              </button>
-              
-              <button
-                onClick={() => setAssetPreference('players')}
-                className={`p-3 rounded-lg border-2 transition-all flex flex-col items-center gap-1.5 ${
-                  assetPreference === 'players'
-                    ? 'border-accent-500 bg-accent-50 dark:bg-accent-900/20'
-                    : 'border-slate-200 dark:border-zinc-700 hover:border-slate-300 dark:hover:border-zinc-600'
-                }`}
-              >
-                <User className={`h-4 w-4 ${assetPreference === 'players' ? 'text-accent-500' : 'text-slate-400'}`} />
-                <span className={`text-xs font-medium ${assetPreference === 'players' ? 'text-accent-600 dark:text-accent-400' : 'text-slate-600 dark:text-slate-400'}`}>
-                  Prefer Players
-                </span>
-              </button>
-              
-              <button
-                onClick={() => setAssetPreference('picks')}
-                className={`p-3 rounded-lg border-2 transition-all flex flex-col items-center gap-1.5 ${
-                  assetPreference === 'picks'
-                    ? 'border-accent-500 bg-accent-50 dark:bg-accent-900/20'
-                    : 'border-slate-200 dark:border-zinc-700 hover:border-slate-300 dark:hover:border-zinc-600'
-                }`}
-              >
-                <FileText className={`h-4 w-4 ${assetPreference === 'picks' ? 'text-accent-500' : 'text-slate-400'}`} />
-                <span className={`text-xs font-medium ${assetPreference === 'picks' ? 'text-accent-600 dark:text-accent-400' : 'text-slate-600 dark:text-slate-400'}`}>
-                  Prefer Picks
-                </span>
-              </button>
-            </div>
-          </div>
 
-          {/* Tolerance Slider */}
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                Value Tolerance
-              </span>
-              <span className="text-sm font-bold text-accent-600 dark:text-accent-400">
-                ±{tolerance}%
-              </span>
-            </div>
-            
-            <input
-              type="range"
-              min={5}
-              max={25}
-              step={5}
-              value={tolerance}
-              onChange={(e) => setTolerance(Number(e.target.value))}
-              className="w-full h-2 bg-slate-200 dark:bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-accent-500"
-            />
-            
-            <div className="flex justify-between text-xs text-slate-400 mt-2">
-              <span>5%</span>
-              <span>15%</span>
-              <span>25%</span>
+            {/* Tolerance */}
+            <div className="sm:w-48">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[10px] sm:text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                  Tolerance
+                </span>
+                <span className="text-xs sm:text-sm font-bold text-accent-600 dark:text-accent-400">
+                  ±{tolerance}%
+                </span>
+              </div>
+              <input
+                type="range"
+                min={5}
+                max={25}
+                step={5}
+                value={tolerance}
+                onChange={(e) => setTolerance(Number(e.target.value))}
+                className="w-full h-2 bg-slate-200 dark:bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-accent-500"
+              />
             </div>
           </div>
         </div>
@@ -995,7 +966,7 @@ export function TradeFinder() {
         <button
           onClick={findTrades}
           disabled={!canSearch || isSearching}
-          className={`w-full py-4 rounded-xl font-semibold text-white transition-colors flex items-center justify-center gap-2 ${
+          className={`w-full py-3 sm:py-4 rounded-xl font-semibold text-white text-sm sm:text-base transition-colors flex items-center justify-center gap-2 ${
             canSearch && !isSearching
               ? 'bg-accent-500 hover:bg-accent-600'
               : 'bg-slate-300 dark:bg-zinc-700 cursor-not-allowed'
@@ -1003,34 +974,34 @@ export function TradeFinder() {
         >
           {isSearching ? (
             <>
-              <Loader2 className="h-5 w-5 animate-spin" />
+              <Loader2 className="h-4 w-4 sm:h-5 sm:w-5 animate-spin" />
               Searching...
             </>
           ) : (
             <>
-              <Search className="h-5 w-5" />
-              Find Trade Scenarios
+              <Search className="h-4 w-4 sm:h-5 sm:w-5" />
+              Find Trades
             </>
           )}
         </button>
 
         {/* Results */}
         {scenarios.length > 0 && (
-          <div className="mt-8">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold text-slate-900 dark:text-white">
+          <div className="mt-4 sm:mt-8">
+            <div className="flex items-center justify-between mb-3 sm:mb-4">
+              <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
                 Trade Scenarios
               </h2>
-              <span className="text-sm text-slate-500 dark:text-slate-400">
+              <span className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
                 {scenarios.length} found
               </span>
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-3 sm:space-y-4">
               {scenarios.map((scenario, idx) => (
                 <div
                   key={idx}
-                  className={`bg-white dark:bg-zinc-900 border-2 rounded-xl p-4 sm:p-6 ${
+                  className={`bg-white dark:bg-zinc-900 border-2 rounded-xl p-3 sm:p-6 ${
                     scenario.fairness === 'fair'
                       ? 'border-emerald-300 dark:border-emerald-500/50'
                       : scenario.fairness === 'slight'
@@ -1038,12 +1009,12 @@ export function TradeFinder() {
                       : 'border-slate-200 dark:border-zinc-800'
                   }`}
                 >
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm text-slate-500 dark:text-slate-400">
-                        Trade with <strong className="text-slate-700 dark:text-slate-200">{scenario.partnerRoster.teamName || scenario.partnerRoster.ownerName}</strong>
+                  <div className="flex items-center justify-between mb-3 sm:mb-4 flex-wrap gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
+                        <strong className="text-slate-700 dark:text-slate-200">{scenario.partnerRoster.teamName || scenario.partnerRoster.ownerName}</strong>
                       </span>
-                      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded uppercase ${
+                      <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded uppercase ${
                         scenario.fairness === 'fair'
                           ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'
                           : scenario.fairness === 'slight'
@@ -1055,65 +1026,62 @@ export function TradeFinder() {
                         {scenario.fairness}
                       </span>
                     </div>
-                    <span className={`text-xs font-semibold px-2 py-1 rounded-lg ${
+                    <span className={`text-[10px] sm:text-xs font-semibold px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-lg ${
                       Math.abs(scenario.differencePercent) < 5
                         ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'
                         : 'bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-slate-300'
                     }`}>
-                      {scenario.adjustedDifference >= 0 ? '+' : ''}{scenario.adjustedDifference.toLocaleString()} adj
+                      {scenario.adjustedDifference >= 0 ? '+' : ''}{scenario.adjustedDifference.toLocaleString()}
                     </span>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-[1fr,auto,1fr] gap-4 items-start">
+                  <div className="grid grid-cols-2 sm:grid-cols-[1fr,auto,1fr] gap-2 sm:gap-4 items-start">
                     {/* Give Side */}
                     <div>
-                      <div className="text-xs font-semibold text-red-600 dark:text-red-400 uppercase tracking-wider mb-2">
-                        You Give
+                      <div className="text-[10px] sm:text-xs font-semibold text-red-600 dark:text-red-400 uppercase tracking-wider mb-1.5 sm:mb-2">
+                        Give
                         <span className="font-normal text-slate-500 dark:text-slate-400 ml-1">
-                          ({scenario.giveAdjusted.toLocaleString()} adj)
+                          ({scenario.giveAdjusted.toLocaleString()})
                         </span>
                       </div>
-                      <div className="space-y-2">
+                      <div className="space-y-1.5 sm:space-y-2">
                         {scenario.give.map((asset, i) => (
-                          <div key={i} className="flex items-center justify-between gap-2">
-                            <div className="flex items-center gap-2">
-                              <span className={`px-1.5 py-0.5 text-xs font-medium rounded ${getPositionBadgeClass(asset.type === 'player' ? (asset.position || '') : 'PICK')}`}>
+                          <div key={i} className="flex items-center justify-between gap-1 sm:gap-2">
+                            <div className="flex items-center gap-1 sm:gap-2 min-w-0">
+                              <span className={`px-1 sm:px-1.5 py-0.5 text-[10px] sm:text-xs font-medium rounded shrink-0 ${getPositionBadgeClass(asset.type === 'player' ? (asset.position || '') : 'PICK')}`}>
                                 {asset.type === 'player' ? asset.position : 'PICK'}
                               </span>
-                              <span className="text-sm text-slate-700 dark:text-slate-200">{asset.name}</span>
+                              <span className="text-xs sm:text-sm text-slate-700 dark:text-slate-200 truncate">{asset.name}</span>
                             </div>
-                            <span className="text-xs text-slate-500">{asset.value.toLocaleString()}</span>
+                            <span className="text-[10px] sm:text-xs text-slate-400 shrink-0">{asset.value.toLocaleString()}</span>
                           </div>
                         ))}
                       </div>
                     </div>
 
-                    {/* Arrow */}
+                    {/* Arrow - hidden on mobile, shown inline */}
                     <div className="hidden sm:flex items-center justify-center h-full">
-                      <ArrowLeftRight className="h-6 w-6 text-slate-300 dark:text-zinc-600" />
-                    </div>
-                    <div className="sm:hidden flex justify-center">
-                      <ArrowLeftRight className="h-5 w-5 text-slate-300 dark:text-zinc-600 rotate-90" />
+                      <ArrowLeftRight className="h-5 w-5 text-slate-300 dark:text-zinc-600" />
                     </div>
 
                     {/* Get Side */}
                     <div>
-                      <div className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider mb-2">
-                        You Get
+                      <div className="text-[10px] sm:text-xs font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider mb-1.5 sm:mb-2">
+                        Get
                         <span className="font-normal text-slate-500 dark:text-slate-400 ml-1">
-                          ({scenario.getAdjusted.toLocaleString()} adj)
+                          ({scenario.getAdjusted.toLocaleString()})
                         </span>
                       </div>
-                      <div className="space-y-2">
+                      <div className="space-y-1.5 sm:space-y-2">
                         {scenario.get.map((asset, i) => (
-                          <div key={i} className="flex items-center justify-between gap-2">
-                            <div className="flex items-center gap-2">
-                              <span className={`px-1.5 py-0.5 text-xs font-medium rounded ${getPositionBadgeClass(asset.type === 'player' ? (asset.position || '') : 'PICK')}`}>
+                          <div key={i} className="flex items-center justify-between gap-1 sm:gap-2">
+                            <div className="flex items-center gap-1 sm:gap-2 min-w-0">
+                              <span className={`px-1 sm:px-1.5 py-0.5 text-[10px] sm:text-xs font-medium rounded shrink-0 ${getPositionBadgeClass(asset.type === 'player' ? (asset.position || '') : 'PICK')}`}>
                                 {asset.type === 'player' ? asset.position : 'PICK'}
                               </span>
-                              <span className="text-sm text-slate-700 dark:text-slate-200">{asset.name}</span>
+                              <span className="text-xs sm:text-sm text-slate-700 dark:text-slate-200 truncate">{asset.name}</span>
                             </div>
-                            <span className="text-xs text-slate-500">{asset.value.toLocaleString()}</span>
+                            <span className="text-[10px] sm:text-xs text-slate-400 shrink-0">{asset.value.toLocaleString()}</span>
                           </div>
                         ))}
                       </div>
@@ -1122,12 +1090,11 @@ export function TradeFinder() {
                   
                   {/* Value Adjustment Info */}
                   {scenario.difference !== scenario.adjustedDifference && (
-                    <div className="mt-3 pt-3 border-t border-slate-100 dark:border-zinc-800 flex items-start gap-1.5">
+                    <div className="flex mt-2 sm:mt-3 pt-2 sm:pt-3 border-t border-slate-100 dark:border-zinc-800 items-start gap-1.5">
                       <Info className="h-3 w-3 text-slate-400 mt-0.5 shrink-0" />
                       <span className="text-[10px] text-slate-500 dark:text-slate-400">
-                        Raw difference: {scenario.difference >= 0 ? '+' : ''}{scenario.difference.toLocaleString()} → 
-                        Adjusted: {scenario.adjustedDifference >= 0 ? '+' : ''}{scenario.adjustedDifference.toLocaleString()} 
-                        (stud factor, consolidation, piece count)
+                        Raw: {scenario.difference >= 0 ? '+' : ''}{scenario.difference.toLocaleString()} → 
+                        Adj: {scenario.adjustedDifference >= 0 ? '+' : ''}{scenario.adjustedDifference.toLocaleString()}
                       </span>
                     </div>
                   )}
