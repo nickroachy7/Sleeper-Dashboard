@@ -74,22 +74,6 @@ interface TradeSide {
   assets: TradeAsset[];
 }
 
-const POSITION_COLORS: Record<string, string> = {
-  QB: 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20',
-  RB: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20',
-  WR: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20',
-  TE: 'bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/20',
-  PICK: 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20',
-};
-
-const POSITION_BADGE_COLORS: Record<string, string> = {
-  QB: 'bg-red-500 text-white',
-  RB: 'bg-emerald-500 text-white',
-  WR: 'bg-blue-500 text-white',
-  TE: 'bg-orange-500 text-white',
-  PICK: 'bg-purple-500 text-white',
-};
-
 // Position badge classes matching KTC Values page design
 const getPositionBadgeClass = (position: string): string => {
   switch (position) {
@@ -565,7 +549,7 @@ export function TradeEvaluator() {
         tradeSides.length === 2 ? 'grid-cols-1 sm:grid-cols-2' : tradeSides.length === 3 ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-2 sm:grid-cols-4'
       }`}>
         {tradeSides.map((side, sideIndex) => {
-          const roster = rosters?.find((r) => r.roster_id === side.rosterId);
+          const _roster = rosters?.find((r) => r.roster_id === side.rosterId);
           const sideTotal = totals[sideIndex]?.total || 0;
           const isWinner = tradeAnalysis?.winner === side.rosterId;
           const isLoser = tradeAnalysis?.loser === side.rosterId;
