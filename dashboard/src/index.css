@@ -1,0 +1,191 @@
+@import "tailwindcss";
+
+/* Design System - Sleeper League Dashboard */
+/* Inspired by KeepTradeCut.com */
+
+/* Custom Theme Properties */
+@theme {
+  /* Kelly Green Accent - Primary brand color */
+  --color-accent-50: #f0fdf4;
+  --color-accent-100: #dcfce7;
+  --color-accent-200: #bbf7d0;
+  --color-accent-300: #86efac;
+  --color-accent-400: #4ade80;
+  --color-accent-500: #4CBB17;
+  --color-accent-600: #3da314;
+  --color-accent-700: #2f8010;
+  --color-accent-800: #256510;
+  --color-accent-900: #1a4a0c;
+
+  /* Position Colors */
+  --color-pos-qb: #ef4444;
+  --color-pos-rb: #22c55e;
+  --color-pos-wr: #3b82f6;
+  --color-pos-te: #f97316;
+  --color-pos-pick: #06b6d4;
+  --color-pos-def: #8b5cf6;
+  --color-pos-k: #eab308;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  color-scheme: light dark;
+}
+
+body {
+  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Light mode (default) */
+:root {
+  --bg-primary: #ffffff;
+  --bg-secondary: #f8fafc;
+  --bg-tertiary: #f1f5f9;
+  --bg-card: #ffffff;
+  --bg-card-hover: #f8fafc;
+  --border-primary: #e2e8f0;
+  --border-secondary: #f1f5f9;
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-tertiary: #94a3b8;
+  --shadow-color: rgba(0, 0, 0, 0.1);
+}
+
+/* Dark mode */
+.dark {
+  --bg-primary: #0a0a0a;
+  --bg-secondary: #111111;
+  --bg-tertiary: #1a1a1a;
+  --bg-card: #111111;
+  --bg-card-hover: #1a1a1a;
+  --border-primary: #262626;
+  --border-secondary: #1a1a1a;
+  --text-primary: #fafafa;
+  --text-secondary: #a1a1aa;
+  --text-tertiary: #71717a;
+  --shadow-color: rgba(0, 0, 0, 0.5);
+}
+
+/* Sidebar layout fix - ensure main content doesn't overlap with fixed sidebar */
+@media (min-width: 1024px) {
+  .sidebar-layout-main {
+    margin-left: 256px;
+  }
+}
+
+/* Custom scrollbar for dark mode */
+.dark ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.dark ::-webkit-scrollbar-track {
+  background: #1a1a1a;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: #404040;
+  border-radius: 4px;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #525252;
+}
+
+/* Table styling utilities */
+.table-header {
+  @apply bg-slate-50 dark:bg-zinc-900 border-b border-slate-200 dark:border-zinc-800;
+}
+
+.table-row {
+  @apply border-b border-slate-100 dark:border-zinc-800 hover:bg-slate-50 dark:hover:bg-zinc-900 transition-colors;
+}
+
+/* Card styling utilities */
+.card {
+  @apply bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-sm dark:shadow-none;
+}
+
+.card-header {
+  @apply px-5 py-4 border-b border-slate-100 dark:border-zinc-800;
+}
+
+/* Position badge colors - consistent across themes */
+.pos-badge-qb {
+  @apply bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-500/30;
+}
+
+.pos-badge-rb {
+  @apply bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30;
+}
+
+.pos-badge-wr {
+  @apply bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-500/30;
+}
+
+.pos-badge-te {
+  @apply bg-orange-100 dark:bg-orange-500/20 text-orange-700 dark:text-orange-400 border border-orange-200 dark:border-orange-500/30;
+}
+
+.pos-badge-pick {
+  @apply bg-cyan-100 dark:bg-cyan-500/20 text-cyan-700 dark:text-cyan-400 border border-cyan-200 dark:border-cyan-500/30;
+}
+
+.pos-badge-k {
+  @apply bg-yellow-100 dark:bg-yellow-500/20 text-yellow-700 dark:text-yellow-400 border border-yellow-200 dark:border-yellow-500/30;
+}
+
+.pos-badge-def {
+  @apply bg-purple-100 dark:bg-purple-500/20 text-purple-700 dark:text-purple-400 border border-purple-200 dark:border-purple-500/30;
+}
+
+/* Accent button */
+.btn-primary {
+  @apply bg-accent-500 hover:bg-accent-600 text-white font-medium px-4 py-2.5 rounded-lg transition-colors;
+}
+
+.btn-secondary {
+  @apply bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 text-slate-700 dark:text-slate-300 font-medium px-4 py-2.5 rounded-lg border border-slate-200 dark:border-zinc-700 transition-colors;
+}
+
+/* Input styling */
+.input {
+  @apply bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg px-3 py-2 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-transparent transition-colors;
+}
+
+/* Gradient accent for featured cards */
+.accent-gradient {
+  @apply bg-gradient-to-br from-accent-500 to-accent-600;
+}
+
+/* Mobile-first compact utilities */
+@media (max-width: 640px) {
+  /* Reduce base font size on mobile for data-dense screens */
+  .mobile-compact {
+    font-size: 0.75rem;
+    line-height: 1.25rem;
+  }
+  
+  /* Compact table cells on mobile */
+  .mobile-compact-table th,
+  .mobile-compact-table td {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.75rem;
+  }
+  
+  /* Compact cards on mobile */
+  .mobile-compact-card {
+    padding: 0.75rem;
+    border-radius: 0.5rem;
+  }
+  
+  /* Smaller page padding on mobile */
+  .mobile-compact-page {
+    padding: 0.75rem;
+  }
+}

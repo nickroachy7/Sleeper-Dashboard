@@ -1,0 +1,169 @@
+import { NavLink, Outlet } from 'react-router-dom';
+import {
+  LayoutDashboard,
+  Trophy,
+  Users,
+  ArrowLeftRight,
+  Menu,
+  X,
+  ChevronRight,
+  FileText,
+  Database,
+  Crown,
+  RefreshCw,
+  Scale,
+} from 'lucide-react';
+import { useState } from 'react';
+
+interface NavItem {
+  to: string;
+  icon: typeof LayoutDashboard;
+  label: string;
+  description: string;
+}
+
+interface NavSection {
+  title: string;
+  items: NavItem[];
+}
+
+const navSections: NavSection[] = [
+  {
+    title: 'Home',
+    items: [
+      { to: '/', icon: LayoutDashboard, label: 'Dashboard', description: 'Overview & stats' },
+    ],
+  },
+  {
+    title: 'Tools',
+    items: [
+      { to: '/trade-evaluator', icon: Scale, label: 'Trade Evaluator', description: 'Build & evaluate trades' },
+      { to: '/ktc-values', icon: Crown, label: 'KTC Values', description: 'Dynasty rankings' },
+    ],
+  },
+  {
+    title: 'League',
+    items: [
+      { to: '/standings', icon: Trophy, label: 'Standings', description: 'League rankings' },
+      { to: '/rosters', icon: Users, label: 'Rosters', description: 'Team players' },
+      { to: '/transactions', icon: ArrowLeftRight, label: 'Transactions', description: 'Trades & moves' },
+      { to: '/drafts', icon: FileText, label: 'Drafts', description: 'Draft history & capital' },
+      { to: '/sync-status', icon: RefreshCw, label: 'Sync Status', description: 'Auto-sync monitoring' },
+      { to: '/setup', icon: Database, label: 'Settings', description: 'Database & settings' },
+    ],
+  },
+];
+
+export default function Layout() {
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  return (
+    <div className="min-h-screen bg-slate-50 dark:bg-zinc-950">
+      {/* Mobile Header */}
+      <header className="lg:hidden fixed top-0 left-0 right-0 z-40 h-14 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl border-b border-slate-200/50 dark:border-zinc-800/50">
+        <div className="flex items-center justify-between h-full px-3">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 bg-gradient-to-br from-accent-400 to-accent-600 rounded-lg flex items-center justify-center shadow-lg shadow-accent-500/20">
+              <Trophy className="h-3.5 w-3.5 text-white" />
+            </div>
+            <span className="font-semibold text-sm text-slate-900 dark:text-white">Sleeper Dashboard</span>
+          </div>
+          <button
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors"
+            aria-label={sidebarOpen ? 'Close menu' : 'Open menu'}
+          >
+            {sidebarOpen ? (
+              <X className="h-5 w-5 text-slate-600 dark:text-slate-400" />
+            ) : (
+              <Menu className="h-5 w-5 text-slate-600 dark:text-slate-400" />
+            )}
+          </button>
+        </div>
+      </header>
+
+      {/* Mobile Overlay */}
+      {sidebarOpen && (
+        <div
+          className="lg:hidden fixed inset-0 z-40 bg-slate-900/20 dark:bg-black/50 backdrop-blur-sm"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      {/* Sidebar */}
+      <aside
+        className={`fixed top-0 left-0 z-50 h-full w-64 bg-white dark:bg-zinc-900 border-r border-slate-200/50 dark:border-zinc-800 shadow-xl shadow-slate-200/50 dark:shadow-none transition-transform duration-300 lg:translate-x-0 ${
+          sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+      >
+        {/* Logo */}
+        <div className="h-16 flex items-center gap-3 px-5 border-b border-slate-100 dark:border-zinc-800">
+          <div className="w-9 h-9 bg-gradient-to-br from-accent-400 to-accent-600 rounded-lg flex items-center justify-center shadow-lg shadow-accent-500/20">
+            <Trophy className="h-4 w-4 text-white" />
+          </div>
+          <div>
+            <h1 className="font-semibold text-slate-900 dark:text-white text-sm">Sleeper League</h1>
+            <p className="text-xs text-slate-500 dark:text-slate-400">Fantasy Dashboard</p>
+          </div>
+        </div>
+
+        {/* Navigation */}
+        <nav className="p-4 overflow-y-auto" style={{ height: 'calc(100% - 4rem)' }}>
+          {navSections.map((section, sectionIndex) => (
+            <div key={section.title} className={sectionIndex > 0 ? 'mt-8' : ''}>
+              <h2 className="px-3 mb-3 text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                {section.title}
+              </h2>
+              <div className="space-y-2">
+                {section.items.map(({ to, icon: Icon, label }) => (
+                  <NavLink
+                    key={to}
+                    to={to}
+                    end={to === '/'}
+                    onClick={() => setSidebarOpen(false)}
+                    className={({ isActive }) =>
+                      `group flex items-center gap-3 px-3 py-3 rounded-lg text-sm transition-all duration-200 ${
+                        isActive
+                          ? 'bg-accent-50 dark:bg-accent-500/10 text-accent-700 dark:text-accent-400'
+                          : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-zinc-800 hover:text-slate-900 dark:hover:text-white'
+                      }`
+                    }
+                  >
+                    {({ isActive }) => (
+                      <>
+                        <div
+                          className={`flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
+                            isActive
+                              ? 'bg-accent-100 dark:bg-accent-500/20'
+                              : 'bg-slate-100 dark:bg-zinc-800 group-hover:bg-slate-200 dark:group-hover:bg-zinc-700'
+                          }`}
+                        >
+                          <Icon
+                            className={`h-4 w-4 ${
+                              isActive ? 'text-accent-600 dark:text-accent-400' : 'text-slate-500 dark:text-slate-400'
+                            }`}
+                          />
+                        </div>
+                        <span className="font-medium">{label}</span>
+                        {isActive && (
+                          <ChevronRight className="h-4 w-4 ml-auto text-accent-400 dark:text-accent-500" />
+                        )}
+                      </>
+                    )}
+                  </NavLink>
+                ))}
+              </div>
+            </div>
+          ))}
+        </nav>
+      </aside>
+
+      {/* Main Content - uses custom CSS class for sidebar offset */}
+      <div className="sidebar-layout-main">
+        <main className="min-h-screen pt-14 lg:pt-0">
+          <Outlet />
+        </main>
+      </div>
+    </div>
+  );
+}
