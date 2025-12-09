@@ -125,7 +125,7 @@ function useClickOutside(ref: React.RefObject<HTMLElement | null>, callback: () 
   }, [ref, callback]);
 }
 
-// Compact Asset Dropdown
+// Full-screen modal dropdown for mobile usability
 function AssetDropdown({
   isOpen,
   onClose,
@@ -170,60 +170,68 @@ function AssetDropdown({
   if (!isOpen) return null;
 
   return (
-    <div
-      ref={dropdownRef}
-      className="absolute z-50 left-0 right-0 mt-1 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg shadow-xl overflow-hidden"
-    >
-      <div className="px-2 py-1.5 bg-slate-50 dark:bg-zinc-800 border-b border-slate-200 dark:border-zinc-700 flex items-center justify-between">
-        <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase">{title}</span>
-        <button onClick={onClose} className="p-0.5 hover:bg-slate-200 dark:hover:bg-zinc-700 rounded">
-          <X className="h-3 w-3 text-slate-400" />
-        </button>
-      </div>
-
-      {searchable && (
-        <div className="p-1.5 border-b border-slate-100 dark:border-zinc-800">
-          <div className="relative">
-            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-slate-400" />
-            <input
-              ref={inputRef}
-              type="text"
-              placeholder="Search..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-6 pr-2 py-1 text-xs bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-accent-500"
-            />
-          </div>
+    <>
+      {/* Backdrop */}
+      <div className="fixed inset-0 bg-black/50 z-40" onClick={onClose} />
+      
+      {/* Modal */}
+      <div
+        ref={dropdownRef}
+        className="fixed z-50 left-4 right-4 top-1/2 -translate-y-1/2 max-w-md mx-auto bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-xl shadow-2xl overflow-hidden"
+      >
+        <div className="px-4 py-3 bg-slate-50 dark:bg-zinc-800 border-b border-slate-200 dark:border-zinc-700 flex items-center justify-between">
+          <span className="text-sm font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wide">{title}</span>
+          <button onClick={onClose} className="p-2 hover:bg-slate-200 dark:hover:bg-zinc-700 rounded-lg transition-colors">
+            <X className="h-5 w-5 text-slate-400" />
+          </button>
         </div>
-      )}
 
-      <div className="max-h-48 overflow-y-auto">
-        {filteredItems.length === 0 ? (
-          <div className="p-3 text-xs text-slate-500 text-center">{emptyMessage}</div>
-        ) : (
-          <div className="p-1">
-            {filteredItems.map((item) => (
-              <button
-                key={item.id}
-                onClick={() => { onSelect(item); onClose(); }}
-                className="w-full flex items-center justify-between p-1.5 hover:bg-slate-100 dark:hover:bg-zinc-800 rounded text-left"
-              >
-                <div className="flex items-center gap-1.5 min-w-0">
-                  <span className={`px-1 py-0.5 rounded text-[9px] font-bold ${POSITION_BADGE_COLORS[item.position || 'PICK']}`}>
-                    {item.type === 'player' ? item.position : 'PICK'}
-                  </span>
-                  <span className="text-xs font-medium text-slate-900 dark:text-white truncate">{item.name}</span>
-                  {item.team && <span className="text-[10px] text-slate-400">{item.team}</span>}
-                </div>
-                <span className="text-xs font-bold text-slate-600 dark:text-slate-300 tabular-nums ml-1">
-                  {item.value.toLocaleString()}
-                </span>
-              </button>
-            ))}
+        {searchable && (
+          <div className="p-3 border-b border-slate-100 dark:border-zinc-800">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+              <input
+                ref={inputRef}
+                type="text"
+                placeholder="Search players..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full pl-11 pr-4 py-3 text-base bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-accent-500"
+              />
+            </div>
           </div>
         )}
+
+        <div className="max-h-80 overflow-y-auto overscroll-contain">
+          {filteredItems.length === 0 ? (
+            <div className="p-8 text-base text-slate-500 text-center">{emptyMessage}</div>
+          ) : (
+            <div className="p-2">
+              {filteredItems.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => { onSelect(item); onClose(); }}
+                  className="w-full flex items-center justify-between p-3.5 hover:bg-slate-100 dark:hover:bg-zinc-800 rounded-lg text-left transition-colors"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span className={`px-2.5 py-1 rounded text-xs font-bold ${POSITION_BADGE_COLORS[item.position || 'PICK']}`}>
+                      {item.type === 'player' ? item.position : 'PICK'}
+                    </span>
+                    <div className="min-w-0">
+                      <span className="text-base font-semibold text-slate-900 dark:text-white block truncate">{item.name}</span>
+                      {item.team && <span className="text-sm text-slate-400">{item.team}</span>}
+                    </div>
+                  </div>
+                  <span className="text-base font-bold text-slate-600 dark:text-slate-300 tabular-nums ml-3 shrink-0">
+                    {item.value.toLocaleString()}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
-    </div>
+    </>
   );
 }
 
