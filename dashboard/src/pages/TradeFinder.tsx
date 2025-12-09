@@ -11,6 +11,8 @@ import {
   TrendingDown,
   Users,
   Info,
+  User,
+  FileText,
 } from 'lucide-react';
 import { 
   analyzeTrade, 
@@ -88,6 +90,7 @@ interface TradeScenario {
 }
 
 type TradeMode = 'dump' | 'acquire';
+type AssetPreference = 'all' | 'players' | 'picks';
 
 // Position badge classes
 const getPositionBadgeClass = (position: string): string => {
@@ -345,6 +348,7 @@ export function TradeFinder() {
   const [targetRoster, setTargetRoster] = useState<Roster | null>(null);
   const [selectedAssetIds, setSelectedAssetIds] = useState<string[]>([]);
   const [tolerance, setTolerance] = useState(10);
+  const [assetPreference, setAssetPreference] = useState<AssetPreference>('all');
   const [scenarios, setScenarios] = useState<TradeScenario[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState<'myTeam' | 'targetTeam' | 'assets' | null>(null);
@@ -517,6 +521,28 @@ export function TradeFinder() {
     );
   };
 
+  // Helper to calculate preference score based on VALUE contribution (not count)
+  // Returns 0-100 score based on what % of total value comes from preferred asset type
+  const getPreferenceScore = (combo: TradeAsset[], preference: AssetPreference): number => {
+    if (preference === 'all') return 50; // Neutral score for no preference
+    
+    const totalValue = combo.reduce((sum, a) => sum + a.value, 0);
+    if (totalValue === 0) return 0;
+    
+    const playerValue = combo.filter(a => a.type === 'player').reduce((sum, a) => sum + a.value, 0);
+    const pickValue = combo.filter(a => a.type === 'pick').reduce((sum, a) => sum + a.value, 0);
+    
+    if (preference === 'players') {
+      // Score based on % of VALUE from players
+      return Math.round((playerValue / totalValue) * 100);
+    }
+    if (preference === 'picks') {
+      // Score based on % of VALUE from picks
+      return Math.round((pickValue / totalValue) * 100);
+    }
+    return 50;
+  };
+
   // Find trade scenarios
   const findTrades = useCallback(() => {
     if (!rosters || selectedAssets.length === 0) return;
@@ -538,6 +564,7 @@ export function TradeFinder() {
           : myRoster ? [myRoster] : [];
 
         teamsToSearch.forEach(searchRoster => {
+          // Always include all assets - preference is used for sorting, not filtering
           const searchAssets = [
             ...getPlayersOwnedByRoster(searchRoster),
             ...getPicksOwnedByRoster(searchRoster.roster_id),
@@ -614,14 +641,41 @@ export function TradeFinder() {
           });
         });
 
-        // Sort by absolute adjusted difference (closest matches first)
-        newScenarios.sort((a, b) => Math.abs(a.adjustedDifference) - Math.abs(b.adjustedDifference));
+        // Sort: blend preference score with value difference
+        // Preference influences ranking but doesn't strictly dominate
+        newScenarios.sort((a, b) => {
+          // Check which side to evaluate for preference (what user receives in dump mode, gives in acquire mode)
+          const aCombo = tradeMode === 'dump' ? a.get : a.give;
+          const bCombo = tradeMode === 'dump' ? b.get : b.give;
+          
+          const aPreferenceScore = getPreferenceScore(aCombo, assetPreference);
+          const bPreferenceScore = getPreferenceScore(bCombo, assetPreference);
+          
+          // Calculate a blended score:
+          // - Value difference matters (lower is better) - normalize to 0-100 scale
+          // - Preference score matters (higher is better) - already 0-100
+          // Weight: 60% preference, 40% value match when preference is set
+          
+          const maxDiff = Math.max(...newScenarios.map(s => Math.abs(s.adjustedDifference)), 1);
+          const aValueScore = 100 - (Math.abs(a.adjustedDifference) / maxDiff) * 100;
+          const bValueScore = 100 - (Math.abs(b.adjustedDifference) / maxDiff) * 100;
+          
+          if (assetPreference !== 'all') {
+            // Blended score: preference has more weight but value still matters
+            const aBlended = (aPreferenceScore * 0.6) + (aValueScore * 0.4);
+            const bBlended = (bPreferenceScore * 0.6) + (bValueScore * 0.4);
+            return bBlended - aBlended; // Higher blended score = better
+          }
+          
+          // No preference set - just sort by value difference
+          return Math.abs(a.adjustedDifference) - Math.abs(b.adjustedDifference);
+        });
         setScenarios(newScenarios.slice(0, 50));
       } finally {
         setIsSearching(false);
       }
     }, 100);
-  }, [rosters, myRoster, targetRoster, selectedAssets, selectedValueInfo, tolerance, tradeMode, getPlayersOwnedByRoster, getPicksOwnedByRoster]);
+  }, [rosters, myRoster, targetRoster, selectedAssets, selectedValueInfo, tolerance, tradeMode, assetPreference, getPlayersOwnedByRoster, getPicksOwnedByRoster]);
 
   const isLoading = rostersLoading || valuesLoading || picksLoading;
   const canSearch = tradeMode === 'dump'
@@ -848,31 +902,92 @@ export function TradeFinder() {
           )}
         </div>
 
-        {/* Tolerance Slider */}
-        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 sm:p-6 mb-6">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-              Value Tolerance
-            </span>
-            <span className="text-sm font-bold text-accent-600 dark:text-accent-400">
-              ±{tolerance}%
-            </span>
+        {/* Asset Preference & Tolerance */}
+        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 sm:p-6 mb-6 space-y-6">
+          {/* Asset Type Preference */}
+          <div>
+            <div className="mb-3">
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                {tradeMode === 'dump' ? 'Prefer to receive' : 'Prefer to give up'}
+              </span>
+              <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">Matching trades shown first</p>
+            </div>
+            
+            <div className="grid grid-cols-3 gap-2">
+              <button
+                onClick={() => setAssetPreference('all')}
+                className={`p-3 rounded-lg border-2 transition-all flex flex-col items-center gap-1.5 ${
+                  assetPreference === 'all'
+                    ? 'border-accent-500 bg-accent-50 dark:bg-accent-900/20'
+                    : 'border-slate-200 dark:border-zinc-700 hover:border-slate-300 dark:hover:border-zinc-600'
+                }`}
+              >
+                <div className="flex items-center gap-1">
+                  <User className={`h-4 w-4 ${assetPreference === 'all' ? 'text-accent-500' : 'text-slate-400'}`} />
+                  <span className={`text-xs ${assetPreference === 'all' ? 'text-accent-500' : 'text-slate-400'}`}>+</span>
+                  <FileText className={`h-4 w-4 ${assetPreference === 'all' ? 'text-accent-500' : 'text-slate-400'}`} />
+                </div>
+                <span className={`text-xs font-medium ${assetPreference === 'all' ? 'text-accent-600 dark:text-accent-400' : 'text-slate-600 dark:text-slate-400'}`}>
+                  No Preference
+                </span>
+              </button>
+              
+              <button
+                onClick={() => setAssetPreference('players')}
+                className={`p-3 rounded-lg border-2 transition-all flex flex-col items-center gap-1.5 ${
+                  assetPreference === 'players'
+                    ? 'border-accent-500 bg-accent-50 dark:bg-accent-900/20'
+                    : 'border-slate-200 dark:border-zinc-700 hover:border-slate-300 dark:hover:border-zinc-600'
+                }`}
+              >
+                <User className={`h-4 w-4 ${assetPreference === 'players' ? 'text-accent-500' : 'text-slate-400'}`} />
+                <span className={`text-xs font-medium ${assetPreference === 'players' ? 'text-accent-600 dark:text-accent-400' : 'text-slate-600 dark:text-slate-400'}`}>
+                  Prefer Players
+                </span>
+              </button>
+              
+              <button
+                onClick={() => setAssetPreference('picks')}
+                className={`p-3 rounded-lg border-2 transition-all flex flex-col items-center gap-1.5 ${
+                  assetPreference === 'picks'
+                    ? 'border-accent-500 bg-accent-50 dark:bg-accent-900/20'
+                    : 'border-slate-200 dark:border-zinc-700 hover:border-slate-300 dark:hover:border-zinc-600'
+                }`}
+              >
+                <FileText className={`h-4 w-4 ${assetPreference === 'picks' ? 'text-accent-500' : 'text-slate-400'}`} />
+                <span className={`text-xs font-medium ${assetPreference === 'picks' ? 'text-accent-600 dark:text-accent-400' : 'text-slate-600 dark:text-slate-400'}`}>
+                  Prefer Picks
+                </span>
+              </button>
+            </div>
           </div>
-          
-          <input
-            type="range"
-            min={5}
-            max={25}
-            step={5}
-            value={tolerance}
-            onChange={(e) => setTolerance(Number(e.target.value))}
-            className="w-full h-2 bg-slate-200 dark:bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-accent-500"
-          />
-          
-          <div className="flex justify-between text-xs text-slate-400 mt-2">
-            <span>5%</span>
-            <span>15%</span>
-            <span>25%</span>
+
+          {/* Tolerance Slider */}
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                Value Tolerance
+              </span>
+              <span className="text-sm font-bold text-accent-600 dark:text-accent-400">
+                ±{tolerance}%
+              </span>
+            </div>
+            
+            <input
+              type="range"
+              min={5}
+              max={25}
+              step={5}
+              value={tolerance}
+              onChange={(e) => setTolerance(Number(e.target.value))}
+              className="w-full h-2 bg-slate-200 dark:bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-accent-500"
+            />
+            
+            <div className="flex justify-between text-xs text-slate-400 mt-2">
+              <span>5%</span>
+              <span>15%</span>
+              <span>25%</span>
+            </div>
           </div>
         </div>
 
