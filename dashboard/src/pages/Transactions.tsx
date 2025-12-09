@@ -194,34 +194,84 @@ export default function Transactions() {
     return { playerId, player: getPlayer(playerId) };
   };
 
-  // Calculate transaction value metrics for sorting
-  const getTransactionValueMetrics = (tx: any): { totalValue: number; netValue: number; addedValue: number; droppedValue: number } => {
-    const adds = tx.adds ? Object.keys(tx.adds) : [];
-    const drops = tx.drops ? Object.keys(tx.drops) : [];
-    
-    const addedValue = adds.reduce((sum: number, playerId: string) => sum + getPlayerValue(playerId), 0);
-    const droppedValue = drops.reduce((sum: number, playerId: string) => sum + getPlayerValue(playerId), 0);
-    
-    // For trades, also consider draft picks
-    let pickValue = 0;
-    if (tx.draft_picks && Array.isArray(tx.draft_picks)) {
-      tx.draft_picks.forEach((pick: any) => {
-        const pickBaseValue = pick.round === 1 ? 5000 : pick.round === 2 ? 2000 : pick.round === 3 ? 800 : 400;
-        pickValue += pickBaseValue;
-      });
-    }
-    
-    return {
-      totalValue: addedValue + droppedValue + pickValue,
-      netValue: addedValue - droppedValue,
-      addedValue,
-      droppedValue
-    };
-  };
-
   // Filter and sort transactions
   const filteredAndSortedTransactions = useMemo(() => {
     if (!transactions) return [];
+    
+    // Helper to calculate transaction value metrics for sorting
+    const getTransactionValueMetrics = (tx: any): { totalValue: number; valueDiff: number; maxTeamGain: number } => {
+      if (tx.type === 'trade') {
+        // For trades, calculate value for each team involved
+        const teamValues: Record<number, { received: number; gave: number }> = {};
+        
+        // Players received by each team (adds shows player_id -> receiving_roster_id)
+        if (tx.adds) {
+          Object.entries(tx.adds).forEach(([playerId, rosterId]) => {
+            const rId = rosterId as number;
+            if (!teamValues[rId]) teamValues[rId] = { received: 0, gave: 0 };
+            teamValues[rId].received += playerValues?.get(playerId) || 0;
+          });
+        }
+        
+        // Players given up by each team (drops shows player_id -> giving_roster_id)
+        if (tx.drops) {
+          Object.entries(tx.drops).forEach(([playerId, rosterId]) => {
+            const rId = rosterId as number;
+            if (!teamValues[rId]) teamValues[rId] = { received: 0, gave: 0 };
+            teamValues[rId].gave += playerValues?.get(playerId) || 0;
+          });
+        }
+        
+        // Draft picks - owner_id receives the pick, previous_owner_id gives it
+        if (tx.draft_picks && Array.isArray(tx.draft_picks)) {
+          tx.draft_picks.forEach((pick: any) => {
+            const pickValue = pick.round === 1 ? 5000 : pick.round === 2 ? 2000 : pick.round === 3 ? 800 : 400;
+            if (pick.owner_id) {
+              if (!teamValues[pick.owner_id]) teamValues[pick.owner_id] = { received: 0, gave: 0 };
+              teamValues[pick.owner_id].received += pickValue;
+            }
+            if (pick.previous_owner_id) {
+              if (!teamValues[pick.previous_owner_id]) teamValues[pick.previous_owner_id] = { received: 0, gave: 0 };
+              teamValues[pick.previous_owner_id].gave += pickValue;
+            }
+          });
+        }
+        
+        // Calculate total value in trade and the biggest winner's margin
+        let totalValue = 0;
+        let maxGain = -Infinity;
+        let maxLoss = Infinity;
+        
+        Object.values(teamValues).forEach(team => {
+          totalValue += team.received;
+          const netGain = team.received - team.gave;
+          if (netGain > maxGain) maxGain = netGain;
+          if (netGain < maxLoss) maxLoss = netGain;
+        });
+        
+        // valueDiff is the spread between winner and loser (how lopsided the trade is)
+        const valueDiff = maxGain - maxLoss;
+        
+        return {
+          totalValue,
+          valueDiff,
+          maxTeamGain: maxGain === -Infinity ? 0 : maxGain
+        };
+      } else {
+        // For waivers/free agents, calculate net value change
+        const adds = tx.adds ? Object.keys(tx.adds) : [];
+        const drops = tx.drops ? Object.keys(tx.drops) : [];
+        
+        const addedValue = adds.reduce((sum: number, playerId: string) => sum + (playerValues?.get(playerId) || 0), 0);
+        const droppedValue = drops.reduce((sum: number, playerId: string) => sum + (playerValues?.get(playerId) || 0), 0);
+        
+        return {
+          totalValue: addedValue + droppedValue,
+          valueDiff: Math.abs(addedValue - droppedValue),
+          maxTeamGain: addedValue - droppedValue
+        };
+      }
+    };
     
     let filtered = typeFilter === 'all' 
       ? transactions 
@@ -239,13 +289,16 @@ export default function Transactions() {
       
       switch (sortBy) {
         case 'value-high':
+          // Sort by total value involved in the transaction
           return metricsB.totalValue - metricsA.totalValue;
         case 'value-low':
           return metricsA.totalValue - metricsB.totalValue;
         case 'best-moves':
-          return metricsB.netValue - metricsA.netValue;
+          // Sort by most lopsided trades (biggest value difference)
+          return metricsB.valueDiff - metricsA.valueDiff;
         case 'worst-moves':
-          return metricsA.netValue - metricsB.netValue;
+          // Sort by least value difference (most even trades first)
+          return metricsA.valueDiff - metricsB.valueDiff;
         default:
           return 0;
       }
@@ -740,7 +793,7 @@ export default function Transactions() {
     <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
       {/* Header */}
       <div className="mb-4 sm:mb-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="flex flex-col gap-3">
           <div className="flex items-center gap-2 sm:gap-3">
             <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">Transactions</h1>
             <span className="px-2 py-0.5 sm:px-2.5 sm:py-1 bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-slate-400 text-xs sm:text-sm font-medium rounded-full">
@@ -748,14 +801,14 @@ export default function Transactions() {
             </span>
           </div>
           
-          {/* Filter Dropdown */}
-          <div className="flex items-center gap-2 sm:gap-4">
-            <div className="flex items-center gap-2">
-              <Filter className="h-4 w-4 text-slate-400" />
+          {/* Filter & Sort Dropdowns */}
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+            <div className="flex items-center gap-1.5">
+              <Filter className="h-4 w-4 text-slate-400 flex-shrink-0" />
               <select
                 value={typeFilter}
                 onChange={(e) => handleFilterChange(e.target.value)}
-                className="px-3 py-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg text-sm font-medium focus:outline-none focus:ring-2 focus:ring-accent-500 dark:focus:ring-accent-400 dark:text-white"
+                className="px-2 sm:px-3 py-1.5 sm:py-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-accent-500 dark:focus:ring-accent-400 dark:text-white"
               >
                 <option value="all">All Types</option>
                 <option value="trade">Trades</option>
@@ -766,23 +819,23 @@ export default function Transactions() {
             </div>
             
             {/* Sort Dropdown */}
-            <div className="flex items-center gap-2">
-              <ArrowUpDown className="h-4 w-4 text-slate-400" />
+            <div className="flex items-center gap-1.5">
+              <ArrowUpDown className="h-4 w-4 text-slate-400 flex-shrink-0" />
               <select
                 value={sortBy}
                 onChange={(e) => handleSortChange(e.target.value)}
-                className="px-3 py-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg text-sm font-medium focus:outline-none focus:ring-2 focus:ring-accent-500 dark:focus:ring-accent-400 dark:text-white"
+                className="px-2 sm:px-3 py-1.5 sm:py-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-accent-500 dark:focus:ring-accent-400 dark:text-white"
               >
-                <option value="recent">Most Recent</option>
-                <option value="value-high">Highest Value</option>
-                <option value="value-low">Lowest Value</option>
-                <option value="best-moves">Best Moves (Net +)</option>
-                <option value="worst-moves">Worst Moves (Net -)</option>
+                <option value="recent">Recent</option>
+                <option value="value-high">High Value</option>
+                <option value="value-low">Low Value</option>
+                <option value="best-moves">Most Lopsided</option>
+                <option value="worst-moves">Most Even</option>
               </select>
             </div>
           </div>
         </div>
-        <p className="text-slate-500 dark:text-slate-400 text-xs sm:text-sm mt-1">
+        <p className="text-slate-500 dark:text-slate-400 text-xs sm:text-sm mt-2">
           Trades, waivers, and roster moves across the league
         </p>
       </div>
