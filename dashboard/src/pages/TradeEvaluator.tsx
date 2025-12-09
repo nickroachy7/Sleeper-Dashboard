@@ -549,7 +549,6 @@ export function TradeEvaluator() {
         tradeSides.length === 2 ? 'grid-cols-1 sm:grid-cols-2' : tradeSides.length === 3 ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-2 sm:grid-cols-4'
       }`}>
         {tradeSides.map((side, sideIndex) => {
-          const _roster = rosters?.find((r) => r.roster_id === side.rosterId);
           const sideTotal = totals[sideIndex]?.total || 0;
           const isWinner = tradeAnalysis?.winner === side.rosterId;
           const isLoser = tradeAnalysis?.loser === side.rosterId;
