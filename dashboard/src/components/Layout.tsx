@@ -64,11 +64,12 @@ export default function Layout() {
       {/* Mobile Header */}
       <header className="lg:hidden fixed top-0 left-0 right-0 z-40 h-14 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl border-b border-slate-200/50 dark:border-zinc-800/50">
         <div className="flex items-center justify-between h-full px-3">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-gradient-to-br from-accent-400 to-accent-600 rounded-lg flex items-center justify-center shadow-lg shadow-accent-500/20">
-              <Trophy className="h-3.5 w-3.5 text-white" />
-            </div>
-            <span className="font-semibold text-sm text-slate-900 dark:text-white">Sleeper Dashboard</span>
+          <div className="flex items-center">
+            <img 
+              src="/yapsports-logo.webp" 
+              alt="Sleeper Dashboard" 
+              className="h-8 w-auto"
+            />
           </div>
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -99,14 +100,12 @@ export default function Layout() {
         }`}
       >
         {/* Logo */}
-        <div className="h-16 flex items-center gap-3 px-5 border-b border-slate-100 dark:border-zinc-800">
-          <div className="w-9 h-9 bg-gradient-to-br from-accent-400 to-accent-600 rounded-lg flex items-center justify-center shadow-lg shadow-accent-500/20">
-            <Trophy className="h-4 w-4 text-white" />
-          </div>
-          <div>
-            <h1 className="font-semibold text-slate-900 dark:text-white text-sm">Sleeper League</h1>
-            <p className="text-xs text-slate-500 dark:text-slate-400">Fantasy Dashboard</p>
-          </div>
+        <div className="h-16 flex items-center px-5 border-b border-slate-100 dark:border-zinc-800">
+          <img 
+            src="/yapsports-logo.webp" 
+            alt="Sleeper Dashboard" 
+            className="h-10 w-auto"
+          />
         </div>
 
         {/* Navigation */}
