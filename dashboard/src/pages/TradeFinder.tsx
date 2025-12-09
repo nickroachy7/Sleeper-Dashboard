@@ -1038,10 +1038,10 @@ export function TradeFinder() {
                     </span>
                   </div>
 
-                  <div className="grid grid-cols-2 sm:grid-cols-[1fr,auto,1fr] gap-2 sm:gap-4 items-start">
+                  <div className="flex flex-col sm:grid sm:grid-cols-[1fr,auto,1fr] gap-3 sm:gap-4">
                     {/* Give Side */}
-                    <div>
-                      <div className="text-[10px] sm:text-xs font-semibold text-red-600 dark:text-red-400 uppercase tracking-wider mb-1.5 sm:mb-2">
+                    <div className="bg-red-50/50 dark:bg-red-900/10 rounded-lg p-3">
+                      <div className="text-[10px] sm:text-xs font-semibold text-red-600 dark:text-red-400 uppercase tracking-wider mb-2">
                         Give
                         <span className="font-normal text-slate-500 dark:text-slate-400 ml-1">
                           ({scenario.giveAdjusted.toLocaleString()})
@@ -1049,12 +1049,12 @@ export function TradeFinder() {
                       </div>
                       <div className="space-y-1.5 sm:space-y-2">
                         {scenario.give.map((asset, i) => (
-                          <div key={i} className="flex items-center justify-between gap-1 sm:gap-2">
-                            <div className="flex items-center gap-1 sm:gap-2 min-w-0">
-                              <span className={`px-1 sm:px-1.5 py-0.5 text-[10px] sm:text-xs font-medium rounded shrink-0 ${getPositionBadgeClass(asset.type === 'player' ? (asset.position || '') : 'PICK')}`}>
+                          <div key={i} className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <span className={`px-1.5 py-0.5 text-[10px] sm:text-xs font-medium rounded shrink-0 ${getPositionBadgeClass(asset.type === 'player' ? (asset.position || '') : 'PICK')}`}>
                                 {asset.type === 'player' ? asset.position : 'PICK'}
                               </span>
-                              <span className="text-xs sm:text-sm text-slate-700 dark:text-slate-200 truncate">{asset.name}</span>
+                              <span className="text-xs sm:text-sm text-slate-700 dark:text-slate-200">{asset.name}</span>
                             </div>
                             <span className="text-[10px] sm:text-xs text-slate-400 shrink-0">{asset.value.toLocaleString()}</span>
                           </div>
@@ -1068,8 +1068,8 @@ export function TradeFinder() {
                     </div>
 
                     {/* Get Side */}
-                    <div>
-                      <div className="text-[10px] sm:text-xs font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider mb-1.5 sm:mb-2">
+                    <div className="bg-emerald-50/50 dark:bg-emerald-900/10 rounded-lg p-3">
+                      <div className="text-[10px] sm:text-xs font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider mb-2">
                         Get
                         <span className="font-normal text-slate-500 dark:text-slate-400 ml-1">
                           ({scenario.getAdjusted.toLocaleString()})
@@ -1077,12 +1077,12 @@ export function TradeFinder() {
                       </div>
                       <div className="space-y-1.5 sm:space-y-2">
                         {scenario.get.map((asset, i) => (
-                          <div key={i} className="flex items-center justify-between gap-1 sm:gap-2">
-                            <div className="flex items-center gap-1 sm:gap-2 min-w-0">
-                              <span className={`px-1 sm:px-1.5 py-0.5 text-[10px] sm:text-xs font-medium rounded shrink-0 ${getPositionBadgeClass(asset.type === 'player' ? (asset.position || '') : 'PICK')}`}>
+                          <div key={i} className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <span className={`px-1.5 py-0.5 text-[10px] sm:text-xs font-medium rounded shrink-0 ${getPositionBadgeClass(asset.type === 'player' ? (asset.position || '') : 'PICK')}`}>
                                 {asset.type === 'player' ? asset.position : 'PICK'}
                               </span>
-                              <span className="text-xs sm:text-sm text-slate-700 dark:text-slate-200 truncate">{asset.name}</span>
+                              <span className="text-xs sm:text-sm text-slate-700 dark:text-slate-200">{asset.name}</span>
                             </div>
                             <span className="text-[10px] sm:text-xs text-slate-400 shrink-0">{asset.value.toLocaleString()}</span>
                           </div>
