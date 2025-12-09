@@ -4,15 +4,12 @@ import {
   Users, 
   Trophy, 
   ArrowRightLeft, 
-  Calendar,
-  CheckCircle2,
   Loader2,
   ChevronRight,
   Zap,
   FileText,
   Scale,
   RefreshCw,
-  Database,
   Crown,
   Medal,
   TrendingUp,
@@ -216,7 +213,7 @@ export default function Dashboard() {
     );
   }
 
-  const { league, standings, transactions, transactionCount, players, playerValues, draftPickResults, rosterToDraftSlot } = dashboardData;
+  const { standings, transactions, transactionCount, players, playerValues, draftPickResults, rosterToDraftSlot } = dashboardData;
 
   const getPlayer = (playerId: string): Player | undefined => players?.get(playerId);
   const getPlayerValue = (playerId: string): number => playerValues?.get(playerId) || 0;
@@ -612,42 +609,8 @@ export default function Dashboard() {
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-6">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">Dashboard</h1>
-          <p className="text-slate-500 dark:text-slate-400 text-xs sm:text-sm mt-1">Overview of your fantasy league</p>
-        </div>
-        <div className="flex items-center gap-2 text-accent-600 dark:text-accent-400 bg-accent-50 dark:bg-accent-500/10 px-3 py-1.5 rounded-full text-sm font-medium">
-          <CheckCircle2 className="h-4 w-4" />
-          Connected
-        </div>
-      </div>
-
-      {/* League Card */}
-      <div className="bg-gradient-to-br from-accent-500 to-accent-600 rounded-2xl p-5 sm:p-6 text-white shadow-lg shadow-accent-500/20 dark:shadow-accent-500/10 mb-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 sm:w-14 sm:h-14 bg-white/20 backdrop-blur rounded-xl flex items-center justify-center">
-              <Trophy className="h-6 w-6 sm:h-7 sm:w-7" />
-            </div>
-            <div>
-              <h2 className="text-lg sm:text-xl font-bold">{league.name}</h2>
-              <div className="flex items-center gap-3 mt-1 text-accent-100 text-sm">
-                <span className="flex items-center gap-1">
-                  <Calendar className="h-3.5 w-3.5" />
-                  {league.season}
-                </span>
-                <span className="flex items-center gap-1">
-                  <Users className="h-3.5 w-3.5" />
-                  {league.total_rosters} Teams
-                </span>
-              </div>
-            </div>
-          </div>
-          <span className="inline-flex self-start sm:self-auto px-3 py-1 bg-white/20 backdrop-blur rounded-full text-sm font-medium">
-            {league.status === 'in_season' ? 'In Season' : league.status}
-          </span>
-        </div>
+      <div className="mb-6">
+        <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">Dashboard</h1>
       </div>
 
       {/* Navigation Grid */}
@@ -868,32 +831,6 @@ export default function Dashboard() {
             ))
           )}
         </div>
-      </div>
-
-      {/* Quick Stats Footer */}
-      <div className="mt-4 sm:mt-6 grid grid-cols-4 gap-2 sm:gap-4">
-        <div className="bg-white dark:bg-zinc-900 rounded-xl border border-slate-200 dark:border-zinc-800 p-2 sm:p-4 shadow-sm dark:shadow-none">
-          <div className="text-lg sm:text-2xl font-bold text-slate-900 dark:text-white">{standings.length}</div>
-          <div className="text-[10px] sm:text-sm text-slate-500 dark:text-slate-400">Teams</div>
-        </div>
-        <div className="bg-white dark:bg-zinc-900 rounded-xl border border-slate-200 dark:border-zinc-800 p-2 sm:p-4 shadow-sm dark:shadow-none">
-          <div className="text-lg sm:text-2xl font-bold text-slate-900 dark:text-white">{transactionCount}</div>
-          <div className="text-[10px] sm:text-sm text-slate-500 dark:text-slate-400">Trans</div>
-        </div>
-        <Link to="/sync-status" className="bg-white dark:bg-zinc-900 rounded-xl border border-slate-200 dark:border-zinc-800 p-2 sm:p-4 shadow-sm dark:shadow-none hover:border-slate-300 dark:hover:border-zinc-700 transition-colors">
-          <div className="flex items-center gap-1 sm:gap-2">
-            <RefreshCw className="h-4 w-4 sm:h-5 sm:w-5 text-accent-500" />
-            <span className="text-[10px] sm:text-sm font-medium text-slate-900 dark:text-white">Sync</span>
-          </div>
-          <div className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 mt-0.5 sm:mt-1 hidden sm:block">Auto-sync</div>
-        </Link>
-        <Link to="/setup" className="bg-white dark:bg-zinc-900 rounded-xl border border-slate-200 dark:border-zinc-800 p-2 sm:p-4 shadow-sm dark:shadow-none hover:border-slate-300 dark:hover:border-zinc-700 transition-colors">
-          <div className="flex items-center gap-1 sm:gap-2">
-            <Database className="h-4 w-4 sm:h-5 sm:w-5 text-slate-500 dark:text-slate-400" />
-            <span className="text-[10px] sm:text-sm font-medium text-slate-900 dark:text-white">Settings</span>
-          </div>
-          <div className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 mt-0.5 sm:mt-1 hidden sm:block">Config</div>
-        </Link>
       </div>
     </div>
   );

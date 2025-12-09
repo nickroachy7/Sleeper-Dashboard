@@ -394,12 +394,6 @@ export default function Transactions() {
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   };
 
-  // Group by type for stats
-  const typeCounts = transactions.reduce((acc: any, tx: any) => {
-    acc[tx.type] = (acc[tx.type] || 0) + 1;
-    return acc;
-  }, {});
-
   // Helper to get assets for each team in a trade
   const getTradeAssets = (tx: any) => {
     const teamAssets: Record<number, { players: string[]; picks: any[]; value: number }> = {};
@@ -851,38 +845,14 @@ export default function Transactions() {
             </div>
           </div>
         </div>
-        <p className="text-slate-500 dark:text-slate-400 text-xs sm:text-sm mt-2">
-          Trades, waivers, and roster moves across the league
-        </p>
-      </div>
-
-      {/* Stats */}
-      <div className="mt-4 sm:mt-6 grid grid-cols-4 gap-2 sm:gap-4">
-        {[
-          { type: 'trade', label: 'Trades', icon: ArrowRightLeft, color: 'purple' },
-          { type: 'waiver', label: 'Waivers', icon: RefreshCw, color: 'amber' },
-          { type: 'free_agent', label: 'Free Agent', icon: UserPlus, color: 'emerald' },
-          { type: 'commissioner', label: 'Commissioner', icon: ArrowRightLeft, color: 'slate' },
-        ].map(({ type, label, icon: Icon, color }) => (
-          <div key={type} className="bg-white dark:bg-zinc-900 rounded-xl border border-slate-200 dark:border-zinc-800 p-2 sm:p-4 shadow-sm dark:shadow-none">
-            <div className={`inline-flex p-1.5 sm:p-2 rounded-lg bg-${color}-100 dark:bg-${color}-500/20 mb-1.5 sm:mb-3`}>
-              <Icon className={`h-3.5 w-3.5 sm:h-4 sm:w-4 text-${color}-600 dark:text-${color}-400`} />
-            </div>
-            <div className="text-lg sm:text-2xl font-bold text-slate-900 dark:text-white">{typeCounts[type] || 0}</div>
-            <div className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400">{label}</div>
-          </div>
-        ))}
       </div>
 
       {/* Transaction List */}
       <div className="mt-6">
-        <div className="mb-4 flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Activity</h2>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-              {typeFilter === 'all' ? 'All transactions' : `Showing ${typeFilter.replace('_', ' ')}s`} • {filteredAndSortedTransactions.length} results
-            </p>
-          </div>
+        <div className="mb-4">
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            {typeFilter === 'all' ? 'All transactions' : `Showing ${typeFilter.replace('_', ' ')}s`} • {filteredAndSortedTransactions.length} results
+          </p>
         </div>
 
         <div className="space-y-4">

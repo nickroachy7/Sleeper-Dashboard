@@ -9,7 +9,6 @@ import {
   ChevronRight,
   FileText,
   Database,
-  Crown,
   RefreshCw,
   Scale,
   Target,
@@ -18,7 +17,8 @@ import { useState } from 'react';
 
 interface NavItem {
   to: string;
-  icon: typeof LayoutDashboard;
+  icon?: typeof LayoutDashboard;
+  iconImage?: string;
   label: string;
   description: string;
 }
@@ -40,7 +40,7 @@ const navSections: NavSection[] = [
     items: [
       { to: '/trade-evaluator', icon: Scale, label: 'Trade Evaluator', description: 'Build & evaluate trades' },
       { to: '/trade-finder', icon: Target, label: 'Trade Finder', description: 'Find trade scenarios' },
-      { to: '/ktc-values', icon: Crown, label: 'KTC Values', description: 'Dynasty rankings' },
+      { to: '/ktc-values', iconImage: '/ktc-logo.png', label: 'KTC Values', description: 'Dynasty rankings' },
     ],
   },
   {
@@ -116,7 +116,7 @@ export default function Layout() {
                 {section.title}
               </h2>
               <div className="space-y-2">
-                {section.items.map(({ to, icon: Icon, label }) => (
+                {section.items.map(({ to, icon: Icon, iconImage, label }) => (
                   <NavLink
                     key={to}
                     to={to}
@@ -139,11 +139,15 @@ export default function Layout() {
                               : 'bg-slate-100 dark:bg-zinc-800 group-hover:bg-slate-200 dark:group-hover:bg-zinc-700'
                           }`}
                         >
-                          <Icon
-                            className={`h-4 w-4 ${
-                              isActive ? 'text-accent-600 dark:text-accent-400' : 'text-slate-500 dark:text-slate-400'
-                            }`}
-                          />
+                          {iconImage ? (
+                            <img src={iconImage} alt="" className="h-4 w-4 object-contain" />
+                          ) : Icon ? (
+                            <Icon
+                              className={`h-4 w-4 ${
+                                isActive ? 'text-accent-600 dark:text-accent-400' : 'text-slate-500 dark:text-slate-400'
+                              }`}
+                            />
+                          ) : null}
                         </div>
                         <span className="font-medium">{label}</span>
                         {isActive && (
