@@ -1,5 +1,4 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { 
   Trophy, 
@@ -7,7 +6,6 @@ import {
   Loader2,
   ChevronRight,
   Zap,
-  RefreshCw,
   Crown,
   Medal,
   TrendingUp,
@@ -61,8 +59,6 @@ const positionColors: Record<string, string> = {
 };
 
 export default function Home() {
-  const queryClient = useQueryClient();
-  const [isGeneratingDaily, setIsGeneratingDaily] = useState(false);
 
   // Fetch all data needed for home page
   const { data: dashboardData, isLoading } = useQuery({
@@ -212,31 +208,6 @@ export default function Home() {
       };
     },
   });
-
-  const handleGenerateDailyArticles = async () => {
-    setIsGeneratingDaily(true);
-    try {
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-daily-articles`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-            'Content-Type': 'application/json',
-          },
-        }
-      );
-      
-      if (response.ok) {
-        // Refetch to get the new articles
-        queryClient.invalidateQueries({ queryKey: ['dashboard-full'] });
-      }
-    } catch (error) {
-      console.error('Failed to generate daily articles:', error);
-    } finally {
-      setIsGeneratingDaily(false);
-    }
-  };
 
   if (isLoading) {
     return (
@@ -680,25 +651,6 @@ export default function Home() {
               </span>
             )}
           </h2>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleGenerateDailyArticles}
-              disabled={isGeneratingDaily}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-slate-200 dark:border-zinc-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              {isGeneratingDaily ? (
-                <>
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  Generating...
-                </>
-              ) : (
-                <>
-                  <RefreshCw className="h-3.5 w-3.5" />
-                  Generate Daily
-                </>
-              )}
-            </button>
-          </div>
         </div>
 
         {articles.length === 0 ? (
@@ -707,26 +659,9 @@ export default function Home() {
               <Newspaper className="h-8 w-8 text-accent-600 dark:text-accent-400" />
             </div>
             <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-2">No Articles Yet</h3>
-            <p className="text-slate-500 dark:text-slate-400 text-sm mb-6 max-w-sm mx-auto">
-              Generate daily AI-powered league news articles to get insights on trades, standings, and more.
+            <p className="text-slate-500 dark:text-slate-400 text-sm max-w-sm mx-auto">
+              AI-powered league news articles are generated daily at 7am UTC with insights on trades, standings, and more.
             </p>
-            <button
-              onClick={handleGenerateDailyArticles}
-              disabled={isGeneratingDaily}
-              className="inline-flex items-center gap-2 px-4 py-2.5 bg-accent-500 text-white text-sm font-medium rounded-lg hover:bg-accent-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              {isGeneratingDaily ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Generating 15 Articles...
-                </>
-              ) : (
-                <>
-                  <Newspaper className="h-4 w-4" />
-                  Generate Daily Articles
-                </>
-              )}
-            </button>
           </div>
         ) : (
           <div className="bg-white dark:bg-zinc-900 rounded-xl border border-slate-200 dark:border-zinc-800 divide-y divide-slate-100 dark:divide-zinc-800 overflow-hidden">
