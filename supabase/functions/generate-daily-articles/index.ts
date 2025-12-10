@@ -1,7 +1,7 @@
 /**
  * Edge Function: generate-daily-articles
  * 
- * Generates 15 AI-powered league news articles.
+ * Generates 8 AI-powered league news articles.
  * Runs once daily at 7am via cron job.
  * Deletes previous day's articles and creates fresh ones.
  */
@@ -14,7 +14,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const ARTICLES_TO_GENERATE = 15;
+const ARTICLES_TO_GENERATE = 8;
 
 // Valid article types that match the database constraint
 const VALID_ARTICLE_TYPES = [
@@ -413,9 +413,9 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Delay between articles to avoid rate limits
+      // Small delay between articles to avoid rate limits
       if (i < ARTICLES_TO_GENERATE - 1) {
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        await new Promise(resolve => setTimeout(resolve, 500));
       }
     }
 
