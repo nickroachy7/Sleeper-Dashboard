@@ -38,68 +38,54 @@ export function StandingsEmbed({ standings, highlightTeams, title }: StandingsEm
         </h4>
       </div>
 
-      {/* Table */}
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide border-b border-slate-100 dark:border-zinc-800">
-              <th className="text-left py-2 px-3 font-medium">#</th>
-              <th className="text-left py-2 px-3 font-medium">Team</th>
-              <th className="text-center py-2 px-3 font-medium">Record</th>
-              <th className="text-right py-2 px-3 font-medium hidden sm:table-cell">Points</th>
-              <th className="text-right py-2 px-3 font-medium hidden md:table-cell">Player Val</th>
-              <th className="text-right py-2 px-3 font-medium hidden md:table-cell">Pick Val</th>
-              <th className="text-right py-2 px-3 font-medium">Total Val</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100 dark:divide-zinc-800">
-            {standings.map((team) => {
-              const isHighlighted = highlightTeams?.includes(team.teamName);
-              return (
-                <tr 
-                  key={team.rank} 
-                  className={`${isHighlighted ? 'bg-accent-50 dark:bg-accent-500/10' : 'hover:bg-slate-50 dark:hover:bg-zinc-800/50'} transition-colors`}
-                >
-                  <td className="py-2.5 px-3">
-                    <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold border ${getRankStyles(team.rank)}`}>
-                      {team.rank}
-                    </span>
-                  </td>
-                  <td className="py-2.5 px-3">
-                    <span className={`font-medium ${isHighlighted ? 'text-accent-600 dark:text-accent-400' : 'text-slate-900 dark:text-white'}`}>
-                      {team.teamName}
-                    </span>
-                  </td>
-                  <td className="py-2.5 px-3 text-center">
-                    <span className="font-semibold text-slate-700 dark:text-slate-300 tabular-nums">
-                      {team.wins}-{team.losses}
-                    </span>
-                  </td>
-                  <td className="py-2.5 px-3 text-right hidden sm:table-cell">
-                    <span className="text-slate-600 dark:text-slate-400 tabular-nums">
-                      {team.points.toFixed(1)}
-                    </span>
-                  </td>
-                  <td className="py-2.5 px-3 text-right hidden md:table-cell">
-                    <span className="text-slate-600 dark:text-slate-400 tabular-nums">
-                      {team.playerValue.toLocaleString()}
-                    </span>
-                  </td>
-                  <td className="py-2.5 px-3 text-right hidden md:table-cell">
-                    <span className="text-purple-600 dark:text-purple-400 tabular-nums">
-                      {team.pickValue.toLocaleString()}
-                    </span>
-                  </td>
-                  <td className="py-2.5 px-3 text-right">
-                    <span className="font-semibold text-slate-900 dark:text-white tabular-nums">
-                      {team.totalValue.toLocaleString()}
-                    </span>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+      {/* Card-based layout - no horizontal scroll */}
+      <div className="divide-y divide-slate-100 dark:divide-zinc-800">
+        {standings.map((team) => {
+          const isHighlighted = highlightTeams?.includes(team.teamName);
+          return (
+            <div 
+              key={team.rank} 
+              className={`p-3 ${isHighlighted ? 'bg-accent-50 dark:bg-accent-500/10' : ''}`}
+            >
+              {/* Top row: Rank, Team, Record */}
+              <div className="flex items-center gap-3 mb-2">
+                <span className={`inline-flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold border flex-shrink-0 ${getRankStyles(team.rank)}`}>
+                  {team.rank}
+                </span>
+                <span className={`font-semibold flex-1 truncate ${isHighlighted ? 'text-accent-600 dark:text-accent-400' : 'text-slate-900 dark:text-white'}`}>
+                  {team.teamName}
+                </span>
+                <span className="font-bold text-slate-700 dark:text-slate-300 tabular-nums">
+                  {team.wins}-{team.losses}
+                </span>
+              </div>
+              
+              {/* Bottom row: Values */}
+              <div className="flex items-center gap-2 text-xs ml-10">
+                <div className="flex items-center gap-1">
+                  <span className="text-slate-400 dark:text-slate-500">Players:</span>
+                  <span className="font-medium text-slate-600 dark:text-slate-400 tabular-nums">
+                    {(team.playerValue / 1000).toFixed(1)}k
+                  </span>
+                </div>
+                <span className="text-slate-300 dark:text-zinc-700">•</span>
+                <div className="flex items-center gap-1">
+                  <span className="text-slate-400 dark:text-slate-500">Picks:</span>
+                  <span className="font-medium text-purple-600 dark:text-purple-400 tabular-nums">
+                    {(team.pickValue / 1000).toFixed(1)}k
+                  </span>
+                </div>
+                <span className="text-slate-300 dark:text-zinc-700">•</span>
+                <div className="flex items-center gap-1">
+                  <span className="text-slate-400 dark:text-slate-500">Total:</span>
+                  <span className="font-semibold text-slate-900 dark:text-white tabular-nums">
+                    {(team.totalValue / 1000).toFixed(1)}k
+                  </span>
+                </div>
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
