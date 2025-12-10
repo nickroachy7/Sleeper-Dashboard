@@ -7,7 +7,8 @@ import {
   Users, 
   Calendar,
   Sparkles,
-  ChevronRight
+  ChevronRight,
+  Tv
 } from 'lucide-react';
 
 interface Article {
@@ -18,6 +19,8 @@ interface Article {
   article_type: string;
   embedded_data: {
     trades?: string[];
+    image_url?: string | null;
+    source?: string;
   };
   generated_at: string;
 }
@@ -117,12 +120,19 @@ const articleTypeConfig: Record<string, { icon: typeof Newspaper; color: string;
     bgColor: 'bg-slate-100 dark:bg-slate-500/20',
     label: 'Weekly Recap'
   },
+  nfl_news: { 
+    icon: Tv, 
+    color: 'text-sky-600 dark:text-sky-400',
+    bgColor: 'bg-sky-100 dark:bg-sky-500/20',
+    label: 'NFL News'
+  },
 };
 
 export function ArticlePreviewCard({ article }: ArticlePreviewCardProps) {
   const navigate = useNavigate();
   const typeConfig = articleTypeConfig[article.article_type] || articleTypeConfig.recap;
   const TypeIcon = typeConfig.icon;
+  const imageUrl = article.embedded_data?.image_url;
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -153,10 +163,24 @@ export function ArticlePreviewCard({ article }: ArticlePreviewCardProps) {
       className="w-full text-left px-3 sm:px-4 py-3 hover:bg-slate-50 dark:hover:bg-zinc-800/50 transition-all group"
     >
       <div className="flex items-start gap-3">
-        {/* Icon */}
-        <div className={`flex-shrink-0 p-1.5 rounded-lg ${typeConfig.bgColor} mt-0.5`}>
-          <TypeIcon className={`h-4 w-4 ${typeConfig.color}`} />
-        </div>
+        {/* Thumbnail Image or Icon */}
+        {imageUrl ? (
+          <div className="flex-shrink-0 w-16 h-16 sm:w-20 sm:h-20 rounded-lg overflow-hidden bg-slate-100 dark:bg-zinc-800">
+            <img 
+              src={imageUrl} 
+              alt="" 
+              className="w-full h-full object-cover"
+              onError={(e) => {
+                // Hide broken images
+                (e.target as HTMLImageElement).style.display = 'none';
+              }}
+            />
+          </div>
+        ) : (
+          <div className={`flex-shrink-0 p-1.5 rounded-lg ${typeConfig.bgColor} mt-0.5`}>
+            <TypeIcon className={`h-4 w-4 ${typeConfig.color}`} />
+          </div>
+        )}
 
         {/* Content */}
         <div className="flex-1 min-w-0">

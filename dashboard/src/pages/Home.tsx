@@ -15,7 +15,8 @@ import {
   Clock,
   Minus,
   Newspaper,
-  CircleDot
+  CircleDot,
+  Tv
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { ArticlePreviewCard } from '../components/articles';
@@ -76,6 +77,7 @@ export default function Home() {
         draftPicksRes,
         draftsRes,
         articlesRes,
+        nflNewsRes,
       ] = await Promise.all([
         supabase.from('leagues').select('*').order('created_at', { ascending: false }).limit(1),
         supabase.from('rosters').select('*').order('wins', { ascending: false }),
@@ -86,7 +88,8 @@ export default function Home() {
         supabase.from('player_values').select('player_id, value'),
         supabase.from('draft_picks').select(`draft_slot, round, player_id, roster_id, draft_id, drafts!inner(season)`).not('player_id', 'is', null),
         supabase.from('drafts').select('draft_id, season').order('season', { ascending: true }).limit(1),
-        supabase.from('articles').select('*').eq('published', true).order('generated_at', { ascending: false }).limit(15),
+        supabase.from('articles').select('*').eq('published', true).neq('article_type', 'nfl_news').order('generated_at', { ascending: false }).limit(15),
+        supabase.from('articles').select('*').eq('published', true).eq('article_type', 'nfl_news').order('generated_at', { ascending: false }).limit(10),
       ]);
 
       // Build player map
@@ -204,6 +207,7 @@ export default function Home() {
         draftPickResults: draftPickResultsMap,
         rosterToDraftSlot: rosterToDraftSlotMap,
         articles: (articlesRes.data as Article[]) || [],
+        nflNews: (nflNewsRes.data as Article[]) || [],
         transactionsMap,
         transactionTeamsMap,
       };
@@ -257,6 +261,7 @@ export default function Home() {
     draftPickResults, 
     rosterToDraftSlot,
     articles,
+    nflNews,
   } = dashboardData;
 
   const getPlayer = (playerId: string): Player | undefined => players?.get(playerId);
@@ -667,6 +672,42 @@ export default function Home() {
         ) : (
           <div className="bg-white dark:bg-zinc-900 rounded-xl border border-slate-200 dark:border-zinc-800 divide-y divide-slate-100 dark:divide-zinc-800 overflow-hidden">
             {articles.map((article) => (
+              <ArticlePreviewCard
+                key={article.id}
+                article={article}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* NFL Fantasy News Section */}
+      <div className="mb-6 sm:mb-8">
+        <div className="flex items-center justify-between mb-3 sm:mb-4">
+          <h2 className="text-sm sm:text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+            <Tv className="h-4 w-4 sm:h-5 sm:w-5 text-sky-500" />
+            NFL Fantasy News
+            {nflNews.length > 0 && (
+              <span className="text-xs font-normal text-slate-400 dark:text-slate-500">
+                ({nflNews.length} articles)
+              </span>
+            )}
+          </h2>
+        </div>
+
+        {nflNews.length === 0 ? (
+          <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-slate-200 dark:border-zinc-800 p-8 sm:p-12 text-center">
+            <div className="w-16 h-16 bg-sky-100 dark:bg-sky-500/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <Tv className="h-8 w-8 text-sky-600 dark:text-sky-400" />
+            </div>
+            <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-2">No NFL News Yet</h3>
+            <p className="text-slate-500 dark:text-slate-400 text-sm max-w-sm mx-auto">
+              AI-powered NFL fantasy news articles are generated daily at 7am UTC with the latest player updates and fantasy insights.
+            </p>
+          </div>
+        ) : (
+          <div className="bg-white dark:bg-zinc-900 rounded-xl border border-slate-200 dark:border-zinc-800 divide-y divide-slate-100 dark:divide-zinc-800 overflow-hidden">
+            {nflNews.map((article) => (
               <ArticlePreviewCard
                 key={article.id}
                 article={article}

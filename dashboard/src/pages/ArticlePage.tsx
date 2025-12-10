@@ -14,7 +14,8 @@ import {
   Calendar,
   Sparkles,
   ArrowLeft,
-  Loader2
+  Loader2,
+  Tv
 } from 'lucide-react';
 
 interface Player {
@@ -61,6 +62,8 @@ interface Article {
       title: string;
       teams: EmbeddedRosterTeam[];
     };
+    image_url?: string | null;
+    source?: string;
   };
   generated_at: string;
 }
@@ -125,6 +128,11 @@ const articleTypeConfig: Record<string, { icon: typeof Newspaper; color: string;
     icon: Calendar, 
     color: 'bg-slate-100 dark:bg-slate-500/20 text-slate-600 dark:text-slate-400',
     label: 'Weekly Recap'
+  },
+  nfl_news: { 
+    icon: Tv, 
+    color: 'bg-sky-100 dark:bg-sky-500/20 text-sky-600 dark:text-sky-400',
+    label: 'NFL News'
   },
 };
 
@@ -284,6 +292,21 @@ export default function ArticlePage() {
 
       {/* Article */}
       <article className="bg-white dark:bg-zinc-900 rounded-2xl border border-slate-200 dark:border-zinc-800 shadow-sm dark:shadow-none overflow-hidden">
+        {/* Hero Image for NFL News */}
+        {article.embedded_data?.image_url && (
+          <div className="w-full h-48 sm:h-64 lg:h-80 overflow-hidden bg-slate-100 dark:bg-zinc-800">
+            <img 
+              src={article.embedded_data.image_url} 
+              alt="" 
+              className="w-full h-full object-cover"
+              onError={(e) => {
+                // Hide broken images
+                (e.target as HTMLImageElement).parentElement!.style.display = 'none';
+              }}
+            />
+          </div>
+        )}
+
         {/* Header */}
         <div className="p-6 sm:p-8 border-b border-slate-100 dark:border-zinc-800">
           {/* Type Badge */}
@@ -315,6 +338,12 @@ export default function ArticlePage() {
           {/* Meta */}
           <div className="flex items-center gap-3 mt-4 text-sm text-slate-500 dark:text-slate-500">
             <span>{formatDate(article.generated_at)}</span>
+            {article.embedded_data?.source && (
+              <>
+                <span className="text-slate-300 dark:text-zinc-700">•</span>
+                <span>Source: {article.embedded_data.source}</span>
+              </>
+            )}
           </div>
         </div>
 
