@@ -163,6 +163,15 @@ body {
   @apply bg-gradient-to-br from-accent-500 to-accent-600;
 }
 
+/* Hide scrollbar utility */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
 /* Mobile-first compact utilities */
 @media (max-width: 640px) {
   /* Reduce base font size on mobile for data-dense screens */

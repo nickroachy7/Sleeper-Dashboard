@@ -5,3 +5,4 @@ export { TradeEmbed } from './TradeEmbed';
 export { StandingsEmbed } from './StandingsEmbed';
 export { RosterEmbed } from './RosterEmbed';
 export { GenerateArticleButton } from './GenerateArticleButton';
+export { FeaturedArticleCarousel } from './FeaturedArticleCarousel';

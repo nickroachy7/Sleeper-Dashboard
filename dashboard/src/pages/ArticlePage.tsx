@@ -1,4 +1,4 @@
-import { useLocation, useNavigate, Link } from 'react-router-dom';
+import { useLocation, useNavigate, Link, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { ArticleRenderer } from '../components/articles/ArticleRenderer';
@@ -139,7 +139,26 @@ const articleTypeConfig: Record<string, { icon: typeof Newspaper; color: string;
 export default function ArticlePage() {
   const location = useLocation();
   const navigate = useNavigate();
-  const article = location.state?.article as Article | undefined;
+  const { id } = useParams<{ id: string }>();
+  const stateArticle = location.state?.article as Article | undefined;
+
+  // Fetch article by ID if not passed via state
+  const { data: fetchedArticle, isLoading: isLoadingArticle } = useQuery({
+    queryKey: ['article', id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('articles')
+        .select('*')
+        .eq('id', id)
+        .single();
+      
+      if (error) throw error;
+      return data as Article;
+    },
+    enabled: !stateArticle && !!id,
+  });
+
+  const article = stateArticle || fetchedArticle;
 
   // Fetch supporting data for article rendering
   const { data: supportData, isLoading } = useQuery({
@@ -227,6 +246,20 @@ export default function ArticlePage() {
     },
     enabled: !!article,
   });
+
+  // Show loading state while fetching article
+  if (isLoadingArticle) {
+    return (
+      <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto">
+        <div className="flex items-center justify-center py-16">
+          <div className="text-center">
+            <Loader2 className="h-8 w-8 animate-spin text-accent-500 mx-auto" />
+            <p className="mt-4 text-slate-500 dark:text-slate-400 text-sm">Loading article...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!article) {
     return (

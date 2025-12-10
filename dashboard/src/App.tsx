@@ -21,7 +21,7 @@ function App() {
     <Routes>
       <Route path="/" element={<Layout />}>
         <Route index element={<Home />} />
-        <Route path="article" element={<ArticlePage />} />
+        <Route path="article/:id" element={<ArticlePage />} />
         <Route path="setup" element={<LeagueSetup />} />
         <Route path="standings" element={<Standings />} />
         <Route path="rosters" element={<Rosters />} />
