@@ -148,8 +148,8 @@ export default function ArticlePage() {
   const handleShare = async () => {
     if (!article) return;
     
-    // Use the OG image endpoint for shareable links with previews
-    const shareUrl = `https://ieviegvkitwwtttgrcso.supabase.co/functions/v1/og-image?id=${article.id}`;
+    // Share the direct article URL
+    const shareUrl = `https://sleeper-league-dashboard-production.up.railway.app/article/${article.id}`;
     
     try {
       await navigator.clipboard.writeText(shareUrl);

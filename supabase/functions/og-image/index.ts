@@ -6,6 +6,29 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Known bot/crawler user agents that need OG tags
+const BOT_USER_AGENTS = [
+  'facebookexternalhit',
+  'Facebot',
+  'Twitterbot',
+  'LinkedInBot',
+  'WhatsApp',
+  'Slackbot',
+  'TelegramBot',
+  'Discordbot',
+  'Applebot',
+  'bingbot',
+  'Googlebot',
+  'iMessageLinkPreview',
+  'Pinterestbot',
+  'redditbot',
+];
+
+function isBot(userAgent: string | null): boolean {
+  if (!userAgent) return false;
+  return BOT_USER_AGENTS.some(bot => userAgent.toLowerCase().includes(bot.toLowerCase()));
+}
+
 // Generate Open Graph HTML for article link previews
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -20,6 +43,25 @@ Deno.serve(async (req) => {
       return new Response("Missing article ID", { status: 400 });
     }
 
+    // The actual dashboard URL where the article lives
+    const dashboardUrl = Deno.env.get("DASHBOARD_URL") || "https://sleeper-league-dashboard-production.up.railway.app";
+    const articleUrl = `${dashboardUrl}/article/${articleId}`;
+
+    // Check if this is a bot/crawler or a real user
+    const userAgent = req.headers.get("user-agent");
+    
+    // If it's a real user (not a bot), redirect immediately
+    if (!isBot(userAgent)) {
+      return new Response(null, {
+        status: 302,
+        headers: {
+          "Location": articleUrl,
+          ...corsHeaders,
+        },
+      });
+    }
+
+    // For bots, serve the OG tags
     // Initialize Supabase client
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -33,7 +75,14 @@ Deno.serve(async (req) => {
       .single();
 
     if (error || !article) {
-      return new Response("Article not found", { status: 404 });
+      // Redirect to home if article not found
+      return new Response(null, {
+        status: 302,
+        headers: {
+          "Location": dashboardUrl,
+          ...corsHeaders,
+        },
+      });
     }
 
     // Extract image URL from embedded_data
@@ -50,11 +99,7 @@ Deno.serve(async (req) => {
       ? "NFL Fantasy News" 
       : "Sleeper League Dashboard";
 
-    // The actual dashboard URL where the article lives
-    const dashboardUrl = Deno.env.get("DASHBOARD_URL") || "https://sleeper-league-dashboard-production.up.railway.app";
-    const articleUrl = `${dashboardUrl}/article/${article.id}`;
-
-    // Generate HTML with Open Graph meta tags
+    // Generate HTML with Open Graph meta tags for bots
     const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -81,12 +126,12 @@ Deno.serve(async (req) => {
   <meta property="twitter:description" content="${escapeHtml(description)}">
   <meta property="twitter:image" content="${imageUrl}">
   
-  <!-- Redirect to actual article page -->
-  <meta http-equiv="refresh" content="0; url=${articleUrl}">
   <link rel="canonical" href="${articleUrl}">
 </head>
 <body>
-  <p>Redirecting to <a href="${articleUrl}">${escapeHtml(article.title)}</a>...</p>
+  <h1>${escapeHtml(article.title)}</h1>
+  <p>${escapeHtml(description)}</p>
+  <a href="${articleUrl}">Read full article</a>
 </body>
 </html>`;
 
