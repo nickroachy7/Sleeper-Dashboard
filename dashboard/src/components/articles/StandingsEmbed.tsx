@@ -38,48 +38,46 @@ export function StandingsEmbed({ standings, highlightTeams, title }: StandingsEm
         </h4>
       </div>
 
-      {/* Card-based layout - no horizontal scroll */}
+      {/* Card-based layout */}
       <div className="divide-y divide-slate-100 dark:divide-zinc-800">
         {standings.map((team) => {
           const isHighlighted = highlightTeams?.includes(team.teamName);
           return (
             <div 
               key={team.rank} 
-              className={`p-3 ${isHighlighted ? 'bg-accent-50 dark:bg-accent-500/10' : ''}`}
+              className={`px-4 py-4 ${isHighlighted ? 'bg-accent-50 dark:bg-accent-500/10' : ''}`}
             >
               {/* Top row: Rank, Team, Record */}
-              <div className="flex items-center gap-3 mb-2">
-                <span className={`inline-flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold border flex-shrink-0 ${getRankStyles(team.rank)}`}>
+              <div className="flex items-center gap-3">
+                <span className={`inline-flex items-center justify-center w-8 h-8 rounded-full text-sm font-bold border flex-shrink-0 ${getRankStyles(team.rank)}`}>
                   {team.rank}
                 </span>
-                <span className={`font-semibold flex-1 truncate ${isHighlighted ? 'text-accent-600 dark:text-accent-400' : 'text-slate-900 dark:text-white'}`}>
+                <span className={`font-semibold text-base flex-1 ${isHighlighted ? 'text-accent-600 dark:text-accent-400' : 'text-slate-900 dark:text-white'}`}>
                   {team.teamName}
                 </span>
-                <span className="font-bold text-slate-700 dark:text-slate-300 tabular-nums">
+                <span className="font-bold text-base text-slate-700 dark:text-slate-300 tabular-nums">
                   {team.wins}-{team.losses}
                 </span>
               </div>
               
-              {/* Bottom row: Values */}
-              <div className="flex items-center gap-2 text-xs ml-10">
-                <div className="flex items-center gap-1">
-                  <span className="text-slate-400 dark:text-slate-500">Players:</span>
-                  <span className="font-medium text-slate-600 dark:text-slate-400 tabular-nums">
-                    {(team.playerValue / 1000).toFixed(1)}k
+              {/* Bottom row: Values - with more spacing */}
+              <div className="flex items-center gap-4 mt-2 ml-11 text-sm">
+                <div>
+                  <span className="text-slate-400 dark:text-slate-500">Players: </span>
+                  <span className="font-medium text-slate-600 dark:text-slate-300 tabular-nums">
+                    {(team.playerValue / 1000).toFixed(0)}k
                   </span>
                 </div>
-                <span className="text-slate-300 dark:text-zinc-700">•</span>
-                <div className="flex items-center gap-1">
-                  <span className="text-slate-400 dark:text-slate-500">Picks:</span>
+                <div>
+                  <span className="text-slate-400 dark:text-slate-500">Picks: </span>
                   <span className="font-medium text-purple-600 dark:text-purple-400 tabular-nums">
-                    {(team.pickValue / 1000).toFixed(1)}k
+                    {(team.pickValue / 1000).toFixed(0)}k
                   </span>
                 </div>
-                <span className="text-slate-300 dark:text-zinc-700">•</span>
-                <div className="flex items-center gap-1">
-                  <span className="text-slate-400 dark:text-slate-500">Total:</span>
+                <div>
+                  <span className="text-slate-400 dark:text-slate-500">Total: </span>
                   <span className="font-semibold text-slate-900 dark:text-white tabular-nums">
-                    {(team.totalValue / 1000).toFixed(1)}k
+                    {(team.totalValue / 1000).toFixed(0)}k
                   </span>
                 </div>
               </div>
