@@ -1,4 +1,5 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { 
   Trophy, 
@@ -14,9 +15,11 @@ import {
   UserPlus,
   UserMinus,
   Clock,
-  Minus
+  Minus,
+  Newspaper
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { ArticlePreviewCard } from '../components/articles';
 
 interface Player {
   player_id: string;
@@ -36,6 +39,18 @@ interface LeagueUser {
   display_name: string | null;
 }
 
+interface Article {
+  id: string;
+  title: string;
+  subtitle: string | null;
+  content: string;
+  article_type: string;
+  embedded_data: {
+    trades?: string[];
+  };
+  generated_at: string;
+}
+
 const positionColors: Record<string, string> = {
   QB: 'bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-400',
   RB: 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400',
@@ -45,8 +60,11 @@ const positionColors: Record<string, string> = {
   DEF: 'bg-purple-100 dark:bg-purple-500/20 text-purple-700 dark:text-purple-400',
 };
 
-export default function Dashboard() {
-  // Fetch all data needed for dashboard
+export default function Home() {
+  const queryClient = useQueryClient();
+  const [isGeneratingDaily, setIsGeneratingDaily] = useState(false);
+
+  // Fetch all data needed for home page
   const { data: dashboardData, isLoading } = useQuery({
     queryKey: ['dashboard-full'],
     queryFn: async () => {
@@ -60,6 +78,7 @@ export default function Dashboard() {
         playerValuesRes,
         draftPicksRes,
         draftsRes,
+        articlesRes,
       ] = await Promise.all([
         supabase.from('leagues').select('*').order('created_at', { ascending: false }).limit(1),
         supabase.from('rosters').select('*').order('wins', { ascending: false }),
@@ -70,6 +89,7 @@ export default function Dashboard() {
         supabase.from('player_values').select('player_id, value'),
         supabase.from('draft_picks').select(`draft_slot, round, player_id, roster_id, draft_id, drafts!inner(season)`).not('player_id', 'is', null),
         supabase.from('drafts').select('draft_id, season').order('season', { ascending: true }).limit(1),
+        supabase.from('articles').select('*').eq('published', true).order('generated_at', { ascending: false }).limit(15),
       ]);
 
       // Build player map
@@ -88,7 +108,6 @@ export default function Dashboard() {
       });
 
       // Build roster_id to draft_slot mapping from startup draft
-      // In dynasty leagues, each roster's draft slot is determined by their position in the startup draft
       const rosterToDraftSlotMap = new Map<number, number>();
       const startupDraftId = draftsRes.data?.[0]?.draft_id;
       if (startupDraftId) {
@@ -105,7 +124,26 @@ export default function Dashboard() {
         rosterToOwner.set(r.roster_id, r.owner_id);
       });
 
-      // Process standings (exact same logic as Standings.tsx)
+      // Build transactions map for article embeds
+      const transactionsMap = new Map<string, any>();
+      const transactionTeamsMap = new Map<string, { rosterId: number; teamName: string }[]>();
+      
+      (transactionsRes.data as any[] || []).forEach((tx: any) => {
+        transactionsMap.set(tx.transaction_id, tx);
+        
+        const rosterOwners = tx.roster_ids?.map((rosterId: number) => {
+          const ownerId = rosterToOwner.get(rosterId);
+          const owner = (usersRes.data as any[])?.find((u: any) => u.user_id === ownerId);
+          const leagueUser = (leagueUsersRes.data as LeagueUser[])?.find((lu: LeagueUser) => lu.user_id === ownerId);
+          return {
+            rosterId,
+            teamName: leagueUser?.team_name || leagueUser?.display_name || owner?.display_name || `Team ${rosterId}`,
+          };
+        }) || [];
+        transactionTeamsMap.set(tx.transaction_id, rosterOwners);
+      });
+
+      // Process standings
       const standings = (rostersRes.data as any[] || [])
         .map((roster: any) => {
           const owner = (usersRes.data as any[])?.find((u: any) => u.user_id === roster.owner_id);
@@ -132,7 +170,7 @@ export default function Dashboard() {
         .sort((a, b) => b.wins - a.wins || b.totalPoints - a.totalPoints)
         .map((team, idx) => ({ ...team, rank: idx + 1 }));
 
-      // Process transactions (exact same logic as Transactions.tsx)
+      // Process transactions
       const allTransactions = (transactionsRes.data as any[] || []);
       const sortedTransactions = allTransactions
         .sort((a: any, b: any) => {
@@ -168,9 +206,37 @@ export default function Dashboard() {
         playerValues: playerValuesMap,
         draftPickResults: draftPickResultsMap,
         rosterToDraftSlot: rosterToDraftSlotMap,
+        articles: (articlesRes.data as Article[]) || [],
+        transactionsMap,
+        transactionTeamsMap,
       };
     },
   });
+
+  const handleGenerateDailyArticles = async () => {
+    setIsGeneratingDaily(true);
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-daily-articles`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+      
+      if (response.ok) {
+        // Refetch to get the new articles
+        queryClient.invalidateQueries({ queryKey: ['dashboard-full'] });
+      }
+    } catch (error) {
+      console.error('Failed to generate daily articles:', error);
+    } finally {
+      setIsGeneratingDaily(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -178,7 +244,7 @@ export default function Dashboard() {
         <div className="flex items-center justify-center h-96">
           <div className="text-center">
             <Loader2 className="h-8 w-8 sm:h-10 sm:w-10 animate-spin text-accent-500 mx-auto" />
-            <p className="mt-4 text-slate-500 dark:text-slate-400 text-xs sm:text-sm">Loading dashboard...</p>
+            <p className="mt-4 text-slate-500 dark:text-slate-400 text-xs sm:text-sm">Loading home...</p>
           </div>
         </div>
       </div>
@@ -210,19 +276,24 @@ export default function Dashboard() {
     );
   }
 
-  const { standings, transactions, transactionCount, players, playerValues, draftPickResults, rosterToDraftSlot } = dashboardData;
+  const { 
+    standings, 
+    transactions, 
+    transactionCount, 
+    players, 
+    playerValues, 
+    draftPickResults, 
+    rosterToDraftSlot,
+    articles,
+  } = dashboardData;
 
   const getPlayer = (playerId: string): Player | undefined => players?.get(playerId);
   const getPlayerValue = (playerId: string): number => playerValues?.get(playerId) || 0;
   
   const getPickResult = (pick: any): { playerId: string; player: Player | undefined } | null => {
     if (!draftPickResults || !rosterToDraftSlot) return null;
-    
-    // The pick's roster_id represents "this roster's pick" - we need to map it to the actual draft_slot
-    // In dynasty leagues, roster_id doesn't equal draft_slot - we use the startup draft mapping
     const draftSlot = rosterToDraftSlot.get(pick.roster_id);
     if (!draftSlot) return null;
-    
     const key = `${pick.season}-${pick.round}-${draftSlot}`;
     const playerId = draftPickResults.get(key);
     if (!playerId) return null;
@@ -235,7 +306,6 @@ export default function Dashboard() {
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   };
 
-  // Standings helpers (same as Standings.tsx)
   const getRankIcon = (rank: number) => {
     if (rank === 1) return <Crown className="h-5 w-5 text-yellow-500" />;
     if (rank === 2) return <Medal className="h-5 w-5 text-slate-400" />;
@@ -250,7 +320,6 @@ export default function Dashboard() {
     return '';
   };
 
-  // Transaction type styles (same as Transactions.tsx)
   const getTypeStyles = (type: string) => {
     switch (type) {
       case 'trade':
@@ -264,7 +333,6 @@ export default function Dashboard() {
     }
   };
 
-  // Trade card helper - get assets for each team
   const getTradeAssets = (tx: any) => {
     const teamAssets: Record<number, { players: string[]; picks: any[]; value: number }> = {};
     tx.teams?.forEach((team: any) => {
@@ -290,7 +358,7 @@ export default function Dashboard() {
     return teamAssets;
   };
 
-  // Trade Card Component (exact same as Transactions.tsx)
+  // Trade Card Component
   const TradeCard = ({ tx }: { tx: any }) => {
     const teamAssets = getTradeAssets(tx);
     const teams = tx.teams || [];
@@ -498,7 +566,7 @@ export default function Dashboard() {
     );
   };
 
-  // Roster Move Card Component (exact same as Transactions.tsx)
+  // Roster Move Card Component
   const RosterMoveCard = ({ tx }: { tx: any }) => {
     const styles = getTypeStyles(tx.type);
     const Icon = styles.icon;
@@ -597,10 +665,82 @@ export default function Dashboard() {
     <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">Dashboard</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">Home</h1>
       </div>
 
-      {/* Standings Section - Exact same as Standings.tsx */}
+      {/* League News Section */}
+      <div className="mb-6 sm:mb-8">
+        <div className="flex items-center justify-between mb-3 sm:mb-4">
+          <h2 className="text-sm sm:text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+            <Newspaper className="h-4 w-4 sm:h-5 sm:w-5 text-accent-500" />
+            League News
+            {articles.length > 0 && (
+              <span className="text-xs font-normal text-slate-400 dark:text-slate-500">
+                ({articles.length} articles)
+              </span>
+            )}
+          </h2>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleGenerateDailyArticles}
+              disabled={isGeneratingDaily}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-slate-200 dark:border-zinc-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {isGeneratingDaily ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  Generating...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="h-3.5 w-3.5" />
+                  Generate Daily
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+
+        {articles.length === 0 ? (
+          <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-slate-200 dark:border-zinc-800 p-8 sm:p-12 text-center">
+            <div className="w-16 h-16 bg-accent-100 dark:bg-accent-500/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <Newspaper className="h-8 w-8 text-accent-600 dark:text-accent-400" />
+            </div>
+            <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-2">No Articles Yet</h3>
+            <p className="text-slate-500 dark:text-slate-400 text-sm mb-6 max-w-sm mx-auto">
+              Generate daily AI-powered league news articles to get insights on trades, standings, and more.
+            </p>
+            <button
+              onClick={handleGenerateDailyArticles}
+              disabled={isGeneratingDaily}
+              className="inline-flex items-center gap-2 px-4 py-2.5 bg-accent-500 text-white text-sm font-medium rounded-lg hover:bg-accent-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {isGeneratingDaily ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Generating 15 Articles...
+                </>
+              ) : (
+                <>
+                  <Newspaper className="h-4 w-4" />
+                  Generate Daily Articles
+                </>
+              )}
+            </button>
+          </div>
+        ) : (
+          <div className="bg-white dark:bg-zinc-900 rounded-xl border border-slate-200 dark:border-zinc-800 divide-y divide-slate-100 dark:divide-zinc-800 overflow-hidden">
+            {articles.map((article) => (
+              <ArticlePreviewCard
+                key={article.id}
+                article={article}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Standings Section */}
       <div className="mb-4 sm:mb-6">
         <div className="flex items-center justify-between mb-3 sm:mb-4">
           <h2 className="text-sm sm:text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2">
@@ -612,82 +752,52 @@ export default function Dashboard() {
           </Link>
         </div>
 
-        {/* Top 3 - Podium Style: 2nd (left), 1st (center, tallest), 3rd (right, shortest) */}
+        {/* Top 3 - Podium Style */}
         <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-3 sm:mb-4 items-end">
-          {/* 2nd Place - Left, Medium Height */}
+          {/* 2nd Place */}
           {standings[1] && (
-            <div
-              className={`rounded-xl border ${getRankBgClass(2)} pt-3 sm:pt-5 pb-3 sm:pb-5 px-3 sm:px-5 flex flex-col min-h-[120px] sm:min-h-[180px]`}
-            >
+            <div className={`rounded-xl border ${getRankBgClass(2)} pt-3 sm:pt-5 pb-3 sm:pb-5 px-3 sm:px-5 flex flex-col min-h-[120px] sm:min-h-[180px]`}>
               <div className="flex items-center gap-1.5 sm:gap-2 mb-2 sm:mb-3">
-                <div className="[&>svg]:h-4 [&>svg]:w-4 sm:[&>svg]:h-5 sm:[&>svg]:w-5">
-                  {getRankIcon(2)}
-                </div>
-                <span className="text-[10px] sm:text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide hidden sm:inline">
-                  Second Place
-                </span>
-                <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide sm:hidden">
-                  2ND
-                </span>
+                <div className="[&>svg]:h-4 [&>svg]:w-4 sm:[&>svg]:h-5 sm:[&>svg]:w-5">{getRankIcon(2)}</div>
+                <span className="text-[10px] sm:text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide hidden sm:inline">Second Place</span>
+                <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide sm:hidden">2ND</span>
               </div>
               <h3 className="font-bold text-slate-900 dark:text-white text-xs sm:text-lg truncate">{standings[1].teamName}</h3>
               <p className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 mt-0.5 sm:mt-1 truncate hidden sm:block">{standings[1].ownerName}</p>
               <div className="mt-auto pt-2 sm:pt-3 flex items-baseline gap-1 sm:gap-2">
-                <span className="text-lg sm:text-2xl font-bold text-slate-900 dark:text-white">
-                  {standings[1].wins}-{standings[1].losses}
-                </span>
+                <span className="text-lg sm:text-2xl font-bold text-slate-900 dark:text-white">{standings[1].wins}-{standings[1].losses}</span>
               </div>
             </div>
           )}
 
-          {/* 1st Place - Center, Tallest */}
+          {/* 1st Place */}
           {standings[0] && (
-            <div
-              className={`rounded-xl border ${getRankBgClass(1)} pt-3 sm:pt-5 pb-4 sm:pb-6 px-3 sm:px-5 flex flex-col min-h-[140px] sm:min-h-[220px]`}
-            >
+            <div className={`rounded-xl border ${getRankBgClass(1)} pt-3 sm:pt-5 pb-4 sm:pb-6 px-3 sm:px-5 flex flex-col min-h-[140px] sm:min-h-[220px]`}>
               <div className="flex items-center gap-1.5 sm:gap-2 mb-2 sm:mb-3">
-                <div className="[&>svg]:h-5 [&>svg]:w-5 sm:[&>svg]:h-6 sm:[&>svg]:w-6">
-                  {getRankIcon(1)}
-                </div>
-                <span className="text-[10px] sm:text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide hidden sm:inline">
-                  First Place
-                </span>
-                <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide sm:hidden">
-                  1ST
-                </span>
+                <div className="[&>svg]:h-5 [&>svg]:w-5 sm:[&>svg]:h-6 sm:[&>svg]:w-6">{getRankIcon(1)}</div>
+                <span className="text-[10px] sm:text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide hidden sm:inline">First Place</span>
+                <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide sm:hidden">1ST</span>
               </div>
               <h3 className="font-bold text-slate-900 dark:text-white text-xs sm:text-lg truncate">{standings[0].teamName}</h3>
               <p className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 mt-0.5 sm:mt-1 truncate hidden sm:block">{standings[0].ownerName}</p>
               <div className="mt-auto pt-2 sm:pt-4 flex items-baseline gap-1 sm:gap-2">
-                <span className="text-lg sm:text-2xl font-bold text-slate-900 dark:text-white">
-                  {standings[0].wins}-{standings[0].losses}
-                </span>
+                <span className="text-lg sm:text-2xl font-bold text-slate-900 dark:text-white">{standings[0].wins}-{standings[0].losses}</span>
               </div>
             </div>
           )}
 
-          {/* 3rd Place - Right, Shortest */}
+          {/* 3rd Place */}
           {standings[2] && (
-            <div
-              className={`rounded-xl border ${getRankBgClass(3)} pt-3 sm:pt-4 pb-2.5 sm:pb-4 px-3 sm:px-5 flex flex-col min-h-[100px] sm:min-h-[140px]`}
-            >
+            <div className={`rounded-xl border ${getRankBgClass(3)} pt-3 sm:pt-4 pb-2.5 sm:pb-4 px-3 sm:px-5 flex flex-col min-h-[100px] sm:min-h-[140px]`}>
               <div className="flex items-center gap-1.5 sm:gap-2 mb-1.5 sm:mb-2">
-                <div className="[&>svg]:h-4 [&>svg]:w-4 sm:[&>svg]:h-5 sm:[&>svg]:w-5">
-                  {getRankIcon(3)}
-                </div>
-                <span className="text-[10px] sm:text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide hidden sm:inline">
-                  Third Place
-                </span>
-                <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide sm:hidden">
-                  3RD
-                </span>
+                <div className="[&>svg]:h-4 [&>svg]:w-4 sm:[&>svg]:h-5 sm:[&>svg]:w-5">{getRankIcon(3)}</div>
+                <span className="text-[10px] sm:text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide hidden sm:inline">Third Place</span>
+                <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide sm:hidden">3RD</span>
               </div>
               <h3 className="font-bold text-slate-900 dark:text-white text-xs sm:text-lg truncate">{standings[2].teamName}</h3>
               <p className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate hidden sm:block">{standings[2].ownerName}</p>
               <div className="mt-auto pt-1.5 sm:pt-3 flex items-baseline gap-1 sm:gap-2">
-                <span className="text-lg sm:text-2xl font-bold text-slate-900 dark:text-white">
-                  {standings[2].wins}-{standings[2].losses}
-                </span>
+                <span className="text-lg sm:text-2xl font-bold text-slate-900 dark:text-white">{standings[2].wins}-{standings[2].losses}</span>
               </div>
             </div>
           )}
@@ -714,11 +824,7 @@ export default function Dashboard() {
                     <td className="px-2 sm:px-5 py-2 sm:py-4">
                       <div className="flex items-center gap-1 sm:gap-2">
                         {team.rank <= 3 && (
-                          <Medal
-                            className={`h-3.5 w-3.5 sm:h-4 sm:w-4 ${
-                              team.rank === 1 ? 'text-amber-500' : team.rank === 2 ? 'text-slate-400' : 'text-orange-500'
-                            }`}
-                          />
+                          <Medal className={`h-3.5 w-3.5 sm:h-4 sm:w-4 ${team.rank === 1 ? 'text-amber-500' : team.rank === 2 ? 'text-slate-400' : 'text-orange-500'}`} />
                         )}
                         <span className="font-semibold text-xs sm:text-sm text-slate-900 dark:text-white">{team.rank}</span>
                       </div>
@@ -747,9 +853,7 @@ export default function Dashboard() {
                         <div className="w-12 h-1.5 bg-slate-200 dark:bg-zinc-700 rounded-full overflow-hidden">
                           <div className="h-full bg-accent-500 rounded-full" style={{ width: `${team.winPct * 100}%` }} />
                         </div>
-                        <span className="text-sm text-slate-600 dark:text-slate-400 tabular-nums">
-                          {(team.winPct * 100).toFixed(0)}%
-                        </span>
+                        <span className="text-sm text-slate-600 dark:text-slate-400 tabular-nums">{(team.winPct * 100).toFixed(0)}%</span>
                       </div>
                     </td>
                     <td className="px-2 sm:px-5 py-2 sm:py-4 text-right font-medium text-xs sm:text-sm text-slate-900 dark:text-white tabular-nums">
@@ -759,9 +863,7 @@ export default function Dashboard() {
                       {team.pointsAgainst.toFixed(1)}
                     </td>
                     <td className="hidden sm:table-cell px-5 py-4 text-right">
-                      <span className={`inline-flex items-center gap-1 font-medium tabular-nums ${
-                        team.pointsDiff > 0 ? 'text-accent-600 dark:text-accent-400' : team.pointsDiff < 0 ? 'text-red-500 dark:text-red-400' : 'text-slate-500 dark:text-slate-400'
-                      }`}>
+                      <span className={`inline-flex items-center gap-1 font-medium tabular-nums ${team.pointsDiff > 0 ? 'text-accent-600 dark:text-accent-400' : team.pointsDiff < 0 ? 'text-red-500 dark:text-red-400' : 'text-slate-500 dark:text-slate-400'}`}>
                         {team.pointsDiff > 0 ? <TrendingUp className="h-3.5 w-3.5" /> : team.pointsDiff < 0 ? <TrendingDown className="h-3.5 w-3.5" /> : null}
                         {team.pointsDiff > 0 ? '+' : ''}{team.pointsDiff.toFixed(1)}
                       </span>
@@ -774,7 +876,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Recent Transactions Section - Exact same cards as Transactions.tsx */}
+      {/* Recent Transactions Section */}
       <div>
         <div className="flex items-center justify-between mb-3 sm:mb-4">
           <h2 className="text-sm sm:text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2">

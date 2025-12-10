@@ -213,6 +213,22 @@ export interface Database {
           completed_at: string | null;
         };
       };
+      articles: {
+        Row: {
+          id: string;
+          league_id: string | null;
+          title: string;
+          subtitle: string | null;
+          content: string;
+          article_type: string;
+          embedded_data: {
+            trades?: string[];
+          };
+          generated_at: string;
+          published: boolean;
+          created_at: string;
+        };
+      };
     };
   };
 }

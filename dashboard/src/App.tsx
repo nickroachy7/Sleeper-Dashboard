@@ -1,6 +1,7 @@
 import { Routes, Route } from 'react-router-dom';
 import Layout from './components/Layout';
-import Dashboard from './pages/Dashboard';
+import Home from './pages/Home';
+import ArticlePage from './pages/ArticlePage';
 import LeagueSetup from './pages/LeagueSetup';
 import Standings from './pages/Standings';
 import Rosters from './pages/Rosters';
@@ -19,7 +20,8 @@ function App() {
   return (
     <Routes>
       <Route path="/" element={<Layout />}>
-        <Route index element={<Dashboard />} />
+        <Route index element={<Home />} />
+        <Route path="article" element={<ArticlePage />} />
         <Route path="setup" element={<LeagueSetup />} />
         <Route path="standings" element={<Standings />} />
         <Route path="rosters" element={<Rosters />} />
