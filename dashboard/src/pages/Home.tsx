@@ -14,7 +14,8 @@ import {
   UserMinus,
   Clock,
   Minus,
-  Newspaper
+  Newspaper,
+  CircleDot
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { ArticlePreviewCard } from '../components/articles';
@@ -300,7 +301,7 @@ export default function Home() {
       case 'free_agent':
         return { icon: UserPlus, text: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-100 dark:bg-emerald-500/20' };
       default:
-        return { icon: RefreshCw, text: 'text-slate-600 dark:text-slate-400', bg: 'bg-slate-100 dark:bg-zinc-800' };
+        return { icon: CircleDot, text: 'text-slate-600 dark:text-slate-400', bg: 'bg-slate-100 dark:bg-zinc-800' };
     }
   };
 
