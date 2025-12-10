@@ -8,4 +8,4 @@ cmds = ["cd dashboard && npm ci"]
 cmds = ["cd dashboard && npm run build"]
 
 [start]
-cmd = "cd dashboard && npm run preview -- --host 0.0.0.0 --port ${PORT:-3000}"
+cmd = "cd dashboard && npm run serve"
