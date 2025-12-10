@@ -1,4 +1,4 @@
-import { Trophy } from 'lucide-react';
+import { Trophy, Medal } from 'lucide-react';
 
 interface StandingsTeam {
   rank: number;
@@ -17,15 +17,7 @@ interface StandingsEmbedProps {
   title?: string;
 }
 
-function getRankStyles(rank: number): string {
-  if (rank === 1) return 'bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-500/30';
-  if (rank === 2) return 'bg-slate-100 dark:bg-slate-500/20 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-500/30';
-  if (rank === 3) return 'bg-orange-100 dark:bg-orange-500/20 text-orange-700 dark:text-orange-400 border-orange-200 dark:border-orange-500/30';
-  if (rank <= 6) return 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-100 dark:border-emerald-500/20';
-  return 'bg-slate-50 dark:bg-zinc-800/50 text-slate-600 dark:text-slate-400 border-slate-100 dark:border-zinc-700';
-}
-
-export function StandingsEmbed({ standings, highlightTeams, title }: StandingsEmbedProps) {
+export function StandingsEmbed({ standings, title }: StandingsEmbedProps) {
   if (!standings || standings.length === 0) return null;
 
   return (
@@ -38,52 +30,61 @@ export function StandingsEmbed({ standings, highlightTeams, title }: StandingsEm
         </h4>
       </div>
 
-      {/* Card-based layout */}
-      <div className="divide-y divide-slate-100 dark:divide-zinc-800">
-        {standings.map((team) => {
-          const isHighlighted = highlightTeams?.includes(team.teamName);
-          return (
-            <div 
-              key={team.rank} 
-              className={`px-4 py-4 ${isHighlighted ? 'bg-accent-50 dark:bg-accent-500/10' : ''}`}
-            >
-              {/* Top row: Rank, Team, Record */}
-              <div className="flex items-center gap-3">
-                <span className={`inline-flex items-center justify-center w-8 h-8 rounded-full text-sm font-bold border flex-shrink-0 ${getRankStyles(team.rank)}`}>
-                  {team.rank}
-                </span>
-                <span className={`font-semibold text-base flex-1 ${isHighlighted ? 'text-accent-600 dark:text-accent-400' : 'text-slate-900 dark:text-white'}`}>
-                  {team.teamName}
-                </span>
-                <span className="font-bold text-base text-slate-700 dark:text-slate-300 tabular-nums">
-                  {team.wins}-{team.losses}
-                </span>
-              </div>
-              
-              {/* Bottom row: Values - with more spacing */}
-              <div className="flex items-center gap-4 mt-2 ml-11 text-sm">
-                <div>
-                  <span className="text-slate-400 dark:text-slate-500">Players: </span>
-                  <span className="font-medium text-slate-600 dark:text-slate-300 tabular-nums">
-                    {(team.playerValue / 1000).toFixed(0)}k
+      {/* Table - matches Standings page exactly */}
+      <div className="overflow-x-auto">
+        <table className="w-full">
+          <thead>
+            <tr className="bg-slate-50 dark:bg-zinc-800/50 border-b border-slate-100 dark:border-zinc-700">
+              <th className="px-2 sm:px-5 py-2.5 sm:py-4 text-left text-[10px] sm:text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                Rank
+              </th>
+              <th className="px-2 sm:px-5 py-2.5 sm:py-4 text-left text-[10px] sm:text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                Team
+              </th>
+              <th className="px-2 sm:px-5 py-2.5 sm:py-4 text-center text-[10px] sm:text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                Record
+              </th>
+              <th className="px-2 sm:px-5 py-2.5 sm:py-4 text-right text-[10px] sm:text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                PF
+              </th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100 dark:divide-zinc-800">
+            {standings.map((team) => (
+              <tr key={team.rank} className="hover:bg-slate-50 dark:hover:bg-zinc-800/50 transition-colors">
+                <td className="px-2 sm:px-5 py-2 sm:py-4">
+                  <div className="flex items-center gap-1 sm:gap-2">
+                    {team.rank <= 3 && (
+                      <Medal
+                        className={`h-3 w-3 sm:h-4 sm:w-4 ${
+                          team.rank === 1
+                            ? 'text-amber-500'
+                            : team.rank === 2
+                            ? 'text-slate-400'
+                            : 'text-orange-500'
+                        }`}
+                      />
+                    )}
+                    <span className="text-xs sm:text-sm font-semibold text-slate-900 dark:text-white">{team.rank}</span>
+                  </div>
+                </td>
+                <td className="px-2 sm:px-5 py-2 sm:py-4">
+                  <span className="text-xs sm:text-sm font-semibold text-slate-900 dark:text-white">{team.teamName}</span>
+                </td>
+                <td className="px-2 sm:px-5 py-2 sm:py-4 text-center">
+                  <span className="inline-flex items-center gap-0.5 sm:gap-1 text-xs sm:text-sm font-medium">
+                    <span className="text-accent-600 dark:text-accent-400">{team.wins}</span>
+                    <span className="text-slate-300 dark:text-zinc-600">-</span>
+                    <span className="text-red-500 dark:text-red-400">{team.losses}</span>
                   </span>
-                </div>
-                <div>
-                  <span className="text-slate-400 dark:text-slate-500">Picks: </span>
-                  <span className="font-medium text-purple-600 dark:text-purple-400 tabular-nums">
-                    {(team.pickValue / 1000).toFixed(0)}k
-                  </span>
-                </div>
-                <div>
-                  <span className="text-slate-400 dark:text-slate-500">Total: </span>
-                  <span className="font-semibold text-slate-900 dark:text-white tabular-nums">
-                    {(team.totalValue / 1000).toFixed(0)}k
-                  </span>
-                </div>
-              </div>
-            </div>
-          );
-        })}
+                </td>
+                <td className="px-2 sm:px-5 py-2 sm:py-4 text-right text-xs sm:text-sm font-medium text-slate-900 dark:text-white tabular-nums">
+                  {team.points.toFixed(1)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );
