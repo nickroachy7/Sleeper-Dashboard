@@ -39,23 +39,18 @@ const VALID_ARTICLE_TYPES = [
   "general",
 ] as const;
 
-// Story prompts mapped to valid article types (for variety in generation)
-const STORY_PROMPTS: { type: string; prompt: string }[] = [
-  { type: "power_rankings", prompt: "power rankings analysis" },
-  { type: "trade", prompt: "trade analysis and evaluation" },
-  { type: "hot_streak", prompt: "hot streak / contender spotlight" },
-  { type: "cold_streak", prompt: "cold streak / team struggling" },
-  { type: "standings", prompt: "standings breakdown and analysis" },
-  { type: "recap", prompt: "weekly or recent activity recap" },
-  { type: "rivalry", prompt: "rivalry or matchup drama" },
-  { type: "unlucky_team", prompt: "unlucky team that deserves better" },
-  { type: "dynasty_outlook", prompt: "dynasty value and future outlook" },
-  { type: "roster", prompt: "roster construction analysis" },
-  { type: "playoff_race", prompt: "playoff race and positioning" },
-  { type: "lucky_team", prompt: "lucky team overperforming" },
-  { type: "bust_alert", prompt: "bust alert or overrated team" },
-  { type: "sleeper_pick", prompt: "sleeper pick or underrated player/team" },
-  { type: "matchup_preview", prompt: "upcoming matchup preview" },
+// Story prompts with team focus indices to ensure variety
+// teamFocus: 0=first place, 1=second, 2=third, etc. -1=last, -2=second last, etc.
+// "middle" means pick from ranks 4-9
+const STORY_PROMPTS: { type: string; prompt: string; teamFocus: string }[] = [
+  { type: "power_rankings", prompt: "power rankings overview focusing on the top 3 teams", teamFocus: "top3" },
+  { type: "trade", prompt: "recent trade analysis", teamFocus: "traders" },
+  { type: "roster", prompt: "team spotlight on a middle-of-the-pack team (ranks 4-8)", teamFocus: "middle" },
+  { type: "dynasty_outlook", prompt: "dynasty outlook for a rebuilding team with high pick value", teamFocus: "rebuilder" },
+  { type: "standings", prompt: "playoff bubble teams fighting for position (ranks 5-8)", teamFocus: "bubble" },
+  { type: "hot_streak", prompt: "spotlight on the 2nd or 3rd place team", teamFocus: "contender" },
+  { type: "cold_streak", prompt: "analysis of a struggling team in the bottom half", teamFocus: "bottom" },
+  { type: "playoff_race", prompt: "playoff race analysis for teams ranked 3-6", teamFocus: "race" },
 ];
 
 interface StandingsTeam {
@@ -66,7 +61,9 @@ interface StandingsTeam {
   losses: number;
   totalPoints: number;
   pointsAgainst: number;
-  rosterValue: number;
+  playerValue: number;  // Value of players only
+  pickValue: number;    // Value of draft picks owned
+  totalValue: number;   // Combined player + pick value
 }
 
 interface TradeData {
@@ -98,6 +95,8 @@ async function fetchLeagueContext(supabase: any, leagueId: string): Promise<Leag
     leagueUsersRes,
     playersRes,
     playerValuesRes,
+    pickValuesRes,
+    tradedPicksRes,
   ] = await Promise.all([
     supabase.from("leagues").select("*").eq("league_id", leagueId).single(),
     supabase.from("rosters").select("*").eq("league_id", leagueId),
@@ -106,6 +105,8 @@ async function fetchLeagueContext(supabase: any, leagueId: string): Promise<Leag
     supabase.from("league_users").select("*").eq("league_id", leagueId),
     supabase.from("players").select("player_id, full_name, position, team"),
     supabase.from("player_values").select("player_id, value"),
+    supabase.from("pick_values").select("pick_year, pick_round, pick_tier, value"),
+    supabase.from("traded_picks").select("*").eq("league_id", leagueId),
   ]);
 
   const league = leagueRes.data;
@@ -115,6 +116,8 @@ async function fetchLeagueContext(supabase: any, leagueId: string): Promise<Leag
   const leagueUsers = leagueUsersRes.data || [];
   const players = playersRes.data || [];
   const playerValues = playerValuesRes.data || [];
+  const pickValues = pickValuesRes.data || [];
+  const tradedPicks = tradedPicksRes.data || [];
 
   // Build lookup maps
   const playerMap = new Map(players.map((p: any) => [p.player_id, p]));
@@ -128,11 +131,74 @@ async function fetchLeagueContext(supabase: any, leagueId: string): Promise<Leag
     return leagueUser?.team_name || leagueUser?.display_name || user?.display_name || user?.username || `Team ${rosterId}`;
   };
 
+  // Helper to get pick tier based on team's standing
+  const getPickTier = (rosterId: number): string => {
+    const roster = rosters.find((r: any) => r.roster_id === rosterId);
+    if (!roster) return "Mid";
+    const wins = roster.wins || 0;
+    const totalRosters = rosters.length;
+    // Sort rosters by wins to determine tier
+    const sortedByWins = [...rosters].sort((a: any, b: any) => (b.wins || 0) - (a.wins || 0));
+    const rank = sortedByWins.findIndex((r: any) => r.roster_id === rosterId) + 1;
+    if (rank <= Math.floor(totalRosters / 3)) return "Late"; // Top third = late picks
+    if (rank >= Math.ceil(totalRosters * 2 / 3)) return "Early"; // Bottom third = early picks
+    return "Mid";
+  };
+
+  // Calculate pick value for a roster
+  const calculatePickValue = (rosterId: number): number => {
+    let pickValue = 0;
+    const years = ["2025", "2026", "2027"];
+    const rounds = [1, 2, 3, 4];
+
+    for (const year of years) {
+      for (const round of rounds) {
+        // Check if pick was traded away
+        const tradedPick = tradedPicks.find(
+          (tp: any) => tp.season === year && tp.round === round && tp.roster_id === rosterId
+        );
+        
+        const currentOwnerId = tradedPick ? tradedPick.owner_id : rosterId;
+        
+        if (currentOwnerId === rosterId) {
+          const originalRosterId = tradedPick ? tradedPick.roster_id : rosterId;
+          const tier = getPickTier(originalRosterId);
+          
+          const pv = pickValues.find(
+            (p: any) => p.pick_year === year && p.pick_round === round && p.pick_tier === tier
+          );
+          
+          if (pv) {
+            pickValue += pv.value;
+          }
+        }
+      }
+    }
+
+    // Also check for picks traded TO this roster from other rosters
+    const picksOwnedFromOthers = tradedPicks.filter(
+      (tp: any) => tp.owner_id === rosterId && tp.roster_id !== rosterId
+    );
+    
+    for (const pick of picksOwnedFromOthers) {
+      const tier = getPickTier(pick.roster_id);
+      const pv = pickValues.find(
+        (p: any) => p.pick_year === pick.season && p.pick_round === pick.round && p.pick_tier === tier
+      );
+      if (pv) {
+        pickValue += pv.value;
+      }
+    }
+
+    return pickValue;
+  };
+
   // Build standings
   const standings: StandingsTeam[] = rosters
     .map((roster: any) => {
       const rosterPlayers = roster.players || [];
-      const rosterValue = rosterPlayers.reduce((sum: number, pid: string) => sum + (valueMap.get(pid) || 0), 0);
+      const playerValue = rosterPlayers.reduce((sum: number, pid: string) => sum + (valueMap.get(pid) || 0), 0);
+      const pickValue = calculatePickValue(roster.roster_id);
       const ownerId = roster.owner_id;
       const user = users.find((u: any) => u.user_id === ownerId);
       const leagueUser = leagueUsers.find((lu: any) => lu.user_id === ownerId);
@@ -145,7 +211,9 @@ async function fetchLeagueContext(supabase: any, leagueId: string): Promise<Leag
         losses: roster.losses || 0,
         totalPoints: (roster.fpts || 0) + (roster.fpts_decimal || 0) / 100,
         pointsAgainst: (roster.fpts_against || 0) + (roster.fpts_against_decimal || 0) / 100,
-        rosterValue,
+        playerValue,
+        pickValue,
+        totalValue: playerValue + pickValue,
       };
     })
     .sort((a: StandingsTeam, b: StandingsTeam) => b.wins - a.wins || b.totalPoints - a.totalPoints);
@@ -229,10 +297,17 @@ async function fetchLeagueContext(supabase: any, leagueId: string): Promise<Leag
 }
 
 // Build context string for AI - structured and explicit
-function buildDataContext(context: LeagueContext): string {
-  // Sort standings for clarity
+function buildDataContext(context: LeagueContext, focusTeams?: string[]): string {
   const leader = context.standings[0];
   const lastPlace = context.standings[context.standings.length - 1];
+  
+  // Find teams with most pick value (rebuilders)
+  const byPickValue = [...context.standings].sort((a, b) => b.pickValue - a.pickValue);
+  const topPickValue = byPickValue[0];
+  
+  // Find teams with most player value (contenders)
+  const byPlayerValue = [...context.standings].sort((a, b) => b.playerValue - a.playerValue);
+  const topPlayerValue = byPlayerValue[0];
   
   return `
 === OFFICIAL LEAGUE DATA (USE ONLY THESE EXACT VALUES) ===
@@ -241,12 +316,23 @@ LEAGUE NAME: ${context.leagueName}
 CURRENT SEASON: 2024 (in progress, no champion crowned yet)
 NOTE: There is NO "reigning champion" or "defending champion" - do not reference past champions.
 
-=== CURRENT STANDINGS (EXACT DATA - DO NOT MODIFY) ===
-Rank | Team Name | Record | Points For | Roster Value
-${context.standings.map((t, i) => `${i + 1}. ${t.teamName} | ${t.wins}-${t.losses} | ${t.totalPoints.toFixed(1)} pts | Value: ${t.rosterValue.toLocaleString()}`).join("\n")}
+IMPORTANT VALUE DISTINCTIONS:
+- "Player Value" = value of players on roster
+- "Pick Value" = value of draft picks owned
+- "Total Value" = Player Value + Pick Value combined
 
-FIRST PLACE: ${leader?.teamName} (${leader?.wins}-${leader?.losses}, ${leader?.totalPoints.toFixed(1)} pts, roster value: ${leader?.rosterValue.toLocaleString()})
-LAST PLACE: ${lastPlace?.teamName} (${lastPlace?.wins}-${lastPlace?.losses}, ${lastPlace?.totalPoints.toFixed(1)} pts, roster value: ${lastPlace?.rosterValue.toLocaleString()})
+=== CURRENT STANDINGS (EXACT DATA - DO NOT MODIFY) ===
+Rank | Team Name | Record | Points | Player Value | Pick Value | Total Value
+${context.standings.map((t, i) => `${i + 1}. ${t.teamName} | ${t.wins}-${t.losses} | ${t.totalPoints.toFixed(1)} pts | Players: ${t.playerValue.toLocaleString()} | Picks: ${t.pickValue.toLocaleString()} | Total: ${t.totalValue.toLocaleString()}`).join("\n")}
+
+=== TEAM SPOTLIGHTS ===
+FIRST PLACE: ${leader?.teamName} (${leader?.wins}-${leader?.losses}, ${leader?.totalPoints.toFixed(1)} pts, player value: ${leader?.playerValue.toLocaleString()}, pick value: ${leader?.pickValue.toLocaleString()})
+LAST PLACE: ${lastPlace?.teamName} (${lastPlace?.wins}-${lastPlace?.losses}, ${lastPlace?.totalPoints.toFixed(1)} pts, player value: ${lastPlace?.playerValue.toLocaleString()}, pick value: ${lastPlace?.pickValue.toLocaleString()})
+HIGHEST PLAYER VALUE: ${topPlayerValue?.teamName} with ${topPlayerValue?.playerValue.toLocaleString()} in player value
+MOST PICK CAPITAL: ${topPickValue?.teamName} with ${topPickValue?.pickValue.toLocaleString()} in pick value (likely rebuilding)
+
+=== MIDDLE OF THE PACK (Ranks 4-9) ===
+${context.standings.slice(3, 9).map((t, i) => `${i + 4}. ${t.teamName} (${t.wins}-${t.losses}) - Players: ${t.playerValue.toLocaleString()}, Picks: ${t.pickValue.toLocaleString()}`).join("\n")}
 
 === RECENT TRADES ===
 ${context.recentTrades.length === 0 ? "No recent trades in the last 14 days." : context.recentTrades.map(t => {
@@ -268,7 +354,7 @@ ${context.mostActiveTraders.map(t => `${t.teamName}: ${t.tradeCount} trades`).jo
 // Generate a single article using OpenAI
 async function generateArticle(
   context: LeagueContext,
-  storyPrompt: { type: string; prompt: string },
+  storyPrompt: { type: string; prompt: string; teamFocus: string },
   articleIndex: number,
   openaiKey: string
 ): Promise<{ title: string; subtitle: string; content: string; articleType: string } | null> {
@@ -278,15 +364,18 @@ async function generateArticle(
 
 CRITICAL DATA RULES (MUST FOLLOW):
 1. ONLY use data that appears in the "OFFICIAL LEAGUE DATA" section below
-2. When mentioning roster values, records, or points - use the EXACT numbers provided
-3. DO NOT invent or guess any statistics, records, or historical facts
-4. DO NOT reference "reigning champions", "defending champions", or past season results - this data is not provided
-5. DO NOT make up player values or trade values - only use what's explicitly listed
-6. If you're unsure about a fact, don't include it
+2. When mentioning values, records, or points - use the EXACT numbers provided
+3. ALWAYS distinguish between "player value" (value of players) and "pick value" (value of draft picks)
+4. DO NOT just say "roster value" - specify if you mean players, picks, or total
+5. DO NOT invent or guess any statistics, records, or historical facts
+6. DO NOT reference "reigning champions", "defending champions", or past season results
+7. DO NOT make up values - only use what's explicitly listed
+8. Focus on the SPECIFIC TEAMS mentioned in the story prompt, not just first/last place
 
 Your style:
 - Engaging and fun, like The Ringer or ESPN columnists
 - Reference team names and their EXACT stats from the data
+- When discussing value, be specific: "player value of X" or "pick value of Y" or "total value of Z"
 - Short, punchy paragraphs
 - Create drama and narrative based on the actual standings and trades
 - 200-350 words per article
@@ -297,7 +386,11 @@ Today you're writing a "${storyPrompt.prompt}" article.`;
 
 Story focus: ${storyPrompt.prompt}
 
-IMPORTANT: Only use facts from this data. Do not invent statistics or historical claims.
+IMPORTANT RULES:
+1. Only use facts from the data below
+2. Do not invent statistics or historical claims
+3. When mentioning value, ALWAYS specify: "player value", "pick value", or "total value" - never just "value" or "roster value"
+4. Focus on the teams specified in the story prompt (e.g., if it says "middle of pack", focus on ranks 4-8, NOT first or last place)
 
 ${dataContext}
 
@@ -305,7 +398,7 @@ Return valid JSON:
 {
   "title": "Catchy headline (based on actual data)",
   "subtitle": "Brief tagline",
-  "content": "Full article with **bold** for emphasis. Use EXACT values from the data above."
+  "content": "Full article with **bold** for emphasis. Use EXACT values and specify player vs pick value."
 }`;
 
   try {
