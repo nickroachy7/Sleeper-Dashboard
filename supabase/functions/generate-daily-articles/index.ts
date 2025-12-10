@@ -14,7 +14,8 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const ARTICLES_PER_DAY = 15;
+// Reduced to 5 articles to avoid timeout (each takes ~30 seconds)
+const ARTICLES_PER_DAY = 5;
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -113,6 +114,8 @@ Deno.serve(async (req) => {
           forcedStoryType: forcedStoryType || undefined,
         };
 
+        console.log(`Generating article ${i + 1}/${ARTICLES_PER_DAY}...`);
+        
         // Call the existing generate function with exclusions
         const response = await fetch(
           `${supabaseUrl}/functions/v1/generate-league-article`,
@@ -129,32 +132,45 @@ Deno.serve(async (req) => {
           }
         );
 
+        const responseText = await response.text();
+        
         if (response.ok) {
-          const result = await response.json();
-          if (result.success && result.article) {
-            generatedArticles.push(result.article);
-            
-            // Track what was used for future exclusions
-            if (result.usedTradeIds) {
-              usedTradeIds.push(...result.usedTradeIds);
+          try {
+            const result = JSON.parse(responseText);
+            if (result.success && result.article) {
+              generatedArticles.push(result.article);
+              console.log(`Article ${i + 1} generated: "${result.article.title}"`);
+              
+              // Track what was used for future exclusions
+              if (result.usedTradeIds) {
+                usedTradeIds.push(...result.usedTradeIds);
+              }
+              if (result.usedStoryType && !usedStoryTypes.includes(result.usedStoryType)) {
+                usedStoryTypes.push(result.usedStoryType);
+              }
+              if (result.usedTeams) {
+                usedTeams.push(...result.usedTeams);
+              }
+            } else {
+              console.error(`Article ${i + 1} returned success but no article:`, result);
+              errors.push(`Article ${i + 1}: No article in response`);
             }
-            if (result.usedStoryType && !usedStoryTypes.includes(result.usedStoryType)) {
-              usedStoryTypes.push(result.usedStoryType);
-            }
-            if (result.usedTeams) {
-              usedTeams.push(...result.usedTeams);
-            }
+          } catch (parseError) {
+            console.error(`Article ${i + 1} JSON parse error:`, parseError);
+            errors.push(`Article ${i + 1}: JSON parse error`);
           }
         } else {
-          errors.push(`Article ${i + 1}: ${await response.text()}`);
+          console.error(`Article ${i + 1} failed (${response.status}):`, responseText.slice(0, 500));
+          errors.push(`Article ${i + 1}: HTTP ${response.status}`);
         }
       } catch (error) {
+        console.error(`Article ${i + 1} exception:`, error);
         errors.push(`Article ${i + 1}: ${error}`);
       }
 
       // Small delay between generations to avoid rate limits
       if (i < ARTICLES_PER_DAY - 1) {
-        await new Promise(resolve => setTimeout(resolve, 1500));
+        await new Promise(resolve => setTimeout(resolve, 2000));
       }
     }
 
