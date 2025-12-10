@@ -228,24 +228,41 @@ async function fetchLeagueContext(supabase: any, leagueId: string): Promise<Leag
   };
 }
 
-// Build context string for AI
+// Build context string for AI - structured and explicit
 function buildDataContext(context: LeagueContext): string {
+  // Sort standings for clarity
+  const leader = context.standings[0];
+  const lastPlace = context.standings[context.standings.length - 1];
+  
   return `
-LEAGUE: ${context.leagueName}
+=== OFFICIAL LEAGUE DATA (USE ONLY THESE EXACT VALUES) ===
 
-STANDINGS:
-${context.standings.map((t, i) => `${i + 1}. ${t.teamName} (${t.wins}-${t.losses}) - ${t.totalPoints.toFixed(1)} pts, Value: ${t.rosterValue.toLocaleString()}`).join("\n")}
+LEAGUE NAME: ${context.leagueName}
+CURRENT SEASON: 2024 (in progress, no champion crowned yet)
+NOTE: There is NO "reigning champion" or "defending champion" - do not reference past champions.
 
-RECENT TRADES:
-${context.recentTrades.length === 0 ? "No recent trades" : context.recentTrades.map(t => {
+=== CURRENT STANDINGS (EXACT DATA - DO NOT MODIFY) ===
+Rank | Team Name | Record | Points For | Roster Value
+${context.standings.map((t, i) => `${i + 1}. ${t.teamName} | ${t.wins}-${t.losses} | ${t.totalPoints.toFixed(1)} pts | Value: ${t.rosterValue.toLocaleString()}`).join("\n")}
+
+FIRST PLACE: ${leader?.teamName} (${leader?.wins}-${leader?.losses}, ${leader?.totalPoints.toFixed(1)} pts, roster value: ${leader?.rosterValue.toLocaleString()})
+LAST PLACE: ${lastPlace?.teamName} (${lastPlace?.wins}-${lastPlace?.losses}, ${lastPlace?.totalPoints.toFixed(1)} pts, roster value: ${lastPlace?.rosterValue.toLocaleString()})
+
+=== RECENT TRADES ===
+${context.recentTrades.length === 0 ? "No recent trades in the last 14 days." : context.recentTrades.map(t => {
   const team1 = t.teams[0];
   const team2 = t.teams[1];
   const assets1 = t.assets[team1?.rosterId];
   const assets2 = t.assets[team2?.rosterId];
-  return `${team1?.teamName} receives: ${assets1?.players.map(p => p.name).join(", ") || "picks"} | ${team2?.teamName} receives: ${assets2?.players.map(p => p.name).join(", ") || "picks"} | Value diff: ${Math.abs(t.valueDiff).toLocaleString()}`;
-}).join("\n")}
+  const players1 = assets1?.players.map(p => `${p.name} (${p.position}, value: ${p.value.toLocaleString()})`).join(", ") || "draft picks only";
+  const players2 = assets2?.players.map(p => `${p.name} (${p.position}, value: ${p.value.toLocaleString()})`).join(", ") || "draft picks only";
+  return `Trade on ${t.date}:\n  - ${team1?.teamName} received: ${players1}\n  - ${team2?.teamName} received: ${players2}\n  - Value difference: ${Math.abs(t.valueDiff).toLocaleString()}`;
+}).join("\n\n")}
 
-TOP TRADERS: ${context.mostActiveTraders.map(t => `${t.teamName} (${t.tradeCount})`).join(", ")}`;
+=== MOST ACTIVE TRADERS ===
+${context.mostActiveTraders.map(t => `${t.teamName}: ${t.tradeCount} trades`).join("\n")}
+
+=== END OF DATA ===`;
 }
 
 // Generate a single article using OpenAI
@@ -257,14 +274,21 @@ async function generateArticle(
 ): Promise<{ title: string; subtitle: string; content: string; articleType: string } | null> {
   const dataContext = buildDataContext(context);
   
-  const systemPrompt = `You are a witty fantasy football columnist writing for "${context.leagueName}" dynasty league newsletter.
+  const systemPrompt = `You are a fantasy football columnist writing for "${context.leagueName}" dynasty league newsletter.
+
+CRITICAL DATA RULES (MUST FOLLOW):
+1. ONLY use data that appears in the "OFFICIAL LEAGUE DATA" section below
+2. When mentioning roster values, records, or points - use the EXACT numbers provided
+3. DO NOT invent or guess any statistics, records, or historical facts
+4. DO NOT reference "reigning champions", "defending champions", or past season results - this data is not provided
+5. DO NOT make up player values or trade values - only use what's explicitly listed
+6. If you're unsure about a fact, don't include it
 
 Your style:
 - Engaging and fun, like The Ringer or ESPN columnists
-- Use specific data (records, points, values) to back up points
-- Reference team names frequently
+- Reference team names and their EXACT stats from the data
 - Short, punchy paragraphs
-- Create drama and narrative
+- Create drama and narrative based on the actual standings and trades
 - 200-350 words per article
 
 Today you're writing a "${storyPrompt.prompt}" article.`;
@@ -273,14 +297,15 @@ Today you're writing a "${storyPrompt.prompt}" article.`;
 
 Story focus: ${storyPrompt.prompt}
 
-League data:
+IMPORTANT: Only use facts from this data. Do not invent statistics or historical claims.
+
 ${dataContext}
 
 Return valid JSON:
 {
-  "title": "Catchy headline",
+  "title": "Catchy headline (based on actual data)",
   "subtitle": "Brief tagline",
-  "content": "Full article with **bold** for emphasis"
+  "content": "Full article with **bold** for emphasis. Use EXACT values from the data above."
 }`;
 
   try {
@@ -296,7 +321,7 @@ Return valid JSON:
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
         ],
-        temperature: 0.8,
+        temperature: 0.4,
         max_tokens: 800,
         response_format: { type: "json_object" },
       }),
