@@ -15,8 +15,11 @@ import {
   Sparkles,
   ArrowLeft,
   Loader2,
-  Tv
+  Tv,
+  Share2,
+  Check
 } from 'lucide-react';
+import { useState } from 'react';
 
 interface Player {
   player_id: string;
@@ -140,6 +143,30 @@ export default function ArticlePage() {
   const location = useLocation();
   const navigate = useNavigate();
   const article = location.state?.article as Article | undefined;
+  const [copied, setCopied] = useState(false);
+
+  const handleShare = async () => {
+    if (!article) return;
+    
+    // Use the OG image endpoint for shareable links with previews
+    const shareUrl = `https://ieviegvkitwwtttgrcso.supabase.co/functions/v1/og-image?id=${article.id}`;
+    
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      // Fallback for older browsers
+      const textArea = document.createElement('textarea');
+      textArea.value = shareUrl;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
 
   // Fetch supporting data for article rendering
   const { data: supportData, isLoading } = useQuery({
@@ -317,9 +344,27 @@ export default function ArticlePage() {
             <span className={`text-sm font-semibold uppercase tracking-wide ${typeConfig.color.split(' ').slice(2).join(' ')}`}>
               {typeConfig.label}
             </span>
-            <div className="flex items-center gap-1 text-xs text-slate-400 dark:text-slate-500 ml-auto">
-              <Sparkles className="h-3.5 w-3.5" />
-              AI Generated
+            <div className="flex items-center gap-3 ml-auto">
+              <button
+                onClick={handleShare}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 rounded-lg transition-colors"
+              >
+                {copied ? (
+                  <>
+                    <Check className="h-3.5 w-3.5 text-green-500" />
+                    Copied!
+                  </>
+                ) : (
+                  <>
+                    <Share2 className="h-3.5 w-3.5" />
+                    Share
+                  </>
+                )}
+              </button>
+              <div className="flex items-center gap-1 text-xs text-slate-400 dark:text-slate-500">
+                <Sparkles className="h-3.5 w-3.5" />
+                AI Generated
+              </div>
             </div>
           </div>
 
