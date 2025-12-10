@@ -53,6 +53,86 @@ const STORY_PROMPTS: { type: string; prompt: string; teamFocus: string }[] = [
   { type: "playoff_race", prompt: "playoff race analysis for teams ranked 3-6", teamFocus: "race" },
 ];
 
+// Build embedded data based on article type for visual embeds in the UI
+function buildEmbeddedData(
+  context: LeagueContext,
+  storyPrompt: { type: string; prompt: string; teamFocus: string }
+): Record<string, any> {
+  const { type, teamFocus } = storyPrompt;
+  const embeddedData: Record<string, any> = {};
+
+  // For trade articles, include trade transaction IDs
+  if (type === "trade" && context.recentTrades.length > 0) {
+    embeddedData.trades = context.recentTrades.slice(0, 3).map(t => t.transactionId);
+  }
+
+  // For standings/power rankings articles, include standings data
+  if (type === "standings" || type === "power_rankings" || type === "playoff_race") {
+    let teamsToShow: StandingsTeam[] = [];
+    let title = "Current Standings";
+
+    if (type === "power_rankings" || teamFocus === "top3") {
+      teamsToShow = context.standings.slice(0, 6); // Top 6
+      title = "Power Rankings";
+    } else if (teamFocus === "bubble" || type === "playoff_race") {
+      teamsToShow = context.standings.slice(3, 9); // Ranks 4-9
+      title = "Playoff Bubble";
+    } else {
+      teamsToShow = context.standings; // All teams
+    }
+
+    embeddedData.standings = {
+      title,
+      teams: teamsToShow.map((t, idx) => ({
+        rank: context.standings.indexOf(t) + 1,
+        teamName: t.teamName,
+        wins: t.wins,
+        losses: t.losses,
+        points: t.totalPoints,
+        playerValue: t.playerValue,
+        pickValue: t.pickValue,
+        totalValue: t.totalValue,
+      })),
+    };
+  }
+
+  // For roster/dynasty articles, include team data
+  if (type === "roster" || type === "dynasty_outlook" || type === "hot_streak" || type === "cold_streak") {
+    let teamsToShow: StandingsTeam[] = [];
+    let title = "Team Breakdown";
+
+    if (teamFocus === "middle") {
+      teamsToShow = context.standings.slice(3, 8); // Ranks 4-8
+      title = "Middle of the Pack";
+    } else if (teamFocus === "rebuilder") {
+      // Get team with highest pick value
+      const byPickValue = [...context.standings].sort((a, b) => b.pickValue - a.pickValue);
+      teamsToShow = byPickValue.slice(0, 2);
+      title = "Rebuilding Teams";
+    } else if (teamFocus === "contender") {
+      teamsToShow = context.standings.slice(1, 4); // Ranks 2-4
+      title = "Contenders";
+    } else if (teamFocus === "bottom") {
+      teamsToShow = context.standings.slice(-4); // Bottom 4
+      title = "Struggling Teams";
+    }
+
+    embeddedData.rosters = {
+      title,
+      teams: teamsToShow.map(t => ({
+        teamName: t.teamName,
+        wins: t.wins,
+        losses: t.losses,
+        playerValue: t.playerValue,
+        pickValue: t.pickValue,
+        totalValue: t.totalValue,
+      })),
+    };
+  }
+
+  return embeddedData;
+}
+
 interface StandingsTeam {
   rosterId: number;
   teamName: string;
@@ -131,24 +211,31 @@ async function fetchLeagueContext(supabase: any, leagueId: string): Promise<Leag
     return leagueUser?.team_name || leagueUser?.display_name || user?.display_name || user?.username || `Team ${rosterId}`;
   };
 
-  // Helper to get pick tier based on team's standing
+  // Helper to get pick tier based on team's standing (matches Rosters.tsx logic)
   const getPickTier = (rosterId: number): string => {
     const roster = rosters.find((r: any) => r.roster_id === rosterId);
     if (!roster) return "Mid";
-    const wins = roster.wins || 0;
     const totalRosters = rosters.length;
-    // Sort rosters by wins to determine tier
-    const sortedByWins = [...rosters].sort((a: any, b: any) => (b.wins || 0) - (a.wins || 0));
-    const rank = sortedByWins.findIndex((r: any) => r.roster_id === rosterId) + 1;
-    if (rank <= Math.floor(totalRosters / 3)) return "Late"; // Top third = late picks
-    if (rank >= Math.ceil(totalRosters * 2 / 3)) return "Early"; // Bottom third = early picks
-    return "Mid";
+    // Sort rosters by wins, then by fpts as tiebreaker (same as Rosters page)
+    const sortedRosters = [...rosters].sort((a: any, b: any) => {
+      const winsA = a.wins || 0;
+      const winsB = b.wins || 0;
+      if (winsA !== winsB) return winsB - winsA;
+      const fptsA = Number(a.fpts) || 0;
+      const fptsB = Number(b.fpts) || 0;
+      return fptsB - fptsA;
+    });
+    const standing = sortedRosters.findIndex((r: any) => r.roster_id === rosterId) + 1;
+    // Early = bottom 4, Mid = middle 4, Late = top 4 (for 12-team league)
+    if (standing > totalRosters * 2/3) return "Early"; // Bottom third
+    if (standing > totalRosters * 1/3) return "Mid";   // Middle third
+    return "Late"; // Top third
   };
 
   // Calculate pick value for a roster
   const calculatePickValue = (rosterId: number): number => {
     let pickValue = 0;
-    const years = ["2025", "2026", "2027"];
+    const years = ["2025", "2026", "2027", "2028"];
     const rounds = [1, 2, 3, 4];
 
     for (const year of years) {
@@ -483,6 +570,9 @@ Deno.serve(async (req) => {
       const article = await generateArticle(context, storyPrompt, i, openaiKey);
       
       if (article) {
+        // Build embedded data for visual components
+        const embeddedData = buildEmbeddedData(context, storyPrompt);
+        
         // Save to database
         const { data: saved, error } = await supabase
           .from("articles")
@@ -492,7 +582,7 @@ Deno.serve(async (req) => {
             subtitle: article.subtitle,
             content: article.content,
             article_type: article.articleType,
-            embedded_data: {},
+            embedded_data: embeddedData,
             published: true,
           })
           .select()
@@ -501,7 +591,7 @@ Deno.serve(async (req) => {
         if (saved) {
           generatedArticles.push(saved);
           console.log(`Article ${i + 1} saved: "${article.title}"`);
-        } else {
+          console.log(`  Embedded data: ${Object.keys(embeddedData).join(', ') || 'none'}`);        } else {
           console.error(`Failed to save article ${i + 1}:`, error);
         }
       }

@@ -2,6 +2,9 @@ import { useLocation, useNavigate, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { ArticleRenderer } from '../components/articles/ArticleRenderer';
+import { StandingsEmbed } from '../components/articles/StandingsEmbed';
+import { RosterEmbed } from '../components/articles/RosterEmbed';
+import { TradeEmbed } from '../components/articles/TradeEmbed';
 import { 
   Newspaper, 
   TrendingUp, 
@@ -21,6 +24,27 @@ interface Player {
   team: string | null;
 }
 
+interface EmbeddedStandingsTeam {
+  rank: number;
+  teamName: string;
+  wins: number;
+  losses: number;
+  points: number;
+  playerValue: number;
+  pickValue: number;
+  totalValue: number;
+}
+
+interface EmbeddedRosterTeam {
+  teamName: string;
+  wins: number;
+  losses: number;
+  playerValue: number;
+  pickValue: number;
+  totalValue: number;
+  topPlayers?: { name: string; position: string; value: number }[];
+}
+
 interface Article {
   id: string;
   title: string;
@@ -29,6 +53,14 @@ interface Article {
   article_type: string;
   embedded_data: {
     trades?: string[];
+    standings?: {
+      title: string;
+      teams: EmbeddedStandingsTeam[];
+    };
+    rosters?: {
+      title: string;
+      teams: EmbeddedRosterTeam[];
+    };
   };
   generated_at: string;
 }
@@ -299,6 +331,51 @@ export default function ArticlePage() {
               rosterToDraftSlot={supportData.rosterToDraftSlot}
               draftPickResults={supportData.draftPickResults}
             />
+          )}
+
+          {/* Embedded Standings */}
+          {article.embedded_data?.standings && (
+            <StandingsEmbed 
+              standings={article.embedded_data.standings.teams}
+              title={article.embedded_data.standings.title}
+            />
+          )}
+
+          {/* Embedded Roster/Team Data */}
+          {article.embedded_data?.rosters && (
+            <RosterEmbed 
+              teams={article.embedded_data.rosters.teams}
+              title={article.embedded_data.rosters.title}
+            />
+          )}
+
+          {/* Embedded Trades */}
+          {article.embedded_data?.trades && article.embedded_data.trades.length > 0 && supportData && (
+            <div className="my-6">
+              <h4 className="text-sm font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+                <ArrowRightLeft className="h-4 w-4 text-purple-500" />
+                Referenced Trades
+              </h4>
+              <div className="space-y-4">
+                {article.embedded_data.trades.map((txId) => {
+                  const transaction = supportData.transactionsMap.get(txId);
+                  const txTeams = supportData.transactionTeamsMap.get(txId);
+                  if (!transaction || !txTeams) return null;
+                  return (
+                    <TradeEmbed
+                      key={txId}
+                      transaction={transaction}
+                      teams={txTeams}
+                      players={supportData.players}
+                      playerValues={supportData.playerValues}
+                      rosterToDraftSlot={supportData.rosterToDraftSlot}
+                      draftPickResults={supportData.draftPickResults}
+                      compact={false}
+                    />
+                  );
+                })}
+              </div>
+            </div>
           )}
         </div>
       </article>
