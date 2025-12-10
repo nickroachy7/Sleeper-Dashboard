@@ -19,6 +19,7 @@ import {
   calculateSideValue, 
   type TradeAsset as ValueAdjustmentAsset 
 } from '../lib/trade-value-adjustment';
+import { PageHeader } from '../components/PageHeader';
 
 // Types
 interface Player {
@@ -698,10 +699,8 @@ export function TradeFinder() {
       <div className="max-w-4xl mx-auto px-4 py-6 sm:py-8">
         {/* Header */}
         <div className="mb-4 sm:mb-6">
-          <h1 className="text-xl sm:text-3xl font-bold text-slate-900 dark:text-white">
-            Trade Finder
-          </h1>
-          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+          <PageHeader title="Trade Finder" backTo="/tools" />
+          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 -mt-3">
             Find trade scenarios based on KTC values
           </p>
         </div>

@@ -11,6 +11,9 @@ import { KTCValues } from './pages/KTCValues';
 import { SyncStatus } from './pages/SyncStatus';
 import { TradeEvaluator } from './pages/TradeEvaluator';
 import { TradeFinder } from './pages/TradeFinder';
+import { LeagueHub } from './pages/LeagueHub';
+import { ToolsHub } from './pages/ToolsHub';
+import { Minigames } from './pages/Minigames';
 
 function App() {
   return (
@@ -27,6 +30,9 @@ function App() {
         <Route path="trade-evaluator" element={<TradeEvaluator />} />
         <Route path="trade-finder" element={<TradeFinder />} />
         <Route path="sync-status" element={<SyncStatus />} />
+        <Route path="league" element={<LeagueHub />} />
+        <Route path="tools" element={<ToolsHub />} />
+        <Route path="minigames" element={<Minigames />} />
       </Route>
     </Routes>
   );

@@ -1,4 +1,4 @@
-import { NavLink, Outlet } from 'react-router-dom';
+import { NavLink, Outlet, useLocation, Link } from 'react-router-dom';
 import {
   LayoutDashboard,
   Trophy,
@@ -12,8 +12,27 @@ import {
   RefreshCw,
   Scale,
   Target,
+  Wrench,
+  Gamepad2,
 } from 'lucide-react';
 import { useState } from 'react';
+
+// Define which routes belong to which nav section
+const leagueRoutes = ['/league', '/standings', '/rosters', '/transactions', '/drafts', '/sync-status', '/setup'];
+const toolsRoutes = ['/tools', '/trade-evaluator', '/trade-finder', '/ktc-values'];
+
+interface BottomNavItem {
+  to: string;
+  icon: typeof LayoutDashboard;
+  label: string;
+}
+
+const bottomNavItems: BottomNavItem[] = [
+  { to: '/', icon: LayoutDashboard, label: 'Home' },
+  { to: '/league', icon: Trophy, label: 'League' },
+  { to: '/tools', icon: Wrench, label: 'Tools' },
+  { to: '/minigames', icon: Gamepad2, label: 'Minigames' },
+];
 
 interface NavItem {
   to: string;
@@ -58,12 +77,23 @@ const navSections: NavSection[] = [
 
 export default function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const location = useLocation();
+
+  // Helper to check if a nav item should be active
+  const isNavItemActive = (to: string) => {
+    if (to === '/') return location.pathname === '/';
+    if (to === '/league') return leagueRoutes.includes(location.pathname);
+    if (to === '/tools') return toolsRoutes.includes(location.pathname);
+    if (to === '/minigames') return location.pathname === '/minigames';
+    return location.pathname === to;
+  };
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-zinc-950">
       {/* Mobile Header */}
-      <header className="lg:hidden fixed top-0 left-0 right-0 z-40 h-14 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl border-b border-slate-200/50 dark:border-zinc-800/50">
-        <div className="flex items-center justify-between h-full px-3">
+      <header className="lg:hidden fixed top-0 left-0 right-0 z-40 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl border-b border-slate-200/50 dark:border-zinc-800/50">
+        {/* Top bar with logo and menu */}
+        <div className="flex items-center justify-between h-14 px-3">
           <div className="flex items-center">
             <img 
               src="/yapsports-logo.webp" 
@@ -83,6 +113,29 @@ export default function Layout() {
             )}
           </button>
         </div>
+        
+        {/* Bottom navigation tabs */}
+        <nav className="flex items-center justify-around px-4 border-t border-slate-200/50 dark:border-zinc-800/50">
+          {bottomNavItems.map(({ to, label }) => {
+            const isActive = isNavItemActive(to);
+            return (
+              <Link
+                key={to}
+                to={to}
+                className={`flex-1 py-3 text-center text-xs font-semibold uppercase tracking-wide transition-colors relative ${
+                  isActive
+                    ? 'text-white'
+                    : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'
+                }`}
+              >
+                {label}
+                {isActive && (
+                  <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-12 h-0.5 bg-accent-500 rounded-full" />
+                )}
+              </Link>
+            );
+          })}
+        </nav>
       </header>
 
       {/* Mobile Overlay */}
@@ -165,7 +218,7 @@ export default function Layout() {
 
       {/* Main Content - uses custom CSS class for sidebar offset */}
       <div className="sidebar-layout-main">
-        <main className="min-h-screen pt-14 lg:pt-0">
+        <main className="min-h-screen pt-[6.5rem] lg:pt-0">
           <Outlet />
         </main>
       </div>

@@ -14,6 +14,7 @@ import {
   Crown,
   Activity
 } from 'lucide-react';
+import { PageHeader } from '../components/PageHeader';
 
 interface SyncLog {
   id: string;
@@ -171,16 +172,15 @@ export function SyncStatus() {
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
       {/* Header */}
-      <div className="mb-4 sm:mb-6 flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2 sm:gap-3">
-            <RefreshCw className="w-6 h-6 sm:w-7 sm:h-7 text-blue-500" />
-            Sync Status
-          </h1>
-          <p className="text-slate-500 dark:text-slate-400 mt-1 text-xs sm:text-sm">
-            Monitor automated data sync operations
-          </p>
-        </div>
+      <div className="mb-4 sm:mb-6">
+        <PageHeader 
+          title="Sync Status" 
+          backTo="/league"
+          icon={<RefreshCw className="w-5 h-5 text-accent-600 dark:text-accent-400" />}
+        />
+        <p className="text-slate-500 dark:text-slate-400 -mt-3 text-xs sm:text-sm">
+          Monitor automated data sync operations
+        </p>
       </div>
 
       {/* Scheduled Jobs */}

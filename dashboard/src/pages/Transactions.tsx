@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useState, useMemo } from 'react';
+import { PageHeader } from '../components/PageHeader';
 
 interface Player {
   player_id: string;
@@ -803,46 +804,43 @@ export default function Transactions() {
     <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
       {/* Header */}
       <div className="mb-4 sm:mb-6">
-        <div className="flex flex-col gap-3">
-          <div className="flex items-center gap-2 sm:gap-3">
-            <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">Transactions</h1>
-            <span className="px-2 py-0.5 sm:px-2.5 sm:py-1 bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-slate-400 text-xs sm:text-sm font-medium rounded-full">
-              {transactions.length} Total
-            </span>
+        <PageHeader title="Transactions" backTo="/league">
+          <span className="px-2 py-0.5 sm:px-2.5 sm:py-1 bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-slate-400 text-xs sm:text-sm font-medium rounded-full">
+            {transactions.length} Total
+          </span>
+        </PageHeader>
+          
+        {/* Filter & Sort Dropdowns */}
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3 -mt-2">
+          <div className="flex items-center gap-1.5">
+            <Filter className="h-4 w-4 text-slate-400 flex-shrink-0" />
+            <select
+              value={typeFilter}
+              onChange={(e) => handleFilterChange(e.target.value)}
+              className="px-2 sm:px-3 py-1.5 sm:py-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-accent-500 dark:focus:ring-accent-400 dark:text-white"
+            >
+              <option value="all">All Types</option>
+              <option value="trade">Trades</option>
+              <option value="waiver">Waivers</option>
+              <option value="free_agent">Free Agent</option>
+              <option value="commissioner">Commissioner</option>
+            </select>
           </div>
           
-          {/* Filter & Sort Dropdowns */}
-          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-            <div className="flex items-center gap-1.5">
-              <Filter className="h-4 w-4 text-slate-400 flex-shrink-0" />
-              <select
-                value={typeFilter}
-                onChange={(e) => handleFilterChange(e.target.value)}
-                className="px-2 sm:px-3 py-1.5 sm:py-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-accent-500 dark:focus:ring-accent-400 dark:text-white"
-              >
-                <option value="all">All Types</option>
-                <option value="trade">Trades</option>
-                <option value="waiver">Waivers</option>
-                <option value="free_agent">Free Agent</option>
-                <option value="commissioner">Commissioner</option>
-              </select>
-            </div>
-            
-            {/* Sort Dropdown */}
-            <div className="flex items-center gap-1.5">
-              <ArrowUpDown className="h-4 w-4 text-slate-400 flex-shrink-0" />
-              <select
-                value={sortBy}
-                onChange={(e) => handleSortChange(e.target.value)}
-                className="px-2 sm:px-3 py-1.5 sm:py-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-accent-500 dark:focus:ring-accent-400 dark:text-white"
-              >
-                <option value="recent">Recent</option>
-                <option value="value-high">High Value</option>
-                <option value="value-low">Low Value</option>
-                <option value="best-moves">Most Lopsided</option>
-                <option value="worst-moves">Most Even</option>
-              </select>
-            </div>
+          {/* Sort Dropdown */}
+          <div className="flex items-center gap-1.5">
+            <ArrowUpDown className="h-4 w-4 text-slate-400 flex-shrink-0" />
+            <select
+              value={sortBy}
+              onChange={(e) => handleSortChange(e.target.value)}
+              className="px-2 sm:px-3 py-1.5 sm:py-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-accent-500 dark:focus:ring-accent-400 dark:text-white"
+            >
+              <option value="recent">Recent</option>
+              <option value="value-high">High Value</option>
+              <option value="value-low">Low Value</option>
+              <option value="best-moves">Most Lopsided</option>
+              <option value="worst-moves">Most Even</option>
+            </select>
           </div>
         </div>
       </div>

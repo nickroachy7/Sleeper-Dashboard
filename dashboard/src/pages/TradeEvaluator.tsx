@@ -17,6 +17,7 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import { analyzeTrade, calculateSideValue, type TradeAsset as ValueAdjustmentAsset } from '../lib/trade-value-adjustment';
+import { PageHeader } from '../components/PageHeader';
 
 // Types
 interface Player {
@@ -536,9 +537,9 @@ export function TradeEvaluator() {
       <div className="max-w-4xl mx-auto px-4 py-6 sm:py-8">
         {/* Header */}
         <div className="mb-4 sm:mb-6 flex items-center justify-between">
-          <div>
-            <h1 className="text-xl sm:text-3xl font-bold text-slate-900 dark:text-white">Trade Evaluator</h1>
-            <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">Evaluate trades using KTC dynasty values</p>
+          <div className="flex-1">
+            <PageHeader title="Trade Evaluator" backTo="/tools" />
+            <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 -mt-3">Evaluate trades using KTC dynasty values</p>
           </div>
           {hasAssets && (
             <button

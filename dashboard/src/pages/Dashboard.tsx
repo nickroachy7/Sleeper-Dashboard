@@ -1,14 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { 
-  Users, 
   Trophy, 
   ArrowRightLeft, 
   Loader2,
   ChevronRight,
   Zap,
-  FileText,
-  Scale,
   RefreshCw,
   Crown,
   Medal,
@@ -292,16 +289,6 @@ export default function Dashboard() {
     }
     return teamAssets;
   };
-
-  // Navigation links
-  const navLinks = [
-    { to: '/standings', icon: Trophy, label: 'Standings', desc: 'League rankings', color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-100 dark:bg-amber-500/20' },
-    { to: '/rosters', icon: Users, label: 'Rosters', desc: 'Team players & values', color: 'text-blue-600 dark:text-blue-400', bg: 'bg-blue-100 dark:bg-blue-500/20' },
-    { to: '/transactions', icon: ArrowRightLeft, label: 'Transactions', desc: 'Trades & moves', color: 'text-purple-600 dark:text-purple-400', bg: 'bg-purple-100 dark:bg-purple-500/20' },
-    { to: '/drafts', icon: FileText, label: 'Drafts', desc: 'History & capital', color: 'text-indigo-600 dark:text-indigo-400', bg: 'bg-indigo-100 dark:bg-indigo-500/20' },
-    { to: '/trade-evaluator', icon: Scale, label: 'Trade Evaluator', desc: 'Analyze trades', color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-100 dark:bg-emerald-500/20' },
-    { to: '/ktc-values', icon: TrendingUp, label: 'Player Values', desc: 'KTC rankings', color: 'text-rose-600 dark:text-rose-400', bg: 'bg-rose-100 dark:bg-rose-500/20' },
-  ];
 
   // Trade Card Component (exact same as Transactions.tsx)
   const TradeCard = ({ tx }: { tx: any }) => {
@@ -611,23 +598,6 @@ export default function Dashboard() {
       {/* Header */}
       <div className="mb-6">
         <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">Dashboard</h1>
-      </div>
-
-      {/* Navigation Grid */}
-      <div className="grid grid-cols-3 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3 mb-4 sm:mb-6">
-        {navLinks.map((link) => (
-          <Link
-            key={link.to}
-            to={link.to}
-            className="group bg-white dark:bg-zinc-900 rounded-xl border border-slate-200 dark:border-zinc-800 p-2.5 sm:p-4 shadow-sm dark:shadow-none hover:border-slate-300 dark:hover:border-zinc-700 hover:shadow-md dark:hover:shadow-none transition-all"
-          >
-            <div className={`w-8 h-8 sm:w-10 sm:h-10 ${link.bg} rounded-lg flex items-center justify-center mb-2 sm:mb-3`}>
-              <link.icon className={`h-4 w-4 sm:h-5 sm:w-5 ${link.color}`} />
-            </div>
-            <div className="font-medium text-slate-900 dark:text-white text-[10px] sm:text-sm">{link.label}</div>
-            <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 hidden sm:block">{link.desc}</div>
-          </Link>
-        ))}
       </div>
 
       {/* Standings Section - Exact same as Standings.tsx */}

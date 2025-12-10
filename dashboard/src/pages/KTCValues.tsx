@@ -12,6 +12,7 @@ import {
   ChevronLeft,
   ChevronRight
 } from 'lucide-react';
+import { PageHeader } from '../components/PageHeader';
 
 interface PlayerValue {
   id: string;
@@ -327,11 +328,12 @@ export function KTCValues() {
     <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
       {/* Header */}
       <div className="mb-4 sm:mb-6">
-        <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2 sm:gap-3">
-          <img src="/full-logo.png" alt="KeepTradeCut" className="h-8 sm:h-9" />
-          Values
-        </h1>
-        <p className="text-slate-500 dark:text-slate-400 mt-1 text-xs sm:text-sm">
+        <PageHeader 
+          title="KTC Values" 
+          backTo="/tools"
+          icon={<img src="/ktc-logo.png" alt="KTC" className="h-5 w-5" />}
+        />
+        <p className="text-slate-500 dark:text-slate-400 -mt-3 text-xs sm:text-sm">
           Powered by KeepTradeCut • Superflex Rankings
         </p>
       </div>
