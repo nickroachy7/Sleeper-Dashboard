@@ -536,7 +536,6 @@ export function TradeEvaluator() {
           const isWinner = winnerIdx === sideIndex;
           const isLoser = loserIdx === sideIndex;
           const roster = rosters?.find(r => r.roster_id === side.rosterId);
-          const sideColor = isWinner ? 'emerald' : isLoser ? 'red' : null;
 
           return (
             <div

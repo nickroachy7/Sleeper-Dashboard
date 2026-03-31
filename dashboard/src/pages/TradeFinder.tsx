@@ -6,7 +6,6 @@ import {
   X,
   ChevronDown,
   Loader2,
-  ArrowLeftRight,
   ArrowDown,
   ArrowUp,
   Info,
