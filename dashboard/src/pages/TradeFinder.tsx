@@ -7,12 +7,12 @@ import {
   ChevronDown,
   Loader2,
   ArrowLeftRight,
-  TrendingUp,
-  TrendingDown,
-  Users,
+  ArrowDown,
+  ArrowUp,
   Info,
   User,
   FileText,
+  SlidersHorizontal,
 } from 'lucide-react';
 import {
   analyzeTrade,
@@ -92,21 +92,14 @@ interface TradeScenario {
 type TradeMode = 'dump' | 'acquire';
 type AssetPreference = 'all' | 'players' | 'picks';
 
-// Position badge classes
 const getPositionBadgeClass = (position: string): string => {
   switch (position) {
-    case 'QB':
-      return 'bg-red-500/20 text-red-400 border border-red-500/30';
-    case 'RB':
-      return 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30';
-    case 'WR':
-      return 'bg-blue-500/20 text-blue-400 border border-blue-500/30';
-    case 'TE':
-      return 'bg-orange-500/20 text-orange-400 border border-orange-500/30';
-    case 'PICK':
-      return 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30';
-    default:
-      return 'bg-[#111111] text-[#333333] border border-[#333333]';
+    case 'QB': return 'bg-red-500/20 text-red-400';
+    case 'RB': return 'bg-emerald-500/20 text-emerald-400';
+    case 'WR': return 'bg-blue-500/20 text-blue-400';
+    case 'TE': return 'bg-orange-500/20 text-orange-400';
+    case 'PICK': return 'bg-cyan-500/20 text-cyan-400';
+    default: return 'bg-[#111111] text-[#555555]';
   }
 };
 
@@ -119,10 +112,8 @@ function getProjectedPickTier(roster_id: number, rosters: Roster[]): string {
     const fptsB = Number(b.fpts) || 0;
     return fptsB - fptsA;
   });
-
   const standing = sortedRosters.findIndex((r) => r.roster_id === roster_id) + 1;
   const totalRosters = rosters.length;
-
   if (standing > (totalRosters * 2) / 3) return 'Early';
   if (standing > totalRosters / 3) return 'Mid';
   return 'Late';
@@ -145,7 +136,7 @@ function useClickOutside(ref: React.RefObject<HTMLElement | null>, callback: () 
   }, [ref, callback]);
 }
 
-// Asset selection dropdown
+// Asset selection dropdown with multi-select
 function AssetDropdown({
   isOpen,
   onClose,
@@ -191,89 +182,71 @@ function AssetDropdown({
 
   return (
     <>
-      <div className="fixed inset-0 bg-black/50 z-40" onClick={onClose} />
+      <div className="fixed inset-0 bg-black/60 z-40" onClick={onClose} />
       <div
         ref={dropdownRef}
-        className="fixed z-50 left-4 right-4 top-1/2 -translate-y-1/2 max-w-lg mx-auto bg-[#0a0a0a] border border-[#151515] rounded-md shadow-2xl overflow-hidden"
+        className="fixed z-50 left-4 right-4 top-1/2 -translate-y-1/2 max-w-md mx-auto bg-[#0a0a0a] border border-[#222222] rounded-xl shadow-2xl overflow-hidden"
       >
-        <div className="px-4 py-3 bg-[#0a0a0a] border-b border-[#151515] flex items-center justify-between">
-          <span className="text-xs font-semibold text-[#888888] uppercase tracking-wider">{title}</span>
-          <button onClick={onClose} className="p-1.5 hover:bg-[#111111] rounded-md transition-colors">
-            <X className="h-4 w-4 text-[#888888]" />
-          </button>
+        <div className="px-4 py-3 border-b border-[#151515] flex items-center justify-between">
+          <span className="text-sm font-semibold text-white">{title}</span>
+          <div className="flex items-center gap-2">
+            {selectedIds.length > 0 && (
+              <span className="text-xs text-accent-400 font-medium">{selectedIds.length} selected</span>
+            )}
+            <button onClick={onClose} className="p-1.5 hover:bg-[#151515] rounded-lg transition-colors">
+              <X className="h-4 w-4 text-[#666666]" />
+            </button>
+          </div>
         </div>
 
         <div className="p-3 border-b border-[#151515]">
           <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[#888888]" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#555555]" />
             <input
               ref={inputRef}
               type="text"
-              placeholder="Search players or picks..."
+              placeholder="Search..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-9 pr-4 py-2.5 text-sm bg-[#0a0a0a] border border-[#151515] rounded-md text-white placeholder-[#555555] focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-transparent transition-colors"
+              className="w-full pl-9 pr-4 py-2.5 text-sm bg-[#111111] border border-[#222222] rounded-lg text-white placeholder-[#555555] focus:outline-none focus:border-accent-500/50 transition-colors"
             />
           </div>
         </div>
 
-        <div className="px-4 py-2 bg-[#0a0a0a] border-b border-[#151515]">
-          <span className="text-xs text-[#888888]">
-            {selectedIds.length > 0 ? `${selectedIds.length} selected • ` : ''}
-            Showing {filteredItems.length} {filteredItems.length === 1 ? 'asset' : 'assets'}
-          </span>
-        </div>
-
-        <div className="max-h-96 overflow-y-auto overscroll-contain">
+        <div className="max-h-80 overflow-y-auto overscroll-contain">
           {filteredItems.length === 0 ? (
-            <div className="p-8 text-sm text-[#888888] text-center">{emptyMessage}</div>
+            <div className="p-8 text-sm text-[#555555] text-center">{emptyMessage}</div>
           ) : (
-            <table className="w-full">
-              <thead>
-                <tr className="bg-[#0a0a0a] border-b border-[#151515]">
-                  <th className="px-4 py-2.5 text-left text-xs font-semibold text-[#888888] uppercase tracking-wider w-8"></th>
-                  <th className="px-4 py-2.5 text-left text-xs font-semibold text-[#888888] uppercase tracking-wider">Asset</th>
-                  <th className="px-4 py-2.5 text-center text-xs font-semibold text-[#888888] uppercase tracking-wider">Type</th>
-                  <th className="px-4 py-2.5 text-right text-xs font-semibold text-[#888888] uppercase tracking-wider">Value</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#111111]">
-                {filteredItems.map((item) => {
-                  const isSelected = selectedIds.includes(item.id);
-                  return (
-                    <tr
-                      key={item.id}
-                      onClick={() => onToggle(item)}
-                      className={`cursor-pointer transition-colors ${isSelected ? 'bg-accent-900/20' : 'hover:bg-[#111111]'}`}
-                    >
-                      <td className="px-4 py-3">
-                        <div className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-colors ${isSelected ? 'bg-accent-500 border-accent-500' : 'border-[#333333]'}`}>
-                          {isSelected && <span className="text-white text-xs">✓</span>}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className="text-sm text-white font-medium">{item.name}</span>
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <span className={`px-2 py-0.5 text-xs font-medium rounded-md ${getPositionBadgeClass(item.type === 'player' ? (item.position || '') : 'PICK')}`}>
-                          {item.type === 'player' ? item.position : 'PICK'}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <span className="text-sm font-bold text-accent-400">{item.value.toLocaleString()}</span>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+            <div className="divide-y divide-[#111111]">
+              {filteredItems.map((item) => {
+                const isSelected = selectedIds.includes(item.id);
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => onToggle(item)}
+                    className={`w-full px-4 py-3 flex items-center justify-between gap-3 transition-colors ${isSelected ? 'bg-accent-500/10' : 'hover:bg-[#111111]'}`}
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${isSelected ? 'bg-accent-500 border-accent-500' : 'border-[#333333]'}`}>
+                        {isSelected && <span className="text-white text-[10px] font-bold">&#10003;</span>}
+                      </div>
+                      <span className={`px-1.5 py-0.5 text-[10px] font-bold rounded shrink-0 ${getPositionBadgeClass(item.type === 'player' ? (item.position || '') : 'PICK')}`}>
+                        {item.type === 'player' ? item.position : 'PICK'}
+                      </span>
+                      <span className="text-sm text-white truncate">{item.name}</span>
+                    </div>
+                    <span className="text-xs font-semibold text-accent-400 tabular-nums shrink-0">{item.value.toLocaleString()}</span>
+                  </button>
+                );
+              })}
+            </div>
           )}
         </div>
 
-        <div className="px-4 py-3 bg-[#0a0a0a] border-t border-[#151515] flex justify-end">
+        <div className="px-4 py-3 bg-[#080808] border-t border-[#151515]">
           <button
             onClick={onClose}
-            className="px-4 py-2 bg-accent-500 hover:bg-accent-600 text-white text-sm font-medium rounded-md transition-colors"
+            className="w-full py-2.5 bg-accent-500 hover:bg-accent-600 text-white text-sm font-semibold rounded-lg transition-colors"
           >
             Done
           </button>
@@ -300,40 +273,33 @@ function TeamDropdown({
   onSelect: (roster: Roster) => void;
 }) {
   const dropdownRef = useRef<HTMLDivElement>(null);
-
   useClickOutside(dropdownRef, onClose);
-
   if (!isOpen) return null;
 
   const filteredRosters = rosters.filter(r => r.roster_id !== excludeRosterId);
 
   return (
     <>
-      <div className="fixed inset-0 bg-black/50 z-40" onClick={onClose} />
+      <div className="fixed inset-0 bg-black/60 z-40" onClick={onClose} />
       <div
         ref={dropdownRef}
-        className="fixed z-50 left-4 right-4 top-1/2 -translate-y-1/2 max-w-md mx-auto bg-[#0a0a0a] border border-[#151515] rounded-md shadow-2xl overflow-hidden"
+        className="fixed z-50 left-4 right-4 top-1/2 -translate-y-1/2 max-w-sm mx-auto bg-[#0a0a0a] border border-[#222222] rounded-xl shadow-2xl overflow-hidden"
       >
-        <div className="px-4 py-3 bg-[#0a0a0a] border-b border-[#151515] flex items-center justify-between">
-          <span className="text-xs font-semibold text-[#888888] uppercase tracking-wider">{title}</span>
-          <button onClick={onClose} className="p-1.5 hover:bg-[#111111] rounded-md transition-colors">
-            <X className="h-4 w-4 text-[#888888]" />
+        <div className="px-4 py-3 border-b border-[#151515] flex items-center justify-between">
+          <span className="text-sm font-semibold text-white">{title}</span>
+          <button onClick={onClose} className="p-1.5 hover:bg-[#151515] rounded-lg transition-colors">
+            <X className="h-4 w-4 text-[#666666]" />
           </button>
         </div>
-
-        <div className="max-h-96 overflow-y-auto overscroll-contain divide-y divide-[#111111]">
+        <div className="max-h-80 overflow-y-auto overscroll-contain divide-y divide-[#111111]">
           {filteredRosters.map((roster) => (
             <button
               key={roster.roster_id}
               onClick={() => { onSelect(roster); onClose(); }}
               className="w-full px-4 py-3 text-left hover:bg-[#111111] transition-colors flex items-center justify-between"
             >
-              <span className="text-sm text-white font-medium">
-                {roster.teamName || roster.ownerName}
-              </span>
-              <span className="text-xs text-[#888888]">
-                {roster.wins}-{roster.losses}
-              </span>
+              <span className="text-sm text-white font-medium">{roster.teamName || roster.ownerName}</span>
+              <span className="text-xs text-[#555555] tabular-nums">{roster.wins}-{roster.losses}</span>
             </button>
           ))}
         </div>
@@ -352,32 +318,36 @@ export function TradeFinder() {
   const [scenarios, setScenarios] = useState<TradeScenario[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState<'myTeam' | 'targetTeam' | 'assets' | null>(null);
+  const [showFilters, setShowFilters] = useState(false);
 
-  // Reset when mode changes
   useEffect(() => {
     setSelectedAssetIds([]);
     setScenarios([]);
   }, [tradeMode, myRoster, targetRoster]);
 
-  // Fetch rosters
-  const { data: rosters, isLoading: rostersLoading } = useQuery({
-    queryKey: ['rosters-finder'],
+  // Fetch the current (most recent) league
+  const { data: currentLeagueId } = useQuery({
+    queryKey: ['currentLeague'],
     queryFn: async () => {
-      const { data: rostersData } = await supabase.from('rosters').select('*');
+      const { data } = await supabase.from('leagues').select('league_id').order('season', { ascending: false }).limit(1).single();
+      return data?.league_id as string;
+    },
+  });
+
+  const { data: rosters, isLoading: rostersLoading } = useQuery({
+    queryKey: ['rosters-finder', currentLeagueId],
+    enabled: !!currentLeagueId,
+    queryFn: async () => {
+      const { data: rostersData } = await supabase.from('rosters').select('*').eq('league_id', currentLeagueId!);
       const { data: users } = await supabase.from('users').select('*');
       if (!rostersData?.length) return [];
       return (rostersData as any[]).map((roster: any) => {
         const owner = (users as any[])?.find((u: any) => u.user_id === roster.owner_id);
-        return {
-          ...roster,
-          ownerName: owner?.display_name || owner?.username || 'Unknown',
-          teamName: owner?.team_name || null,
-        };
+        return { ...roster, ownerName: owner?.display_name || owner?.username || 'Unknown', teamName: owner?.team_name || null };
       }) as Roster[];
     },
   });
 
-  // Fetch players (used for type reference in playerValues query)
   useQuery({
     queryKey: ['players-finder'],
     queryFn: async () => {
@@ -386,7 +356,6 @@ export function TradeFinder() {
     },
   });
 
-  // Fetch player values
   const { data: playerValues, isLoading: valuesLoading } = useQuery({
     queryKey: ['playerValues-finder'],
     queryFn: async () => {
@@ -402,7 +371,6 @@ export function TradeFinder() {
     },
   });
 
-  // Fetch pick values
   const { data: pickValues, isLoading: picksLoading } = useQuery({
     queryKey: ['pickValues-finder'],
     queryFn: async () => {
@@ -411,16 +379,15 @@ export function TradeFinder() {
     },
   });
 
-  // Fetch traded picks
   const { data: tradedPicks } = useQuery({
-    queryKey: ['tradedPicks-finder'],
+    queryKey: ['tradedPicks-finder', currentLeagueId],
+    enabled: !!currentLeagueId,
     queryFn: async () => {
-      const { data } = await supabase.from('traded_picks').select('season, round, roster_id, owner_id');
+      const { data } = await supabase.from('traded_picks').select('season, round, roster_id, owner_id').eq('league_id', currentLeagueId!);
       return (data as TradedPick[]) || [];
     },
   });
 
-  // Get picks owned by a roster
   const getPicksOwnedByRoster = useCallback((rosterId: number): TradeAsset[] => {
     if (!rosters || !pickValues || !tradedPicks) return [];
     const picks: TradeAsset[] = [];
@@ -461,11 +428,9 @@ export function TradeFinder() {
     return picks.sort((a, b) => b.value - a.value);
   }, [rosters, pickValues, tradedPicks]);
 
-  // Get players owned by a roster
   const getPlayersOwnedByRoster = useCallback((roster: Roster): TradeAsset[] => {
     if (!playerValues) return [];
     const assets: TradeAsset[] = [];
-
     (roster.players || []).forEach((pid: string) => {
       const pv = playerValues.get(pid);
       if (pv && pv.value > 0) {
@@ -479,40 +444,28 @@ export function TradeFinder() {
         });
       }
     });
-
     return assets.sort((a, b) => b.value - a.value);
   }, [playerValues]);
 
-  // Get all assets for the active selection team
   const availableAssets = useMemo(() => {
     const roster = tradeMode === 'dump' ? myRoster : targetRoster;
     if (!roster) return [];
-
-    const playerAssets = getPlayersOwnedByRoster(roster);
-    const pickAssets = getPicksOwnedByRoster(roster.roster_id);
-
-    return [...playerAssets, ...pickAssets];
+    return [...getPlayersOwnedByRoster(roster), ...getPicksOwnedByRoster(roster.roster_id)];
   }, [tradeMode, myRoster, targetRoster, getPlayersOwnedByRoster, getPicksOwnedByRoster]);
 
-  // Selected assets with full details
   const selectedAssets = useMemo(() => {
     return availableAssets.filter(a => selectedAssetIds.includes(a.id));
   }, [availableAssets, selectedAssetIds]);
 
-  // Total value of selected assets (both raw and adjusted)
   const selectedValueInfo = useMemo(() => {
     const sideValue = calculateSideValue(selectedAssets as ValueAdjustmentAsset[]);
     return {
       raw: sideValue.rawTotal,
       adjusted: sideValue.adjustedTotal,
-      studBonus: sideValue.studBonus,
-      consolidationBonus: sideValue.consolidationBonus,
-      piecesPenalty: sideValue.piecesPenalty,
       breakdown: sideValue.adjustmentBreakdown,
     };
   }, [selectedAssets]);
 
-  // Toggle asset selection
   const handleAssetToggle = (asset: TradeAsset) => {
     setSelectedAssetIds(prev =>
       prev.includes(asset.id)
@@ -521,29 +474,21 @@ export function TradeFinder() {
     );
   };
 
-  // Helper to calculate preference score based on VALUE contribution (not count)
-  // Returns 0-100 score based on what % of total value comes from preferred asset type
-  const getPreferenceScore = (combo: TradeAsset[], preference: AssetPreference): number => {
-    if (preference === 'all') return 50; // Neutral score for no preference
+  const removeAsset = (assetId: string) => {
+    setSelectedAssetIds(prev => prev.filter(id => id !== assetId));
+  };
 
+  const getPreferenceScore = (combo: TradeAsset[], preference: AssetPreference): number => {
+    if (preference === 'all') return 50;
     const totalValue = combo.reduce((sum, a) => sum + a.value, 0);
     if (totalValue === 0) return 0;
-
     const playerValue = combo.filter(a => a.type === 'player').reduce((sum, a) => sum + a.value, 0);
     const pickValue = combo.filter(a => a.type === 'pick').reduce((sum, a) => sum + a.value, 0);
-
-    if (preference === 'players') {
-      // Score based on % of VALUE from players
-      return Math.round((playerValue / totalValue) * 100);
-    }
-    if (preference === 'picks') {
-      // Score based on % of VALUE from picks
-      return Math.round((pickValue / totalValue) * 100);
-    }
+    if (preference === 'players') return Math.round((playerValue / totalValue) * 100);
+    if (preference === 'picks') return Math.round((pickValue / totalValue) * 100);
     return 50;
   };
 
-  // Find trade scenarios
   const findTrades = useCallback(() => {
     if (!rosters || selectedAssets.length === 0) return;
 
@@ -552,38 +497,28 @@ export function TradeFinder() {
 
     setTimeout(() => {
       try {
-        // Use adjusted value for tolerance calculation
         const adjustedValue = selectedValueInfo.adjusted;
         const minValue = adjustedValue * (1 - tolerance / 100);
         const maxValue = adjustedValue * (1 + tolerance / 100);
         const newScenarios: TradeScenario[] = [];
 
-        // Teams to search for matching packages
         const teamsToSearch = tradeMode === 'dump'
           ? rosters.filter(r => r.roster_id !== myRoster?.roster_id)
           : myRoster ? [myRoster] : [];
 
         teamsToSearch.forEach(searchRoster => {
-          // Always include all assets - preference is used for sorting, not filtering
           const searchAssets = [
             ...getPlayersOwnedByRoster(searchRoster),
             ...getPicksOwnedByRoster(searchRoster.roster_id),
           ];
 
-          // Generate combinations of 1-3 assets
           const combinations: TradeAsset[][] = [];
-
-          // 1 asset
           searchAssets.forEach(a => combinations.push([a]));
-
-          // 2 assets
           for (let i = 0; i < searchAssets.length; i++) {
             for (let j = i + 1; j < searchAssets.length; j++) {
               combinations.push([searchAssets[i], searchAssets[j]]);
             }
           }
-
-          // 3 assets (limit to top 25 by value to avoid too many combos)
           const topAssets = searchAssets.slice(0, 25);
           for (let i = 0; i < topAssets.length; i++) {
             for (let j = i + 1; j < topAssets.length; j++) {
@@ -593,20 +528,17 @@ export function TradeFinder() {
             }
           }
 
-          // Find matching combinations using adjusted values
           combinations.forEach(combo => {
             const comboValue = calculateSideValue(combo as ValueAdjustmentAsset[]);
             const comboAdjusted = comboValue.adjustedTotal;
 
             if (comboAdjusted >= minValue && comboAdjusted <= maxValue) {
-              // Get full trade analysis (includes tier mismatch penalties)
               const analysis = tradeMode === 'dump'
                 ? analyzeTrade(selectedAssets as ValueAdjustmentAsset[], combo as ValueAdjustmentAsset[])
                 : analyzeTrade(combo as ValueAdjustmentAsset[], selectedAssets as ValueAdjustmentAsset[]);
 
-              // Use the analysis values which include tier mismatch adjustments
-              const giveAdjusted = tradeMode === 'dump' ? analysis.side1.adjustedTotal : analysis.side1.adjustedTotal;
-              const getAdjusted = tradeMode === 'dump' ? analysis.side2.adjustedTotal : analysis.side2.adjustedTotal;
+              const giveAdjusted = analysis.side1.adjustedTotal;
+              const getAdjusted = analysis.side2.adjustedTotal;
               const rawDiff = comboValue.rawTotal - selectedValueInfo.raw;
               const adjustedDiff = getAdjusted - giveAdjusted;
               const diffPercent = giveAdjusted > 0 ? (adjustedDiff / giveAdjusted) * 100 : 0;
@@ -617,8 +549,8 @@ export function TradeFinder() {
                   get: combo,
                   giveTotal: selectedValueInfo.raw,
                   getTotal: comboValue.rawTotal,
-                  giveAdjusted: giveAdjusted,
-                  getAdjusted: getAdjusted,
+                  giveAdjusted,
+                  getAdjusted,
                   difference: rawDiff,
                   adjustedDifference: adjustedDiff,
                   differencePercent: diffPercent,
@@ -631,8 +563,8 @@ export function TradeFinder() {
                   get: selectedAssets,
                   giveTotal: comboValue.rawTotal,
                   getTotal: selectedValueInfo.raw,
-                  giveAdjusted: giveAdjusted,
-                  getAdjusted: getAdjusted,
+                  giveAdjusted,
+                  getAdjusted,
                   difference: -rawDiff,
                   adjustedDifference: -adjustedDiff,
                   differencePercent: -diffPercent,
@@ -644,33 +576,20 @@ export function TradeFinder() {
           });
         });
 
-        // Sort: blend preference score with value difference
-        // Preference influences ranking but doesn't strictly dominate
         newScenarios.sort((a, b) => {
-          // Check which side to evaluate for preference (what user receives in dump mode, gives in acquire mode)
           const aCombo = tradeMode === 'dump' ? a.get : a.give;
           const bCombo = tradeMode === 'dump' ? b.get : b.give;
-
           const aPreferenceScore = getPreferenceScore(aCombo, assetPreference);
           const bPreferenceScore = getPreferenceScore(bCombo, assetPreference);
-
-          // Calculate a blended score:
-          // - Value difference matters (lower is better) - normalize to 0-100 scale
-          // - Preference score matters (higher is better) - already 0-100
-          // Weight: 60% preference, 40% value match when preference is set
-
           const maxDiff = Math.max(...newScenarios.map(s => Math.abs(s.adjustedDifference)), 1);
           const aValueScore = 100 - (Math.abs(a.adjustedDifference) / maxDiff) * 100;
           const bValueScore = 100 - (Math.abs(b.adjustedDifference) / maxDiff) * 100;
 
           if (assetPreference !== 'all') {
-            // Blended score: preference has more weight but value still matters
             const aBlended = (aPreferenceScore * 0.6) + (aValueScore * 0.4);
             const bBlended = (bPreferenceScore * 0.6) + (bValueScore * 0.4);
-            return bBlended - aBlended; // Higher blended score = better
+            return bBlended - aBlended;
           }
-
-          // No preference set - just sort by value difference
           return Math.abs(a.adjustedDifference) - Math.abs(b.adjustedDifference);
         });
         setScenarios(newScenarios.slice(0, 50));
@@ -685,6 +604,9 @@ export function TradeFinder() {
     ? myRoster && selectedAssetIds.length > 0
     : myRoster && targetRoster && selectedAssetIds.length > 0;
 
+  // Which team the user picks assets from
+  const assetSourceRoster = tradeMode === 'dump' ? myRoster : targetRoster;
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-24">
@@ -693,416 +615,364 @@ export function TradeFinder() {
     );
   }
 
+  const fairnessBadge = (f: string) => {
+    switch (f) {
+      case 'fair': return 'bg-emerald-500/15 text-emerald-400 border-emerald-500/20';
+      case 'slight': return 'bg-blue-500/15 text-blue-400 border-blue-500/20';
+      case 'unfair': return 'bg-amber-500/15 text-amber-400 border-amber-500/20';
+      case 'lopsided': return 'bg-red-500/15 text-red-400 border-red-500/20';
+      default: return 'bg-[#111111] text-[#555555]';
+    }
+  };
+
+  const fairnessBorder = (f: string) => {
+    switch (f) {
+      case 'fair': return 'border-emerald-500/25';
+      case 'slight': return 'border-blue-500/25';
+      default: return 'border-[#1a1a1a]';
+    }
+  };
+
   return (
     <div>
-        {/* Mode Toggle - Compact on mobile */}
-        <div className="bg-[#0a0a0a] border border-[#151515] rounded-md p-3 sm:p-6 mb-3 sm:mb-6">
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setTradeMode('dump')}
-              className={`flex-1 py-2.5 px-3 rounded-md border-2 transition-all flex items-center justify-center gap-2 ${
-                tradeMode === 'dump'
-                  ? 'border-accent-500 bg-accent-900/20'
-                  : 'border-[#151515]'
-              }`}
-            >
-              <TrendingDown className={`h-4 w-4 sm:h-5 sm:w-5 ${tradeMode === 'dump' ? 'text-accent-500' : 'text-[#888888]'}`} />
-              <span className={`text-xs sm:text-sm font-medium ${tradeMode === 'dump' ? 'text-accent-400' : 'text-[#333333]'}`}>
-                Trade Away
-              </span>
-            </button>
-
-            <button
-              onClick={() => setTradeMode('acquire')}
-              className={`flex-1 py-2.5 px-3 rounded-md border-2 transition-all flex items-center justify-center gap-2 ${
-                tradeMode === 'acquire'
-                  ? 'border-accent-500 bg-accent-900/20'
-                  : 'border-[#151515]'
-              }`}
-            >
-              <TrendingUp className={`h-4 w-4 sm:h-5 sm:w-5 ${tradeMode === 'acquire' ? 'text-accent-500' : 'text-[#888888]'}`} />
-              <span className={`text-xs sm:text-sm font-medium ${tradeMode === 'acquire' ? 'text-accent-400' : 'text-[#333333]'}`}>
-                Acquire
-              </span>
-            </button>
-          </div>
+      {/* Unified Setup Card */}
+      <div className="bg-[#0a0a0a] border border-[#1a1a1a] rounded-xl overflow-hidden mb-4">
+        {/* Mode Toggle - integrated as card header */}
+        <div className="flex border-b border-[#151515]">
+          <button
+            onClick={() => setTradeMode('dump')}
+            className={`flex-1 py-3 flex items-center justify-center gap-2 text-sm font-medium transition-all ${
+              tradeMode === 'dump'
+                ? 'text-accent-400 bg-accent-500/8 border-b-2 border-accent-500 -mb-px'
+                : 'text-[#555555] hover:text-[#888888]'
+            }`}
+          >
+            <ArrowUp className="h-4 w-4" />
+            Trade Away
+          </button>
+          <button
+            onClick={() => setTradeMode('acquire')}
+            className={`flex-1 py-3 flex items-center justify-center gap-2 text-sm font-medium transition-all ${
+              tradeMode === 'acquire'
+                ? 'text-accent-400 bg-accent-500/8 border-b-2 border-accent-500 -mb-px'
+                : 'text-[#555555] hover:text-[#888888]'
+            }`}
+          >
+            <ArrowDown className="h-4 w-4" />
+            Acquire
+          </button>
         </div>
 
-        {/* Configuration - Compact */}
-        <div className="bg-[#0a0a0a] border border-[#151515] rounded-md p-3 sm:p-6 mb-3 sm:mb-6 space-y-3 sm:space-y-4">
+        {/* Setup Steps */}
+        <div className="p-4 space-y-3">
+          {/* Step 1: Team selection(s) */}
           {tradeMode === 'dump' ? (
+            <button
+              onClick={() => setDropdownOpen('myTeam')}
+              className="w-full p-3 rounded-lg border border-[#1a1a1a] hover:border-[#333333] transition-colors flex items-center justify-between"
+            >
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-[#111111] flex items-center justify-center shrink-0">
+                  <User className="h-4 w-4 text-[#555555]" />
+                </div>
+                <div className="text-left">
+                  <span className="text-[10px] text-[#555555] block leading-tight">Your Team</span>
+                  <span className={`text-sm font-medium ${myRoster ? 'text-white' : 'text-[#444444]'}`}>
+                    {myRoster ? (myRoster.teamName || myRoster.ownerName) : 'Select...'}
+                  </span>
+                </div>
+              </div>
+              <ChevronDown className="h-4 w-4 text-[#444444]" />
+            </button>
+          ) : (
             <>
               <button
-                onClick={() => setDropdownOpen('myTeam')}
-                className="w-full p-3 sm:p-4 rounded-md border border-[#151515] hover:border-[#333333] transition-colors flex items-center justify-between"
+                onClick={() => setDropdownOpen('targetTeam')}
+                className="w-full p-3 rounded-lg border border-[#1a1a1a] hover:border-[#333333] transition-colors flex items-center justify-between"
               >
-                <div className="flex items-center gap-2 sm:gap-3">
-                  <Users className="h-4 w-4 sm:h-5 sm:w-5 text-[#888888]" />
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-lg bg-[#111111] flex items-center justify-center shrink-0">
+                    <User className="h-4 w-4 text-[#555555]" />
+                  </div>
                   <div className="text-left">
-                    <span className="text-[10px] sm:text-xs text-[#888888] block">Your Team</span>
-                    <span className={`text-xs sm:text-sm font-medium ${myRoster ? 'text-white' : 'text-[#888888]'}`}>
-                      {myRoster ? (myRoster.teamName || myRoster.ownerName) : 'Select team'}
+                    <span className="text-[10px] text-[#555555] block leading-tight">Trade With</span>
+                    <span className={`text-sm font-medium ${targetRoster ? 'text-white' : 'text-[#444444]'}`}>
+                      {targetRoster ? (targetRoster.teamName || targetRoster.ownerName) : 'Select...'}
                     </span>
                   </div>
                 </div>
-                <ChevronDown className="h-4 w-4 sm:h-5 sm:w-5 text-[#888888]" />
+                <ChevronDown className="h-4 w-4 text-[#444444]" />
+              </button>
+            </>
+          )}
+
+          {/* Step 2: Asset Selection */}
+          {assetSourceRoster && (
+            <>
+              <button
+                onClick={() => setDropdownOpen('assets')}
+                className="w-full p-3 rounded-lg border border-[#1a1a1a] hover:border-[#333333] transition-colors flex items-center justify-between"
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-8 h-8 rounded-lg bg-[#111111] flex items-center justify-center shrink-0">
+                    <Search className="h-4 w-4 text-[#555555]" />
+                  </div>
+                  <div className="text-left">
+                    <span className="text-[10px] text-[#555555] block leading-tight">
+                      {tradeMode === 'dump' ? 'Assets to Trade' : 'Assets You Want'}
+                    </span>
+                    <span className={`text-sm ${selectedAssets.length > 0 ? 'text-white font-medium' : 'text-[#444444]'}`}>
+                      {selectedAssets.length > 0 ? `${selectedAssets.length} selected` : 'Select players or picks...'}
+                    </span>
+                  </div>
+                </div>
+                <ChevronDown className="h-4 w-4 text-[#444444] shrink-0" />
               </button>
 
-              {myRoster && (
-                <button
-                  onClick={() => setDropdownOpen('assets')}
-                  className="w-full p-3 sm:p-4 rounded-md border border-[#151515] hover:border-[#333333] transition-colors flex items-center justify-between"
-                >
-                  <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
-                    <Search className="h-4 w-4 sm:h-5 sm:w-5 text-[#888888] shrink-0" />
-                    <div className="text-left min-w-0 flex-1">
-                      <span className="text-[10px] sm:text-xs text-[#888888] block">Assets to Trade</span>
-                      {selectedAssets.length === 0 ? (
-                        <span className="text-xs sm:text-sm text-[#888888]">Select players or picks...</span>
-                      ) : (
-                        <div className="flex flex-wrap gap-1 mt-0.5">
-                          {selectedAssets.slice(0, 3).map(asset => (
-                            <span
-                              key={asset.id}
-                              className={`px-1.5 py-0.5 text-[10px] sm:text-xs font-medium rounded ${getPositionBadgeClass(asset.type === 'player' ? (asset.position || '') : 'PICK')}`}
-                            >
-                              {asset.name.length > 12 ? asset.name.slice(0, 12) + '...' : asset.name}
-                            </span>
-                          ))}
-                          {selectedAssets.length > 3 && (
-                            <span className="px-1.5 py-0.5 text-[10px] sm:text-xs font-medium text-[#888888] bg-[#111111] rounded">
-                              +{selectedAssets.length - 3}
-                            </span>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <ChevronDown className="h-4 w-4 sm:h-5 sm:w-5 text-[#888888] shrink-0 ml-2" />
-                </button>
+              {/* Selected Asset Chips */}
+              {selectedAssets.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 px-1">
+                  {selectedAssets.map(asset => (
+                    <span
+                      key={asset.id}
+                      className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium ${getPositionBadgeClass(asset.type === 'player' ? (asset.position || '') : 'PICK')}`}
+                    >
+                      {asset.name.length > 15 ? asset.name.slice(0, 15) + '...' : asset.name}
+                      <button
+                        onClick={(e) => { e.stopPropagation(); removeAsset(asset.id); }}
+                        className="ml-0.5 hover:opacity-70"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
               )}
 
+              {/* Value Summary */}
               {selectedAssets.length > 0 && (
-                <div className="px-3 py-2 bg-accent-900/20 rounded-md">
-                  <span className="text-xs sm:text-sm text-accent-300">
-                    Value: <strong>{selectedValueInfo.adjusted.toLocaleString()}</strong> KTC
+                <div className="flex items-center justify-between px-3 py-2 bg-accent-500/8 rounded-lg">
+                  <span className="text-xs text-[#888888]">Adjusted Value</span>
+                  <span className="text-sm font-bold text-accent-400 tabular-nums">
+                    {selectedValueInfo.adjusted.toLocaleString()}
                     {selectedValueInfo.raw !== selectedValueInfo.adjusted && (
-                      <span className="text-[10px] sm:text-xs text-[#888888] ml-2">
-                        (raw: {selectedValueInfo.raw.toLocaleString()})
+                      <span className="text-[10px] text-[#555555] font-normal ml-1.5">
+                        (raw {selectedValueInfo.raw.toLocaleString()})
                       </span>
                     )}
                   </span>
                 </div>
               )}
             </>
-          ) : (
-            <>
-              <button
-                onClick={() => setDropdownOpen('targetTeam')}
-                className="w-full p-3 sm:p-4 rounded-md border border-[#151515] hover:border-[#333333] transition-colors flex items-center justify-between"
-              >
-                <div className="flex items-center gap-2 sm:gap-3">
-                  <Users className="h-4 w-4 sm:h-5 sm:w-5 text-[#888888]" />
-                  <div className="text-left">
-                    <span className="text-[10px] sm:text-xs text-[#888888] block">Trade With</span>
-                    <span className={`text-xs sm:text-sm font-medium ${targetRoster ? 'text-white' : 'text-[#888888]'}`}>
-                      {targetRoster ? (targetRoster.teamName || targetRoster.ownerName) : 'Select team'}
-                    </span>
-                  </div>
+          )}
+
+          {/* Step 3 (acquire only): Your team */}
+          {tradeMode === 'acquire' && targetRoster && (
+            <button
+              onClick={() => setDropdownOpen('myTeam')}
+              className="w-full p-3 rounded-lg border border-[#1a1a1a] hover:border-[#333333] transition-colors flex items-center justify-between"
+            >
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-[#111111] flex items-center justify-center shrink-0">
+                  <User className="h-4 w-4 text-[#555555]" />
                 </div>
-                <ChevronDown className="h-4 w-4 sm:h-5 sm:w-5 text-[#888888]" />
-              </button>
+                <div className="text-left">
+                  <span className="text-[10px] text-[#555555] block leading-tight">Your Team</span>
+                  <span className={`text-sm font-medium ${myRoster ? 'text-white' : 'text-[#444444]'}`}>
+                    {myRoster ? (myRoster.teamName || myRoster.ownerName) : 'Select...'}
+                  </span>
+                </div>
+              </div>
+              <ChevronDown className="h-4 w-4 text-[#444444]" />
+            </button>
+          )}
+        </div>
 
-              {targetRoster && (
-                <>
-                  <button
-                    onClick={() => setDropdownOpen('assets')}
-                    className="w-full p-3 sm:p-4 rounded-md border border-[#151515] hover:border-[#333333] transition-colors flex items-center justify-between"
-                  >
-                    <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
-                      <Search className="h-4 w-4 sm:h-5 sm:w-5 text-[#888888] shrink-0" />
-                      <div className="text-left min-w-0 flex-1">
-                        <span className="text-[10px] sm:text-xs text-[#888888] block">Assets You Want</span>
-                        {selectedAssets.length === 0 ? (
-                          <span className="text-xs sm:text-sm text-[#888888]">Select players or picks...</span>
-                        ) : (
-                          <div className="flex flex-wrap gap-1 mt-0.5">
-                            {selectedAssets.slice(0, 3).map(asset => (
-                              <span
-                                key={asset.id}
-                                className={`px-1.5 py-0.5 text-[10px] sm:text-xs font-medium rounded ${getPositionBadgeClass(asset.type === 'player' ? (asset.position || '') : 'PICK')}`}
-                              >
-                                {asset.name.length > 12 ? asset.name.slice(0, 12) + '...' : asset.name}
-                              </span>
-                            ))}
-                            {selectedAssets.length > 3 && (
-                              <span className="px-1.5 py-0.5 text-[10px] sm:text-xs font-medium text-[#888888] bg-[#111111] rounded">
-                                +{selectedAssets.length - 3}
-                              </span>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    <ChevronDown className="h-4 w-4 sm:h-5 sm:w-5 text-[#888888] shrink-0 ml-2" />
-                  </button>
-
-                  {selectedAssets.length > 0 && (
-                    <div className="px-3 py-2 bg-accent-900/20 rounded-md">
-                      <span className="text-xs sm:text-sm text-accent-300">
-                        Target: <strong>{selectedValueInfo.adjusted.toLocaleString()}</strong> KTC
-                        {selectedValueInfo.raw !== selectedValueInfo.adjusted && (
-                          <span className="text-[10px] sm:text-xs text-[#888888] ml-2">
-                            (raw: {selectedValueInfo.raw.toLocaleString()})
-                          </span>
-                        )}
-                      </span>
-                    </div>
-                  )}
-
-                  <button
-                    onClick={() => setDropdownOpen('myTeam')}
-                    className="w-full p-3 sm:p-4 rounded-md border border-[#151515] hover:border-[#333333] transition-colors flex items-center justify-between"
-                  >
-                    <div className="flex items-center gap-2 sm:gap-3">
-                      <Users className="h-4 w-4 sm:h-5 sm:w-5 text-[#888888]" />
-                      <div className="text-left">
-                        <span className="text-[10px] sm:text-xs text-[#888888] block">Your Team</span>
-                        <span className={`text-xs sm:text-sm font-medium ${myRoster ? 'text-white' : 'text-[#888888]'}`}>
-                          {myRoster ? (myRoster.teamName || myRoster.ownerName) : 'Select team'}
-                        </span>
-                      </div>
-                    </div>
-                    <ChevronDown className="h-4 w-4 sm:h-5 sm:w-5 text-[#888888]" />
-                  </button>
-                </>
+        {/* Filters Row - collapsible */}
+        <div className="border-t border-[#151515]">
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className="w-full px-4 py-2.5 flex items-center justify-between text-xs text-[#555555] hover:text-[#888888] transition-colors"
+          >
+            <div className="flex items-center gap-1.5">
+              <SlidersHorizontal className="h-3.5 w-3.5" />
+              <span>Filters</span>
+              {(assetPreference !== 'all' || tolerance !== 10) && (
+                <span className="px-1.5 py-0.5 bg-accent-500/15 text-accent-400 rounded text-[10px] font-medium">
+                  {assetPreference !== 'all' ? assetPreference : ''}{assetPreference !== 'all' && tolerance !== 10 ? ' · ' : ''}{tolerance !== 10 ? `${tolerance}%` : ''}
+                </span>
               )}
-            </>
+            </div>
+            <ChevronDown className={`h-3.5 w-3.5 transition-transform ${showFilters ? 'rotate-180' : ''}`} />
+          </button>
+
+          {showFilters && (
+            <div className="px-4 pb-4 pt-1 flex flex-col sm:flex-row gap-4">
+              {/* Preference */}
+              <div className="flex-1">
+                <span className="text-[10px] font-semibold text-[#555555] uppercase tracking-wider block mb-1.5">
+                  {tradeMode === 'dump' ? 'Prefer to receive' : 'Prefer to give up'}
+                </span>
+                <div className="flex gap-1">
+                  {(['all', 'players', 'picks'] as AssetPreference[]).map(pref => (
+                    <button
+                      key={pref}
+                      onClick={() => setAssetPreference(pref)}
+                      className={`flex-1 py-1.5 px-2 rounded-md text-xs font-medium transition-all flex items-center justify-center gap-1 ${
+                        assetPreference === pref
+                          ? 'bg-accent-500/15 text-accent-400'
+                          : 'text-[#555555] hover:text-[#888888] hover:bg-[#111111]'
+                      }`}
+                    >
+                      {pref === 'players' && <User className="h-3 w-3" />}
+                      {pref === 'picks' && <FileText className="h-3 w-3" />}
+                      {pref === 'all' ? 'Any' : pref === 'players' ? 'Players' : 'Picks'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Tolerance */}
+              <div className="sm:w-40">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-[10px] font-semibold text-[#555555] uppercase tracking-wider">Tolerance</span>
+                  <span className="text-xs font-bold text-accent-400 tabular-nums">&plusmn;{tolerance}%</span>
+                </div>
+                <input
+                  type="range"
+                  min={5}
+                  max={25}
+                  step={5}
+                  value={tolerance}
+                  onChange={(e) => setTolerance(Number(e.target.value))}
+                  className="w-full h-1.5 bg-[#222222] rounded-full appearance-none cursor-pointer accent-accent-500"
+                />
+              </div>
+            </div>
           )}
         </div>
+      </div>
 
-        {/* Preference & Tolerance - Combined compact row on mobile */}
-        <div className="bg-[#0a0a0a] border border-[#151515] rounded-md p-3 sm:p-6 mb-3 sm:mb-6">
-          <div className="flex flex-col sm:flex-row sm:items-start gap-4 sm:gap-6">
-            {/* Asset Type Preference */}
-            <div className="flex-1">
-              <span className="text-[10px] sm:text-xs font-semibold text-[#888888] uppercase tracking-wider block mb-2">
-                {tradeMode === 'dump' ? 'Prefer to receive' : 'Prefer to give up'}
-              </span>
-              <div className="flex gap-1.5 sm:gap-2">
-                <button
-                  onClick={() => setAssetPreference('all')}
-                  className={`flex-1 py-2 px-2 rounded-md border-2 transition-all flex items-center justify-center gap-1 ${
-                    assetPreference === 'all'
-                      ? 'border-accent-500 bg-accent-900/20'
-                      : 'border-[#151515]'
-                  }`}
-                >
-                  <span className={`text-[10px] sm:text-xs font-medium ${assetPreference === 'all' ? 'text-accent-400' : 'text-[#888888]'}`}>
-                    Any
-                  </span>
-                </button>
-                <button
-                  onClick={() => setAssetPreference('players')}
-                  className={`flex-1 py-2 px-2 rounded-md border-2 transition-all flex items-center justify-center gap-1 ${
-                    assetPreference === 'players'
-                      ? 'border-accent-500 bg-accent-900/20'
-                      : 'border-[#151515]'
-                  }`}
-                >
-                  <User className={`h-3 w-3 sm:h-4 sm:w-4 ${assetPreference === 'players' ? 'text-accent-500' : 'text-[#888888]'}`} />
-                  <span className={`text-[10px] sm:text-xs font-medium ${assetPreference === 'players' ? 'text-accent-400' : 'text-[#888888]'}`}>
-                    Players
-                  </span>
-                </button>
-                <button
-                  onClick={() => setAssetPreference('picks')}
-                  className={`flex-1 py-2 px-2 rounded-md border-2 transition-all flex items-center justify-center gap-1 ${
-                    assetPreference === 'picks'
-                      ? 'border-accent-500 bg-accent-900/20'
-                      : 'border-[#151515]'
-                  }`}
-                >
-                  <FileText className={`h-3 w-3 sm:h-4 sm:w-4 ${assetPreference === 'picks' ? 'text-accent-500' : 'text-[#888888]'}`} />
-                  <span className={`text-[10px] sm:text-xs font-medium ${assetPreference === 'picks' ? 'text-accent-400' : 'text-[#888888]'}`}>
-                    Picks
-                  </span>
-                </button>
-              </div>
-            </div>
+      {/* Search Button */}
+      <button
+        onClick={findTrades}
+        disabled={!canSearch || isSearching}
+        className={`w-full py-3.5 rounded-xl font-semibold text-white text-sm transition-all flex items-center justify-center gap-2 ${
+          canSearch && !isSearching
+            ? 'bg-accent-500 hover:bg-accent-600 shadow-lg shadow-accent-500/20'
+            : 'bg-[#1a1a1a] text-[#444444] cursor-not-allowed'
+        }`}
+      >
+        {isSearching ? (
+          <>
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Searching...
+          </>
+        ) : (
+          <>
+            <Search className="h-4 w-4" />
+            Find Trades
+          </>
+        )}
+      </button>
 
-            {/* Tolerance */}
-            <div className="sm:w-48">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-[10px] sm:text-xs font-semibold text-[#888888] uppercase tracking-wider">
-                  Tolerance
-                </span>
-                <span className="text-xs sm:text-sm font-bold text-accent-400">
-                  ±{tolerance}%
-                </span>
-              </div>
-              <input
-                type="range"
-                min={5}
-                max={25}
-                step={5}
-                value={tolerance}
-                onChange={(e) => setTolerance(Number(e.target.value))}
-                className="w-full h-2 bg-[#222222] rounded-md appearance-none cursor-pointer accent-accent-500"
-              />
-            </div>
+      {/* Results */}
+      {scenarios.length > 0 && (
+        <div className="mt-6">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-sm font-bold text-white">
+              Trade Scenarios
+            </h2>
+            <span className="text-xs text-[#555555] tabular-nums">
+              {scenarios.length} found
+            </span>
           </div>
-        </div>
 
-        {/* Search Button */}
-        <button
-          onClick={findTrades}
-          disabled={!canSearch || isSearching}
-          className={`w-full py-3 sm:py-4 rounded-md font-semibold text-white text-sm sm:text-base transition-colors flex items-center justify-center gap-2 ${
-            canSearch && !isSearching
-              ? 'bg-accent-500 hover:bg-accent-600'
-              : 'bg-[#222222] cursor-not-allowed'
-          }`}
-        >
-          {isSearching ? (
-            <>
-              <Loader2 className="h-4 w-4 sm:h-5 sm:w-5 animate-spin" />
-              Searching...
-            </>
-          ) : (
-            <>
-              <Search className="h-4 w-4 sm:h-5 sm:w-5" />
-              Find Trades
-            </>
-          )}
-        </button>
-
-        {/* Results */}
-        {scenarios.length > 0 && (
-          <div className="mt-4 sm:mt-8">
-            <div className="flex items-center justify-between mb-3 sm:mb-4">
-              <h2 className="text-base sm:text-lg font-bold text-white">
-                Trade Scenarios
-              </h2>
-              <span className="text-xs sm:text-sm text-[#888888]">
-                {scenarios.length} found
-              </span>
-            </div>
-
-            <div className="space-y-3 sm:space-y-4">
-              {scenarios.map((scenario, idx) => (
-                <div
-                  key={idx}
-                  className={`bg-[#0a0a0a] border-2 rounded-md p-3 sm:p-6 ${
-                    scenario.fairness === 'fair'
-                      ? 'border-emerald-500/50'
-                      : scenario.fairness === 'slight'
-                      ? 'border-blue-500/50'
-                      : 'border-[#151515]'
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-3 sm:mb-4 flex-wrap gap-2">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-xs sm:text-sm text-[#888888]">
-                        <strong className="text-white">{scenario.partnerRoster.teamName || scenario.partnerRoster.ownerName}</strong>
-                      </span>
-                      <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded uppercase ${
-                        scenario.fairness === 'fair'
-                          ? 'bg-emerald-900/30 text-emerald-400'
-                          : scenario.fairness === 'slight'
-                          ? 'bg-blue-900/30 text-blue-400'
-                          : scenario.fairness === 'unfair'
-                          ? 'bg-amber-900/30 text-amber-400'
-                          : 'bg-red-900/30 text-red-400'
-                      }`}>
-                        {scenario.fairness}
-                      </span>
-                    </div>
-                    <span className={`text-[10px] sm:text-xs font-semibold px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md ${
-                      Math.abs(scenario.differencePercent) < 5
-                        ? 'bg-emerald-900/30 text-emerald-400'
-                        : 'bg-[#111111] text-[#333333]'
-                    }`}>
-                      {scenario.adjustedDifference >= 0 ? '+' : ''}{scenario.adjustedDifference.toLocaleString()}
+          <div className="space-y-2.5">
+            {scenarios.map((scenario, idx) => (
+              <div
+                key={idx}
+                className={`bg-[#0a0a0a] border rounded-xl overflow-hidden ${fairnessBorder(scenario.fairness)}`}
+              >
+                {/* Card Header */}
+                <div className="px-4 py-2.5 flex items-center justify-between border-b border-[#111111]">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-semibold text-white">
+                      {scenario.partnerRoster.teamName || scenario.partnerRoster.ownerName}
+                    </span>
+                    <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border ${fairnessBadge(scenario.fairness)}`}>
+                      {scenario.fairness}
                     </span>
                   </div>
+                  <span className={`text-xs font-semibold tabular-nums ${
+                    Math.abs(scenario.differencePercent) < 5 ? 'text-emerald-400' : 'text-[#555555]'
+                  }`}>
+                    {scenario.adjustedDifference >= 0 ? '+' : ''}{scenario.adjustedDifference.toLocaleString()}
+                  </span>
+                </div>
 
-                  <div className="flex flex-col sm:grid sm:grid-cols-[1fr,auto,1fr] gap-3 sm:gap-4">
-                    {/* Give Side */}
-                    <div className="bg-red-900/10 rounded-md p-3">
-                      <div className="text-[10px] sm:text-xs font-semibold text-red-400 uppercase tracking-wider mb-2">
-                        Give
-                        <span className="font-normal text-[#888888] ml-1">
-                          ({scenario.giveAdjusted.toLocaleString()})
-                        </span>
-                      </div>
-                      <div className="space-y-1.5 sm:space-y-2">
-                        {scenario.give.map((asset, i) => (
-                          <div key={i} className="flex items-center justify-between gap-2">
-                            <div className="flex items-center gap-1.5 min-w-0">
-                              <span className={`px-1.5 py-0.5 text-[10px] sm:text-xs font-medium rounded shrink-0 ${getPositionBadgeClass(asset.type === 'player' ? (asset.position || '') : 'PICK')}`}>
-                                {asset.type === 'player' ? asset.position : 'PICK'}
-                              </span>
-                              <span className="text-xs sm:text-sm text-white">{asset.name}</span>
-                            </div>
-                            <span className="text-[10px] sm:text-xs text-[#888888] shrink-0">{asset.value.toLocaleString()}</span>
-                          </div>
-                        ))}
-                      </div>
+                {/* Give / Get */}
+                <div className="grid grid-cols-[1fr,1fr] divide-x divide-[#111111]">
+                  {/* Give Side */}
+                  <div className="p-3">
+                    <div className="text-[10px] font-semibold text-red-400/70 uppercase tracking-wider mb-2 flex items-center justify-between">
+                      <span>Give</span>
+                      <span className="text-[#444444] font-normal tabular-nums">{scenario.giveAdjusted.toLocaleString()}</span>
                     </div>
-
-                    {/* Arrow - hidden on mobile, shown inline */}
-                    <div className="hidden sm:flex items-center justify-center h-full">
-                      <ArrowLeftRight className="h-5 w-5 text-[#333333]" />
-                    </div>
-
-                    {/* Get Side */}
-                    <div className="bg-emerald-900/10 rounded-md p-3">
-                      <div className="text-[10px] sm:text-xs font-semibold text-emerald-400 uppercase tracking-wider mb-2">
-                        Get
-                        <span className="font-normal text-[#888888] ml-1">
-                          ({scenario.getAdjusted.toLocaleString()})
-                        </span>
-                      </div>
-                      <div className="space-y-1.5 sm:space-y-2">
-                        {scenario.get.map((asset, i) => (
-                          <div key={i} className="flex items-center justify-between gap-2">
-                            <div className="flex items-center gap-1.5 min-w-0">
-                              <span className={`px-1.5 py-0.5 text-[10px] sm:text-xs font-medium rounded shrink-0 ${getPositionBadgeClass(asset.type === 'player' ? (asset.position || '') : 'PICK')}`}>
-                                {asset.type === 'player' ? asset.position : 'PICK'}
-                              </span>
-                              <span className="text-xs sm:text-sm text-white">{asset.name}</span>
-                            </div>
-                            <span className="text-[10px] sm:text-xs text-[#888888] shrink-0">{asset.value.toLocaleString()}</span>
-                          </div>
-                        ))}
-                      </div>
+                    <div className="space-y-1.5">
+                      {scenario.give.map((asset, i) => (
+                        <div key={i} className="flex items-center gap-1.5">
+                          <span className={`px-1 py-0.5 text-[9px] font-bold rounded shrink-0 ${getPositionBadgeClass(asset.type === 'player' ? (asset.position || '') : 'PICK')}`}>
+                            {asset.type === 'player' ? asset.position : 'PICK'}
+                          </span>
+                          <span className="text-xs text-white truncate">{asset.name}</span>
+                        </div>
+                      ))}
                     </div>
                   </div>
 
-                  {/* Value Adjustment Info */}
-                  {scenario.difference !== scenario.adjustedDifference && (
-                    <div className="flex mt-2 sm:mt-3 pt-2 sm:pt-3 border-t border-[#151515] items-start gap-1.5">
-                      <Info className="h-3 w-3 text-[#888888] mt-0.5 shrink-0" />
-                      <span className="text-[10px] text-[#888888]">
-                        Raw: {scenario.difference >= 0 ? '+' : ''}{scenario.difference.toLocaleString()} →
-                        Adj: {scenario.adjustedDifference >= 0 ? '+' : ''}{scenario.adjustedDifference.toLocaleString()}
-                      </span>
+                  {/* Get Side */}
+                  <div className="p-3">
+                    <div className="text-[10px] font-semibold text-emerald-400/70 uppercase tracking-wider mb-2 flex items-center justify-between">
+                      <span>Get</span>
+                      <span className="text-[#444444] font-normal tabular-nums">{scenario.getAdjusted.toLocaleString()}</span>
                     </div>
-                  )}
+                    <div className="space-y-1.5">
+                      {scenario.get.map((asset, i) => (
+                        <div key={i} className="flex items-center gap-1.5">
+                          <span className={`px-1 py-0.5 text-[9px] font-bold rounded shrink-0 ${getPositionBadgeClass(asset.type === 'player' ? (asset.position || '') : 'PICK')}`}>
+                            {asset.type === 'player' ? asset.position : 'PICK'}
+                          </span>
+                          <span className="text-xs text-white truncate">{asset.name}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 </div>
-              ))}
-            </div>
-          </div>
-        )}
 
-        {scenarios.length === 0 && selectedAssets.length > 0 && !isSearching && (
-          <div className="mt-8 p-6 bg-[#0a0a0a] rounded-md text-center">
-            <p className="text-sm text-[#888888]">
-              Click "Find Trade Scenarios" to discover matching trades based on your selected assets.
-            </p>
+                {/* Adjustment Info */}
+                {scenario.difference !== scenario.adjustedDifference && (
+                  <div className="px-4 py-2 border-t border-[#111111] flex items-center gap-1.5">
+                    <Info className="h-3 w-3 text-[#333333] shrink-0" />
+                    <span className="text-[10px] text-[#444444]">
+                      Raw: {scenario.difference >= 0 ? '+' : ''}{scenario.difference.toLocaleString()} &rarr;
+                      Adj: {scenario.adjustedDifference >= 0 ? '+' : ''}{scenario.adjustedDifference.toLocaleString()}
+                    </span>
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
-        )}
+        </div>
+      )}
+
+      {scenarios.length === 0 && selectedAssets.length > 0 && !isSearching && (
+        <div className="mt-6 py-8 text-center">
+          <p className="text-sm text-[#444444]">
+            Hit "Find Trades" to discover matching scenarios
+          </p>
+        </div>
+      )}
 
       {/* Dropdowns */}
       <TeamDropdown
@@ -1113,7 +983,6 @@ export function TradeFinder() {
         excludeRosterId={targetRoster?.roster_id}
         onSelect={(roster) => setMyRoster(roster)}
       />
-
       <TeamDropdown
         isOpen={dropdownOpen === 'targetTeam'}
         onClose={() => setDropdownOpen(null)}
@@ -1122,7 +991,6 @@ export function TradeFinder() {
         excludeRosterId={myRoster?.roster_id}
         onSelect={(roster) => setTargetRoster(roster)}
       />
-
       <AssetDropdown
         isOpen={dropdownOpen === 'assets'}
         onClose={() => setDropdownOpen(null)}

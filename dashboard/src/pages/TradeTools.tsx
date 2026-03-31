@@ -5,8 +5,8 @@ import { TradeFinder } from './TradeFinder';
 import { PageHeader } from '../components/PageHeader';
 
 const tabs = [
-  { id: 'evaluate' as const, label: 'Evaluate', icon: Scale },
-  { id: 'find' as const, label: 'Find', icon: Target },
+  { id: 'evaluate' as const, label: 'Evaluate', icon: Scale, subtitle: 'Build a trade and see who wins' },
+  { id: 'find' as const, label: 'Find', icon: Target, subtitle: 'Discover fair trades across the league' },
 ];
 
 type TabId = typeof tabs[number]['id'];
@@ -16,14 +16,11 @@ export default function TradeTools() {
 
   return (
     <div className="min-h-screen bg-black">
-      <div className="max-w-4xl mx-auto px-4 py-6 sm:py-8">
-        {/* Header */}
+      <div className="max-w-5xl mx-auto px-4 py-6 sm:py-8">
         <div className="mb-4 sm:mb-6">
-          <PageHeader title="Trade Evaluator" backTo="/" />
-          <p className="text-xs sm:text-sm text-[#888888] -mt-3">
-            {activeTab === 'evaluate'
-              ? 'Build and evaluate trades using KTC dynasty values'
-              : 'Find fair trade scenarios across your league'}
+          <PageHeader title="Trade Tools" backTo="/" />
+          <p className="text-xs sm:text-sm text-[#666666] -mt-3">
+            {tabs.find(t => t.id === activeTab)?.subtitle}
           </p>
         </div>
 
@@ -45,7 +42,6 @@ export default function TradeTools() {
           ))}
         </div>
 
-        {/* Content */}
         {activeTab === 'evaluate' ? <TradeEvaluator /> : <TradeFinder />}
       </div>
     </div>
