@@ -58,55 +58,6 @@ export default function Transactions() {
     },
   });
 
-  const { data: rosterToDraftSlot } = useQuery({
-    queryKey: ['roster-draft-slot-mapping'],
-    queryFn: async () => {
-      const { data: drafts } = await supabase
-        .from('drafts')
-        .select('draft_id, season')
-        .order('season', { ascending: true })
-        .limit(1);
-
-      if (!drafts?.length) return new Map<number, number>();
-
-      const startupDraftId = drafts[0].draft_id;
-
-      const { data: startupPicks } = await supabase
-        .from('draft_picks')
-        .select('roster_id, draft_slot')
-        .eq('draft_id', startupDraftId)
-        .eq('round', 1);
-
-      const mapping = new Map<number, number>();
-      (startupPicks as any[])?.forEach((pick: any) => {
-        mapping.set(pick.roster_id, pick.draft_slot);
-      });
-      return mapping;
-    },
-  });
-
-  const { data: draftPickResults } = useQuery({
-    queryKey: ['draft-pick-results'],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from('draft_picks')
-        .select(`
-          draft_slot,
-          round,
-          player_id,
-          drafts!inner(season)
-        `)
-        .not('player_id', 'is', null);
-
-      const pickMap = new Map<string, string>();
-      (data as any[])?.forEach((pick: any) => {
-        const key = `${pick.drafts.season}-${pick.round}-${pick.draft_slot}`;
-        pickMap.set(key, pick.player_id);
-      });
-      return pickMap;
-    },
-  });
-
   const { data: transactions, isLoading } = useQuery({
     queryKey: ['transactions'],
     queryFn: async () => {
@@ -169,16 +120,6 @@ export default function Transactions() {
 
   const getPlayerValue = (playerId: string): number => {
     return playerValues?.get(playerId) || 0;
-  };
-
-  const getPickResult = (pick: any): { playerId: string; player: Player | undefined } | null => {
-    if (!draftPickResults || !rosterToDraftSlot) return null;
-    const draftSlot = rosterToDraftSlot.get(pick.roster_id);
-    if (!draftSlot) return null;
-    const key = `${pick.season}-${pick.round}-${draftSlot}`;
-    const playerId = draftPickResults.get(key);
-    if (!playerId) return null;
-    return { playerId, player: getPlayer(playerId) };
   };
 
   const filteredAndSortedTransactions = useMemo(() => {
@@ -322,19 +263,6 @@ export default function Transactions() {
       </div>
     );
   }
-
-  const getTypeStyles = (type: string) => {
-    switch (type) {
-      case 'trade':
-        return { bg: 'bg-purple-500/20', text: 'text-purple-400' };
-      case 'waiver':
-        return { bg: 'bg-amber-500/20', text: 'text-amber-400' };
-      case 'free_agent':
-        return { bg: 'bg-emerald-500/20', text: 'text-emerald-400' };
-      default:
-        return { bg: 'bg-[#111111]', text: 'text-[#888888]' };
-    }
-  };
 
   const formatDate = (tx: any) => {
     const timestamp = tx.created || tx.status_updated;
