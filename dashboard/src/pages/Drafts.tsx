@@ -264,10 +264,7 @@ export default function Drafts() {
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
       {/* Header */}
-      <PageHeader title="Drafts" backTo="/" />
-      <p className="text-[#888888] text-xs sm:text-sm -mt-3 mb-4 sm:mb-6">
-        View draft history and future pick ownership
-      </p>
+      <PageHeader sectionLabel="League" title="Drafts" subtitle="View draft history and future pick ownership" />
 
       {/* Tab Navigation */}
       <div className="mb-4 sm:mb-6 flex gap-1 p-1 bg-[#111111] rounded-md w-fit">

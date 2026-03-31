@@ -51,7 +51,7 @@ export default function Home() {
   const { data: league, isLoading: leagueLoading } = useQuery({
     queryKey: ['home-league'],
     queryFn: async () => {
-      const { data } = await supabase.from('leagues').select('*').order('created_at', { ascending: false }).limit(1);
+      const { data } = await supabase.from('leagues').select('*').order('season', { ascending: false }).limit(1);
       return data?.[0] || null;
     },
   });
@@ -82,9 +82,9 @@ export default function Home() {
 
   // ── Rosters ──
   const { data: rostersData } = useQuery({
-    queryKey: ['home-rosters'],
+    queryKey: ['home-rosters', league?.league_id],
     queryFn: async () => {
-      const { data: rosters } = await supabase.from('rosters').select('*');
+      const { data: rosters } = await supabase.from('rosters').select('*').eq('league_id', league.league_id);
       const { data: users } = await supabase.from('users').select('*');
       const { data: leagueUsers } = await supabase.from('league_users').select('user_id, team_name, display_name');
       return { rosters: rosters as any[] || [], users: users as any[] || [], leagueUsers: leagueUsers as LeagueUser[] || [] };
@@ -254,12 +254,15 @@ export default function Home() {
         });
       }
 
-      // Find winner
+      // Find winner (always pick one, or mark as even if diff is 0)
       const sides = Object.values(teamAssets);
       let winnerId: number | null = null;
+      let isEvenTrade = false;
       if (sides.length === 2) {
         const diff = sides[0].totalValue - sides[1].totalValue;
-        if (Math.abs(diff) > 500) {
+        if (diff === 0) {
+          isEvenTrade = true;
+        } else {
           winnerId = diff > 0 ? Number(Object.keys(teamAssets)[0]) : Number(Object.keys(teamAssets)[1]);
         }
       }
@@ -272,6 +275,7 @@ export default function Home() {
         date: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
         teamAssets,
         winnerId,
+        isEvenTrade,
         sides,
       };
     });
@@ -452,10 +456,14 @@ export default function Home() {
                       {trade.date}
                     </span>
                   </div>
-                  {trade.sides.length === 2 && trade.winnerId && (
-                    <span className="text-[10px] sm:text-xs text-emerald-400 font-medium">
-                      {trade.sides[0].totalValue > trade.sides[1].totalValue ? trade.sides[0].teamName : trade.sides[1].teamName} +{Math.abs(trade.sides[0].totalValue - trade.sides[1].totalValue).toLocaleString()}
-                    </span>
+                  {trade.sides.length === 2 && (
+                    trade.isEvenTrade ? (
+                      <span className="text-[10px] sm:text-xs text-[#555555] font-medium">Even Trade</span>
+                    ) : (
+                      <span className="text-[10px] sm:text-xs text-emerald-400 font-medium">
+                        {trade.sides[0].totalValue > trade.sides[1].totalValue ? trade.sides[0].teamName : trade.sides[1].teamName} +{Math.abs(trade.sides[0].totalValue - trade.sides[1].totalValue).toLocaleString()}
+                      </span>
+                    )
                   )}
                 </div>
 

@@ -329,13 +329,10 @@ export function KTCValues() {
       {/* Header */}
       <div className="mb-4 sm:mb-6">
         <PageHeader
+          sectionLabel="Players"
           title="KTC Values"
-          backTo="/"
-          icon={<img src="/ktc-logo.png" alt="KTC" className="h-5 w-5" />}
+          subtitle="Powered by KeepTradeCut • Superflex Rankings"
         />
-        <p className="text-[#888888] -mt-3 text-xs sm:text-sm">
-          Powered by KeepTradeCut • Superflex Rankings
-        </p>
       </div>
 
       {/* Filters */}

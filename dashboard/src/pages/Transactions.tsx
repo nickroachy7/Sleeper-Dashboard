@@ -306,10 +306,11 @@ export default function Transactions() {
     const teams = tx.teams || [];
     if (teams.length < 2) return null;
 
-    // Determine winner
+    // Determine winner (always pick one, or mark as even if diff is 0)
     const values = teams.map((t: any) => teamAssets[t.rosterId]?.value || 0);
     const diff = values[0] - values[1];
-    const winnerId = diff > 500 ? teams[0].rosterId : diff < -500 ? teams[1].rosterId : null;
+    const winnerId = diff !== 0 ? (diff > 0 ? teams[0].rosterId : teams[1].rosterId) : null;
+    const isEvenTrade = diff === 0;
 
     return (
       <div className="border-b border-[#151515] pb-5 sm:pb-6">
@@ -322,7 +323,9 @@ export default function Transactions() {
               {formatDate(tx)}
             </span>
           </div>
-          {winnerId && (
+          {isEvenTrade ? (
+            <span className="text-[10px] sm:text-xs text-[#555555] font-medium">Even Trade</span>
+          ) : (
             <span className="text-[10px] sm:text-xs text-emerald-400 font-medium">
               {teams.find((t: any) => t.rosterId === winnerId)?.teamName} +{Math.abs(diff).toLocaleString()}
             </span>
@@ -486,8 +489,7 @@ export default function Transactions() {
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto">
       <div className="mb-6">
-        <PageHeader title="Transactions" />
-        <p className="text-[#555555] text-xs -mt-3 mb-4">Latest completed trades with KTC value analysis</p>
+        <PageHeader sectionLabel="League" title="Transactions" subtitle="Latest completed trades with KTC value analysis" />
 
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-1.5">
