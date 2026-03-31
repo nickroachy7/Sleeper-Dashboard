@@ -2,10 +2,10 @@
 nixPkgs = ["nodejs_20"]
 
 [phases.install]
-cmds = ["cd dashboard && npm ci"]
+cmds = ["cd dashboard && npm ci --include=dev"]
 
 [phases.build]
-cmds = ["cd dashboard && npm run build"]
+cmds = ["cd dashboard && npm run build && ls -la dist/"]
 
 [start]
-cmd = "cd dashboard && npm run serve"
+cmd = "cd dashboard && ls -la dist/ && npm run serve"
