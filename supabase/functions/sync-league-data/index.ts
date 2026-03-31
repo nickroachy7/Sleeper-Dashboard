@@ -50,10 +50,11 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Get league ID from database
+    // Get the most recent league (highest season) from database
     const { data: leagues, error: leagueError } = await supabase
       .from("leagues")
       .select("league_id")
+      .order("season", { ascending: false })
       .limit(1)
       .single();
 
@@ -84,7 +85,9 @@ Deno.serve(async (req) => {
       draftPicks: 0,
     };
 
-    // 1. Sync Rosters
+    // 1. Sync Rosters — delete old season rosters first so only current league exists
+    await supabase.from("rosters").delete().neq("league_id", leagueId);
+
     const rosters = await fetchWithRetry(`${SLEEPER_API}/league/${leagueId}/rosters`);
     if (rosters?.length) {
       for (const roster of rosters) {
