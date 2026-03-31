@@ -8,9 +8,10 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "serve": "serve dist -s -l tcp://0.0.0.0:${PORT:-3000}"
+    "serve": "serve dist -s -p ${PORT:-3000}"
   },
   "dependencies": {
+    "serve": "^14.2.0",
     "@supabase/supabase-js": "^2.87.0",
     "@tailwindcss/vite": "^4.1.17",
     "@tanstack/react-query": "^5.90.12",
@@ -36,7 +37,6 @@
     "tsx": "^4.21.0",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.46.4",
-    "vite": "^7.2.4",
-    "serve": "^14.2.0"
+    "vite": "^7.2.4"
   }
 }
