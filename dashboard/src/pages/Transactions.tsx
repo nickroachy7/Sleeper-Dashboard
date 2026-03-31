@@ -1,16 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
-import { 
-  ArrowRightLeft, 
-  Loader2, 
-  UserPlus, 
-  UserMinus, 
-  RefreshCw,
+import {
+  ArrowRightLeft,
+  Loader2,
   Clock,
-  ArrowLeftRight,
-  TrendingUp,
-  TrendingDown,
-  Minus,
   Filter,
   ChevronLeft,
   ChevronRight,
@@ -38,19 +31,13 @@ interface LeagueUser {
   display_name: string | null;
 }
 
-const positionColors: Record<string, string> = {
-  QB: 'bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-400',
-  RB: 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400',
-  WR: 'bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-400',
-  TE: 'bg-orange-100 dark:bg-orange-500/20 text-orange-700 dark:text-orange-400',
-};
-
 const ITEMS_PER_PAGE = 50;
 
 export default function Transactions() {
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [sortBy, setSortBy] = useState<string>('recent');
   const [currentPage, setCurrentPage] = useState(1);
+
   const { data: players } = useQuery({
     queryKey: ['players'],
     queryFn: async () => {
@@ -71,29 +58,25 @@ export default function Transactions() {
     },
   });
 
-  // Fetch roster_id to draft_slot mapping from the startup draft (earliest draft)
-  // In dynasty leagues, each roster is assigned a permanent draft slot from the startup draft
   const { data: rosterToDraftSlot } = useQuery({
     queryKey: ['roster-draft-slot-mapping'],
     queryFn: async () => {
-      // Get the earliest draft (startup draft) to determine roster -> draft_slot mapping
       const { data: drafts } = await supabase
         .from('drafts')
         .select('draft_id, season')
         .order('season', { ascending: true })
         .limit(1);
-      
+
       if (!drafts?.length) return new Map<number, number>();
-      
+
       const startupDraftId = drafts[0].draft_id;
-      
-      // Get round 1 picks from startup draft to map roster_id -> draft_slot
+
       const { data: startupPicks } = await supabase
         .from('draft_picks')
         .select('roster_id, draft_slot')
         .eq('draft_id', startupDraftId)
         .eq('round', 1);
-      
+
       const mapping = new Map<number, number>();
       (startupPicks as any[])?.forEach((pick: any) => {
         mapping.set(pick.roster_id, pick.draft_slot);
@@ -102,7 +85,6 @@ export default function Transactions() {
     },
   });
 
-  // Fetch draft picks with player info to show what was picked
   const { data: draftPickResults } = useQuery({
     queryKey: ['draft-pick-results'],
     queryFn: async () => {
@@ -115,8 +97,7 @@ export default function Transactions() {
           drafts!inner(season)
         `)
         .not('player_id', 'is', null);
-      
-      // Create a map: "season-round-draft_slot" -> player_id
+
       const pickMap = new Map<string, string>();
       (data as any[])?.forEach((pick: any) => {
         const key = `${pick.drafts.season}-${pick.round}-${pick.draft_slot}`;
@@ -129,41 +110,36 @@ export default function Transactions() {
   const { data: transactions, isLoading } = useQuery({
     queryKey: ['transactions'],
     queryFn: async () => {
-      // Fetch all transactions - need to paginate since Supabase has 1000 row default limit
       let allTransactions: any[] = [];
       let from = 0;
       const pageSize = 1000;
-      
+
       while (true) {
         const { data, error } = await supabase
           .from('transactions')
           .select('*')
           .range(from, from + pageSize - 1)
           .order('created', { ascending: false, nullsFirst: false });
-        
+
         if (error || !data || data.length === 0) break;
         allTransactions = [...allTransactions, ...data];
         if (data.length < pageSize) break;
         from += pageSize;
       }
-      
-      const data = allTransactions;
 
       const { data: users } = await supabase.from('users').select('*');
       const { data: rosters } = await supabase.from('rosters').select('*');
       const { data: leagueUsers } = await supabase.from('league_users').select('user_id, team_name, display_name');
 
-      if (!data?.length) return [];
+      if (!allTransactions.length) return [];
 
-      // Build a roster_id to owner mapping from current league rosters
       const rosterToOwner = new Map<number, string>();
       (rosters as any[])?.forEach((r: any) => {
         rosterToOwner.set(r.roster_id, r.owner_id);
       });
 
-      return (data as any[]).map((tx: any) => {
+      return allTransactions.map((tx: any) => {
         const rosterOwners = tx.roster_ids?.map((rosterId: number) => {
-          // Use roster mapping - roster IDs are consistent across league years
           const ownerId = rosterToOwner.get(rosterId);
           const owner = (users as any[])?.find((u: any) => u.user_id === ownerId);
           const leagueUser = (leagueUsers as LeagueUser[])?.find((lu: LeagueUser) => lu.user_id === ownerId);
@@ -176,14 +152,13 @@ export default function Transactions() {
 
         return { ...tx, teams: rosterOwners };
       }).sort((a: any, b: any) => {
-        // Sort by created (Unix ms), fallback to status_updated, fallback to created_at
         const getTimestamp = (tx: any): number => {
           if (tx.created) return tx.created;
           if (tx.status_updated) return tx.status_updated;
           if (tx.created_at) return new Date(tx.created_at).getTime();
           return 0;
         };
-        return getTimestamp(b) - getTimestamp(a); // Most recent first
+        return getTimestamp(b) - getTimestamp(a);
       });
     },
   });
@@ -196,32 +171,23 @@ export default function Transactions() {
     return playerValues?.get(playerId) || 0;
   };
 
-  // Get the player picked with a traded draft pick (if draft already happened)
   const getPickResult = (pick: any): { playerId: string; player: Player | undefined } | null => {
     if (!draftPickResults || !rosterToDraftSlot) return null;
-    
-    // The pick's roster_id represents "this roster's pick" - we need to map it to the actual draft_slot
-    // In dynasty leagues, roster_id doesn't equal draft_slot - we use the startup draft mapping
     const draftSlot = rosterToDraftSlot.get(pick.roster_id);
     if (!draftSlot) return null;
-    
     const key = `${pick.season}-${pick.round}-${draftSlot}`;
     const playerId = draftPickResults.get(key);
     if (!playerId) return null;
     return { playerId, player: getPlayer(playerId) };
   };
 
-  // Filter and sort transactions
   const filteredAndSortedTransactions = useMemo(() => {
     if (!transactions) return [];
-    
-    // Helper to calculate transaction value metrics for sorting
-    const getTransactionValueMetrics = (tx: any): { totalValue: number; valueDiff: number; maxTeamGain: number } => {
+
+    const getTransactionValueMetrics = (tx: any) => {
       if (tx.type === 'trade') {
-        // For trades, calculate value for each team involved
         const teamValues: Record<number, { received: number; gave: number }> = {};
-        
-        // Players received by each team (adds shows player_id -> receiving_roster_id)
+
         if (tx.adds) {
           Object.entries(tx.adds).forEach(([playerId, rosterId]) => {
             const rId = rosterId as number;
@@ -229,8 +195,7 @@ export default function Transactions() {
             teamValues[rId].received += playerValues?.get(playerId) || 0;
           });
         }
-        
-        // Players given up by each team (drops shows player_id -> giving_roster_id)
+
         if (tx.drops) {
           Object.entries(tx.drops).forEach(([playerId, rosterId]) => {
             const rId = rosterId as number;
@@ -238,8 +203,7 @@ export default function Transactions() {
             teamValues[rId].gave += playerValues?.get(playerId) || 0;
           });
         }
-        
-        // Draft picks - owner_id receives the pick, previous_owner_id gives it
+
         if (tx.draft_picks && Array.isArray(tx.draft_picks)) {
           tx.draft_picks.forEach((pick: any) => {
             const pickValue = pick.round === 1 ? 5000 : pick.round === 2 ? 2000 : pick.round === 3 ? 800 : 400;
@@ -253,35 +217,28 @@ export default function Transactions() {
             }
           });
         }
-        
-        // Calculate total value in trade and the biggest winner's margin
+
         let totalValue = 0;
         let maxGain = -Infinity;
         let maxLoss = Infinity;
-        
+
         Object.values(teamValues).forEach(team => {
           totalValue += team.received;
           const netGain = team.received - team.gave;
           if (netGain > maxGain) maxGain = netGain;
           if (netGain < maxLoss) maxLoss = netGain;
         });
-        
-        // valueDiff is the spread between winner and loser (how lopsided the trade is)
+
         const valueDiff = maxGain - maxLoss;
-        
-        return {
-          totalValue,
-          valueDiff,
-          maxTeamGain: maxGain === -Infinity ? 0 : maxGain
-        };
+
+        return { totalValue, valueDiff, maxTeamGain: maxGain === -Infinity ? 0 : maxGain };
       } else {
-        // For waivers/free agents, calculate net value change
         const adds = tx.adds ? Object.keys(tx.adds) : [];
         const drops = tx.drops ? Object.keys(tx.drops) : [];
-        
+
         const addedValue = adds.reduce((sum: number, playerId: string) => sum + (playerValues?.get(playerId) || 0), 0);
         const droppedValue = drops.reduce((sum: number, playerId: string) => sum + (playerValues?.get(playerId) || 0), 0);
-        
+
         return {
           totalValue: addedValue + droppedValue,
           valueDiff: Math.abs(addedValue - droppedValue),
@@ -289,32 +246,25 @@ export default function Transactions() {
         };
       }
     };
-    
-    let filtered = typeFilter === 'all' 
-      ? transactions 
+
+    let filtered = typeFilter === 'all'
+      ? transactions
       : transactions.filter((tx: any) => tx.type === typeFilter);
-    
-    // Apply sorting
-    if (sortBy === 'recent') {
-      // Already sorted by date from the query
-      return filtered;
-    }
-    
+
+    if (sortBy === 'recent') return filtered;
+
     return [...filtered].sort((a: any, b: any) => {
       const metricsA = getTransactionValueMetrics(a);
       const metricsB = getTransactionValueMetrics(b);
-      
+
       switch (sortBy) {
         case 'value-high':
-          // Sort by total value involved in the transaction
           return metricsB.totalValue - metricsA.totalValue;
         case 'value-low':
           return metricsA.totalValue - metricsB.totalValue;
-        case 'best-moves':
-          // Sort by most lopsided trades (biggest value difference)
+        case 'most-lopsided':
           return metricsB.valueDiff - metricsA.valueDiff;
-        case 'worst-moves':
-          // Sort by least value difference (most even trades first)
+        case 'most-even':
           return metricsA.valueDiff - metricsB.valueDiff;
         default:
           return 0;
@@ -322,14 +272,12 @@ export default function Transactions() {
     });
   }, [transactions, typeFilter, sortBy, playerValues]);
 
-  // Paginate filtered transactions
   const totalPages = Math.ceil(filteredAndSortedTransactions.length / ITEMS_PER_PAGE);
   const paginatedTransactions = useMemo(() => {
     const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
     return filteredAndSortedTransactions.slice(startIndex, startIndex + ITEMS_PER_PAGE);
   }, [filteredAndSortedTransactions, currentPage]);
 
-  // Reset to page 1 when filter or sort changes
   const handleFilterChange = (newFilter: string) => {
     setTypeFilter(newFilter);
     setCurrentPage(1);
@@ -342,11 +290,11 @@ export default function Transactions() {
 
   if (isLoading) {
     return (
-      <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
+      <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto">
         <div className="flex items-center justify-center h-96">
           <div className="text-center">
-            <Loader2 className="h-8 w-8 sm:h-10 sm:w-10 animate-spin text-accent-500 mx-auto" />
-            <p className="mt-4 text-slate-500 dark:text-slate-400 text-xs sm:text-sm">Loading transactions...</p>
+            <Loader2 className="h-8 w-8 animate-spin text-accent-500 mx-auto" />
+            <p className="mt-4 text-[#888888] text-xs sm:text-sm">Loading transactions...</p>
           </div>
         </div>
       </div>
@@ -355,18 +303,18 @@ export default function Transactions() {
 
   if (!transactions?.length) {
     return (
-      <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
+      <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto">
         <div className="flex flex-col items-center justify-center py-12 text-center">
-          <div className="w-12 h-12 sm:w-16 sm:h-16 bg-slate-100 dark:bg-zinc-800 rounded-2xl flex items-center justify-center mb-4">
-            <ArrowRightLeft className="h-6 w-6 sm:h-8 sm:w-8 text-slate-400" />
+          <div className="w-12 h-12 sm:w-16 sm:h-16 bg-[#111111] rounded-2xl flex items-center justify-center mb-4">
+            <ArrowRightLeft className="h-6 w-6 sm:h-8 sm:w-8 text-[#888888]" />
           </div>
-          <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-2">No Transactions</h3>
-          <p className="text-sm text-slate-500 dark:text-slate-400 max-w-sm mb-6">
+          <h3 className="text-lg font-semibold text-white mb-2">No Transactions</h3>
+          <p className="text-sm text-[#888888] max-w-sm mb-6">
             Connect your league to see trades, waivers, and roster moves
           </p>
           <Link
-            to="/setup"
-            className="inline-flex items-center gap-2 px-4 py-2.5 bg-accent-600 text-white text-sm font-medium rounded-lg hover:bg-accent-700 transition-colors"
+            to="/settings"
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-accent-500 text-white text-sm font-medium rounded-md hover:bg-accent-400 transition-colors"
           >
             Connect League
           </Link>
@@ -378,33 +326,29 @@ export default function Transactions() {
   const getTypeStyles = (type: string) => {
     switch (type) {
       case 'trade':
-        return { bg: 'bg-purple-100 dark:bg-purple-500/20', text: 'text-purple-600 dark:text-purple-400', icon: ArrowRightLeft };
+        return { bg: 'bg-purple-500/20', text: 'text-purple-400' };
       case 'waiver':
-        return { bg: 'bg-amber-100 dark:bg-amber-500/20', text: 'text-amber-600 dark:text-amber-400', icon: RefreshCw };
+        return { bg: 'bg-amber-500/20', text: 'text-amber-400' };
       case 'free_agent':
-        return { bg: 'bg-emerald-100 dark:bg-emerald-500/20', text: 'text-emerald-600 dark:text-emerald-400', icon: UserPlus };
+        return { bg: 'bg-emerald-500/20', text: 'text-emerald-400' };
       default:
-        return { bg: 'bg-slate-100 dark:bg-zinc-800', text: 'text-slate-600 dark:text-slate-400', icon: ArrowRightLeft };
+        return { bg: 'bg-[#111111]', text: 'text-[#888888]' };
     }
   };
 
   const formatDate = (tx: any) => {
-    // Use created (Unix ms timestamp) if available, otherwise fall back to created_at
     const timestamp = tx.created || tx.status_updated;
     const date = timestamp ? new Date(timestamp) : new Date(tx.created_at);
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   };
 
-  // Helper to get assets for each team in a trade
   const getTradeAssets = (tx: any) => {
     const teamAssets: Record<number, { players: string[]; picks: any[]; value: number }> = {};
-    
-    // Initialize for each team
+
     tx.teams?.forEach((team: any) => {
       teamAssets[team.rosterId] = { players: [], picks: [], value: 0 };
     });
 
-    // Adds are players received by a team
     if (tx.adds) {
       Object.entries(tx.adds).forEach(([playerId, rosterId]) => {
         if (teamAssets[rosterId as number]) {
@@ -414,12 +358,10 @@ export default function Transactions() {
       });
     }
 
-    // Draft picks
     if (tx.draft_picks && Array.isArray(tx.draft_picks)) {
       tx.draft_picks.forEach((pick: any) => {
         if (pick.owner_id && teamAssets[pick.owner_id]) {
           teamAssets[pick.owner_id].picks.push(pick);
-          // Estimate pick value (this is simplified - should use pick_values table)
           const pickBaseValue = pick.round === 1 ? 5000 : pick.round === 2 ? 2000 : pick.round === 3 ? 800 : 400;
           teamAssets[pick.owner_id].value += pickBaseValue;
         }
@@ -429,395 +371,203 @@ export default function Transactions() {
     return teamAssets;
   };
 
-  // Component for trade card
+  // ─── Trade Card (matches Home.tsx style exactly) ────────────────────
+
   const TradeCard = ({ tx }: { tx: any }) => {
     const teamAssets = getTradeAssets(tx);
     const teams = tx.teams || [];
-    
     if (teams.length < 2) return null;
 
-    const team1 = teams[0];
-    const team2 = teams[1];
-    const team1Assets = teamAssets[team1?.rosterId] || { players: [], picks: [], value: 0 };
-    const team2Assets = teamAssets[team2?.rosterId] || { players: [], picks: [], value: 0 };
-    const valueDiff = team1Assets.value - team2Assets.value;
+    // Determine winner
+    const values = teams.map((t: any) => teamAssets[t.rosterId]?.value || 0);
+    const diff = values[0] - values[1];
+    const winnerId = diff > 500 ? teams[0].rosterId : diff < -500 ? teams[1].rosterId : null;
 
     return (
-      <div className="bg-white dark:bg-zinc-900 rounded-xl border border-slate-200 dark:border-zinc-800 shadow-sm dark:shadow-none overflow-hidden">
-        {/* Trade Header */}
-        <div className="px-3 sm:px-6 py-3 sm:py-4 border-b border-slate-100 dark:border-zinc-800 bg-purple-50/50 dark:bg-purple-500/5">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 sm:gap-3">
-              <div className="p-1.5 sm:p-2 bg-purple-100 dark:bg-purple-500/20 rounded-lg">
-                <ArrowRightLeft className="h-4 w-4 sm:h-5 sm:w-5 text-purple-600 dark:text-purple-400" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-sm sm:text-base text-slate-900 dark:text-white">Trade</h3>
-                <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
-                  <Clock className="h-3 w-3" />
-                  {formatDate(tx)}
-                </div>
-              </div>
-            </div>
-            <span className={`px-2 py-1 rounded-md text-xs font-medium ${
-              tx.status === 'complete'
-                ? 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400'
-                : 'bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400'
-            }`}>
-              {tx.status}
+      <div className="border-b border-[#151515] pb-5 sm:pb-6">
+        {/* Trade header */}
+        <div className="flex items-center justify-between mb-3 sm:mb-4">
+          <div className="flex items-center gap-2">
+            <span className="px-2 py-0.5 bg-white text-black text-[10px] font-extrabold tracking-[1px] rounded-sm">TRADE</span>
+            <span className="text-xs text-[#555555] flex items-center gap-1">
+              <Clock className="h-3 w-3" />
+              {formatDate(tx)}
             </span>
           </div>
+          {winnerId && (
+            <span className="text-[10px] sm:text-xs text-emerald-400 font-medium">
+              {teams.find((t: any) => t.rosterId === winnerId)?.teamName} +{Math.abs(diff).toLocaleString()}
+            </span>
+          )}
         </div>
 
-        {/* Trade Content - Side by Side */}
-        <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-slate-100 dark:divide-zinc-800">
-          {/* Team 1 Receives */}
-          <div className="p-3 sm:p-5 flex flex-col">
-            <div className="mb-2 sm:mb-4">
-              <h4 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">{team1?.teamName || 'Team 1'}</h4>
-              <span className="text-[10px] sm:text-xs text-emerald-600 dark:text-emerald-400 font-medium">RECEIVES</span>
-            </div>
-            <div className="space-y-1.5 sm:space-y-2 flex-1">
-              {team1Assets.players.map((playerId) => {
-                const player = getPlayer(playerId);
-                const value = getPlayerValue(playerId);
-                const posClass = positionColors[player?.position || ''] || 'bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-slate-400';
-                return (
-                  <div key={playerId} className="flex items-center justify-between py-1.5 sm:py-2 px-2 sm:px-3 bg-slate-50 dark:bg-zinc-800/50 rounded-lg">
-                    <div className="flex items-center gap-1.5 sm:gap-2">
-                      {player?.position && (
-                        <span className={`px-1 sm:px-1.5 py-0.5 rounded text-[10px] sm:text-xs font-bold ${posClass}`}>
-                          {player.position}
-                        </span>
-                      )}
-                      <span className="font-medium text-slate-900 dark:text-white text-xs sm:text-sm">
-                        {player?.full_name || playerId}
-                      </span>
-                      {player?.team && (
-                        <span className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 hidden sm:inline">{player.team}</span>
-                      )}
-                    </div>
-                    <span className="text-xs sm:text-sm font-semibold text-slate-600 dark:text-slate-400 tabular-nums">
-                      {value > 0 ? value.toLocaleString() : '—'}
-                    </span>
-                  </div>
-                );
-              })}
-              {team1Assets.picks.map((pick, idx) => {
-                const pickResult = getPickResult(pick);
-                return (
-                  <div key={idx} className="flex items-center justify-between py-2 px-3 bg-purple-50 dark:bg-purple-500/10 rounded-lg">
-                    <div className="flex items-center gap-2">
-                      <span className="px-1.5 py-0.5 rounded text-xs font-bold bg-purple-100 dark:bg-purple-500/20 text-purple-700 dark:text-purple-400">
-                        PICK
-                      </span>
-                      <div className="flex flex-col">
-                        <span className="font-medium text-slate-900 dark:text-white text-sm">
-                          {pick.season} Round {pick.round}
-                        </span>
-                        {pickResult && (
-                          <span className="text-xs text-purple-600 dark:text-purple-400">
-                            → {pickResult.player?.full_name || pickResult.playerId}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    {pickResult && (
-                      <span className="text-xs sm:text-sm font-semibold text-slate-600 dark:text-slate-400 tabular-nums">
-                        {getPlayerValue(pickResult.playerId) > 0 ? getPlayerValue(pickResult.playerId).toLocaleString() : '—'}
-                      </span>
+        {/* Trade sides */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+          {teams.map((team: any) => {
+            const assets = teamAssets[team.rosterId] || { players: [], picks: [], value: 0 };
+            const isWinner = team.rosterId === winnerId;
+            return (
+              <div
+                key={team.rosterId}
+                className={`pl-3 sm:pl-4 border-l-2 ${isWinner ? 'border-l-[#22c55e]' : 'border-l-[#222222]'}`}
+              >
+                {/* Team name + total */}
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[13px] font-bold text-white">{team.teamName}</span>
+                    {isWinner && (
+                      <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded">W</span>
                     )}
                   </div>
-                );
-              })}
-              {team1Assets.players.length === 0 && team1Assets.picks.length === 0 && (
-                <p className="text-sm text-slate-400 dark:text-slate-500 italic">No assets received</p>
-              )}
-            </div>
-            <div className="mt-auto pt-3 border-t border-slate-100 dark:border-zinc-800">
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Total Value</span>
-                <span className="text-lg font-bold text-slate-900 dark:text-white tabular-nums">
-                  {team1Assets.value.toLocaleString()}
-                </span>
-              </div>
-            </div>
-          </div>
+                  <span className="text-[10px] text-[#444444]">{assets.value.toLocaleString()} KTC</span>
+                </div>
 
-          {/* Swap Icon (hidden on mobile) */}
-          <div className="hidden md:flex absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10">
-            <div className="w-10 h-10 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-full flex items-center justify-center shadow-sm">
-              <ArrowLeftRight className="w-5 h-5 text-slate-400 dark:text-slate-500" />
-            </div>
-          </div>
-
-          {/* Team 2 Receives */}
-          <div className="p-3 sm:p-5 flex flex-col">
-            <div className="mb-2 sm:mb-4">
-              <h4 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">{team2?.teamName || 'Team 2'}</h4>
-              <span className="text-[10px] sm:text-xs text-emerald-600 dark:text-emerald-400 font-medium">RECEIVES</span>
-            </div>
-            <div className="space-y-1.5 sm:space-y-2 flex-1">
-              {team2Assets.players.map((playerId) => {
-                const player = getPlayer(playerId);
-                const value = getPlayerValue(playerId);
-                const posClass = positionColors[player?.position || ''] || 'bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-slate-400';
-                return (
-                  <div key={playerId} className="flex items-center justify-between py-2 px-3 bg-slate-50 dark:bg-zinc-800/50 rounded-lg">
-                    <div className="flex items-center gap-2">
-                      {player?.position && (
-                        <span className={`px-1.5 py-0.5 rounded text-xs font-bold ${posClass}`}>
-                          {player.position}
+                {/* Assets */}
+                <div className="space-y-1">
+                  {assets.players.map((playerId: string) => {
+                    const player = getPlayer(playerId);
+                    const value = getPlayerValue(playerId);
+                    return (
+                      <div key={playerId} className="flex items-center gap-2 text-[13px]">
+                        <img
+                          src={`https://sleepercdn.com/content/nfl/players/${playerId}.jpg`}
+                          alt=""
+                          className="w-5 h-5 rounded-full object-cover bg-[#111111] flex-shrink-0"
+                          onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                        />
+                        <span className="text-[#cccccc]">{player?.full_name || playerId}</span>
+                        <span className="text-[#444444]">
+                          ({player?.position || '?'}{player?.team ? `, ${player.team}` : ''})
                         </span>
-                      )}
-                      <span className="font-medium text-slate-900 dark:text-white text-sm">
-                        {player?.full_name || playerId}
-                      </span>
-                      {player?.team && (
-                        <span className="text-xs text-slate-500 dark:text-slate-400">{player.team}</span>
-                      )}
-                    </div>
-                    <span className="text-sm font-semibold text-slate-600 dark:text-slate-400 tabular-nums">
-                      {value > 0 ? value.toLocaleString() : '—'}
-                    </span>
-                  </div>
-                );
-              })}
-              {team2Assets.picks.map((pick, idx) => {
-                const pickResult = getPickResult(pick);
-                return (
-                  <div key={idx} className="flex items-center justify-between py-2 px-3 bg-purple-50 dark:bg-purple-500/10 rounded-lg">
-                    <div className="flex items-center gap-2">
-                      <span className="px-1.5 py-0.5 rounded text-xs font-bold bg-purple-100 dark:bg-purple-500/20 text-purple-700 dark:text-purple-400">
-                        PICK
-                      </span>
-                      <div className="flex flex-col">
-                        <span className="font-medium text-slate-900 dark:text-white text-sm">
-                          {pick.season} Round {pick.round}
-                        </span>
-                        {pickResult && (
-                          <span className="text-xs text-purple-600 dark:text-purple-400">
-                            → {pickResult.player?.full_name || pickResult.playerId}
-                          </span>
-                        )}
+                        <span className="text-[#555555] text-[11px]">({value > 0 ? value.toLocaleString() : '0'})</span>
                       </div>
-                    </div>
-                    {pickResult && (
-                      <span className="text-xs sm:text-sm font-semibold text-slate-600 dark:text-slate-400 tabular-nums">
-                        {getPlayerValue(pickResult.playerId) > 0 ? getPlayerValue(pickResult.playerId).toLocaleString() : '—'}
+                    );
+                  })}
+                  {assets.picks.map((pick: any, idx: number) => (
+                    <div key={idx} className="flex items-center gap-2 text-[13px]">
+                      <div className="w-5 h-5 rounded-full bg-[#111111] flex items-center justify-center flex-shrink-0">
+                        <span className="text-[8px] font-bold text-[#555555]">PK</span>
+                      </div>
+                      <span className="text-[#cccccc]">{pick.season} Round {pick.round}</span>
+                      <span className="text-[#555555] text-[11px]">
+                        ({pick.round === 1 ? '5,000' : pick.round === 2 ? '2,000' : pick.round === 3 ? '800' : '400'})
                       </span>
-                    )}
-                  </div>
-                );
-              })}
-              {team2Assets.players.length === 0 && team2Assets.picks.length === 0 && (
-                <p className="text-sm text-slate-400 dark:text-slate-500 italic">No assets received</p>
-              )}
-            </div>
-            <div className="mt-auto pt-3 border-t border-slate-100 dark:border-zinc-800">
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Total Value</span>
-                <span className="text-lg font-bold text-slate-900 dark:text-white tabular-nums">
-                  {team2Assets.value.toLocaleString()}
-                </span>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
-          </div>
+            );
+          })}
         </div>
-
-        {/* Trade Analysis Footer */}
-        {(team1Assets.value > 0 || team2Assets.value > 0) && (
-          <div className="px-3 sm:px-6 py-3 sm:py-4 bg-slate-50 dark:bg-zinc-800/50 border-t border-slate-100 dark:border-zinc-800">
-            <div className="flex items-center justify-center gap-2 sm:gap-3">
-              {valueDiff > 500 ? (
-                <>
-                  <TrendingUp className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-500" />
-                  <span className="text-xs sm:text-sm font-medium text-slate-700 dark:text-slate-300">
-                    {team1?.teamName} wins by <span className="font-bold text-emerald-600 dark:text-emerald-400">+{Math.abs(valueDiff).toLocaleString()}</span>
-                  </span>
-                </>
-              ) : valueDiff < -500 ? (
-                <>
-                  <TrendingUp className="w-4 h-4 text-emerald-500" />
-                  <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                    {team2?.teamName} wins by <span className="font-bold text-emerald-600 dark:text-emerald-400">+{Math.abs(valueDiff).toLocaleString()}</span>
-                  </span>
-                </>
-              ) : (
-                <>
-                  <Minus className="w-4 h-4 text-slate-400" />
-                  <span className="text-sm font-medium text-slate-500 dark:text-slate-400">Even trade</span>
-                </>
-              )}
-            </div>
-          </div>
-        )}
       </div>
     );
   };
 
-  // Component for waiver/free agent card
+  // ─── Roster Move Card (same editorial style) ──────────────────────
+
   const RosterMoveCard = ({ tx }: { tx: any }) => {
-    const styles = getTypeStyles(tx.type);
-    const Icon = styles.icon;
     const team = tx.teams?.[0];
     const adds = tx.adds ? Object.keys(tx.adds) : [];
     const drops = tx.drops ? Object.keys(tx.drops) : [];
-    
-    // Calculate total value change
+
     const addedValue = adds.reduce((sum, playerId) => sum + getPlayerValue(playerId), 0);
     const droppedValue = drops.reduce((sum, playerId) => sum + getPlayerValue(playerId), 0);
     const netValue = addedValue - droppedValue;
 
+    const typeLabel = tx.type === 'free_agent' ? 'FREE AGENT' : tx.type.toUpperCase();
+    const typeBadgeClass = tx.type === 'waiver'
+      ? 'bg-amber-500/20 text-amber-400'
+      : tx.type === 'free_agent'
+      ? 'bg-emerald-500/20 text-emerald-400'
+      : 'bg-[#111111] text-[#888888]';
+
     return (
-      <div className="bg-white dark:bg-zinc-900 rounded-xl border border-slate-200 dark:border-zinc-800 shadow-sm dark:shadow-none overflow-hidden">
+      <div className="border-b border-[#151515] pb-5 sm:pb-6">
         {/* Header */}
-        <div className="px-3 sm:px-6 py-3 sm:py-4 border-b border-slate-100 dark:border-zinc-800">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 sm:gap-3">
-              <div className={`p-1.5 sm:p-2 rounded-lg ${styles.bg}`}>
-                <Icon className={`h-4 w-4 sm:h-5 sm:w-5 ${styles.text}`} />
-              </div>
-              <div>
-                <h3 className="font-semibold text-sm sm:text-base text-slate-900 dark:text-white capitalize">
-                  {tx.type.replace('_', ' ')}
-                </h3>
-                <div className="flex items-center gap-1.5 text-[10px] sm:text-xs text-slate-500 dark:text-slate-400">
-                  <Clock className="h-3 w-3" />
-                  {formatDate(tx)}
-                </div>
-              </div>
-            </div>
-            <span className={`px-2 py-1 rounded-md text-xs font-medium ${
-              tx.status === 'complete'
-                ? 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400'
-                : 'bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400'
-            }`}>
-              {tx.status}
+        <div className="flex items-center justify-between mb-3 sm:mb-4">
+          <div className="flex items-center gap-2">
+            <span className={`px-2 py-0.5 text-[10px] font-extrabold tracking-[1px] rounded-sm ${typeBadgeClass}`}>
+              {typeLabel}
+            </span>
+            <span className="text-xs text-[#555555] flex items-center gap-1">
+              <Clock className="h-3 w-3" />
+              {formatDate(tx)}
             </span>
           </div>
+          {(addedValue > 0 || droppedValue > 0) && (
+            <span className={`text-[10px] sm:text-xs font-medium tabular-nums ${
+              netValue > 0 ? 'text-emerald-400' : netValue < 0 ? 'text-red-400' : 'text-[#555555]'
+            }`}>
+              {netValue > 0 ? '+' : ''}{netValue.toLocaleString()}
+            </span>
+          )}
         </div>
 
-        {/* Content */}
-        <div className="p-3 sm:p-6">
-          <div className="mb-2 sm:mb-4">
-            <h4 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">{team?.teamName || 'Unknown Team'}</h4>
-          </div>
+        {/* Team name */}
+        <span className="text-[13px] font-bold text-white block mb-2">{team?.teamName || 'Unknown Team'}</span>
 
-          <div className="space-y-2 sm:space-y-3">
-            {/* Added players */}
-            {adds.map((playerId) => {
-              const player = getPlayer(playerId);
-              const value = getPlayerValue(playerId);
-              const posClass = positionColors[player?.position || ''] || 'bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-slate-400';
-              return (
-                <div key={playerId} className="flex items-center justify-between py-2 sm:py-2.5 px-2 sm:px-3 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-100 dark:border-emerald-500/20 rounded-lg">
-                  <div className="flex items-center gap-1.5 sm:gap-3 min-w-0">
-                    <div className="flex-shrink-0 p-0.5 sm:p-1 bg-emerald-100 dark:bg-emerald-500/20 rounded">
-                      <UserPlus className="h-3 w-3 sm:h-4 sm:w-4 text-emerald-600 dark:text-emerald-400" />
-                    </div>
-                    <span className="text-[10px] sm:text-xs font-bold text-emerald-700 dark:text-emerald-400">ADD</span>
-                    {player?.position && (
-                      <span className={`px-1 sm:px-1.5 py-0.5 rounded text-[10px] sm:text-xs font-bold ${posClass}`}>
-                        {player.position}
-                      </span>
-                    )}
-                    <span className="font-medium text-xs sm:text-sm text-slate-900 dark:text-white truncate">
-                      {player?.full_name || playerId}
-                    </span>
-                    {player?.team && (
-                      <span className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 hidden sm:inline">{player.team}</span>
-                    )}
-                  </div>
-                  <span className="text-xs sm:text-sm font-semibold text-emerald-600 dark:text-emerald-400 tabular-nums flex-shrink-0 ml-2">
-                    {value > 0 ? `+${value.toLocaleString()}` : '—'}
-                  </span>
-                </div>
-              );
-            })}
-
-            {/* Dropped players */}
-            {drops.map((playerId) => {
-              const player = getPlayer(playerId);
-              const value = getPlayerValue(playerId);
-              const posClass = positionColors[player?.position || ''] || 'bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-slate-400';
-              return (
-                <div key={playerId} className="flex items-center justify-between py-2 sm:py-2.5 px-2 sm:px-3 bg-red-50 dark:bg-red-500/10 border border-red-100 dark:border-red-500/20 rounded-lg">
-                  <div className="flex items-center gap-1.5 sm:gap-3 min-w-0">
-                    <div className="flex-shrink-0 p-0.5 sm:p-1 bg-red-100 dark:bg-red-500/20 rounded">
-                      <UserMinus className="h-3 w-3 sm:h-4 sm:w-4 text-red-600 dark:text-red-400" />
-                    </div>
-                    <span className="text-[10px] sm:text-xs font-bold text-red-700 dark:text-red-400">DROP</span>
-                    {player?.position && (
-                      <span className={`px-1 sm:px-1.5 py-0.5 rounded text-[10px] sm:text-xs font-bold ${posClass}`}>
-                        {player.position}
-                      </span>
-                    )}
-                    <span className="font-medium text-xs sm:text-sm text-slate-900 dark:text-white truncate">
-                      {player?.full_name || playerId}
-                    </span>
-                    {player?.team && (
-                      <span className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 hidden sm:inline">{player.team}</span>
-                    )}
-                  </div>
-                  <span className="text-xs sm:text-sm font-semibold text-red-600 dark:text-red-400 tabular-nums flex-shrink-0 ml-2">
-                    {value > 0 ? `-${value.toLocaleString()}` : '—'}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
+        {/* Rows */}
+        <div className="space-y-1">
+          {adds.map((playerId) => {
+            const player = getPlayer(playerId);
+            const value = getPlayerValue(playerId);
+            return (
+              <div key={playerId} className="flex items-center gap-2 text-[13px]">
+                <span className="text-[10px] font-bold text-emerald-400 w-7 flex-shrink-0">ADD</span>
+                <img
+                  src={`https://sleepercdn.com/content/nfl/players/${playerId}.jpg`}
+                  alt=""
+                  className="w-5 h-5 rounded-full object-cover bg-[#111111] flex-shrink-0"
+                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                />
+                <span className="text-[#cccccc]">{player?.full_name || playerId}</span>
+                <span className="text-[#444444]">
+                  ({player?.position || '?'}{player?.team ? `, ${player.team}` : ''})
+                </span>
+                <span className="text-[#555555] text-[11px]">({value > 0 ? value.toLocaleString() : '0'})</span>
+              </div>
+            );
+          })}
+          {drops.map((playerId) => {
+            const player = getPlayer(playerId);
+            const value = getPlayerValue(playerId);
+            return (
+              <div key={playerId} className="flex items-center gap-2 text-[13px]">
+                <span className="text-[10px] font-bold text-red-400 w-7 flex-shrink-0">DROP</span>
+                <img
+                  src={`https://sleepercdn.com/content/nfl/players/${playerId}.jpg`}
+                  alt=""
+                  className="w-5 h-5 rounded-full object-cover bg-[#111111] flex-shrink-0"
+                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                />
+                <span className="text-[#cccccc]">{player?.full_name || playerId}</span>
+                <span className="text-[#444444]">
+                  ({player?.position || '?'}{player?.team ? `, ${player.team}` : ''})
+                </span>
+                <span className="text-[#555555] text-[11px]">({value > 0 ? value.toLocaleString() : '0'})</span>
+              </div>
+            );
+          })}
         </div>
-
-        {/* Net Value Footer */}
-        {(addedValue > 0 || droppedValue > 0) && (
-          <div className="px-3 sm:px-6 py-3 sm:py-4 bg-slate-50 dark:bg-zinc-800/50 border-t border-slate-100 dark:border-zinc-800">
-            <div className="flex items-center justify-center gap-2 sm:gap-3">
-              {netValue > 0 ? (
-                <>
-                  <TrendingUp className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-500" />
-                  <span className="text-xs sm:text-sm font-medium text-slate-700 dark:text-slate-300">
-                    Net value: <span className="font-bold text-emerald-600 dark:text-emerald-400">+{netValue.toLocaleString()}</span>
-                  </span>
-                </>
-              ) : netValue < 0 ? (
-                <>
-                  <TrendingDown className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-red-500" />
-                  <span className="text-xs sm:text-sm font-medium text-slate-700 dark:text-slate-300">
-                    Net value: <span className="font-bold text-red-600 dark:text-red-400">{netValue.toLocaleString()}</span>
-                  </span>
-                </>
-              ) : (
-                <>
-                  <Minus className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-400" />
-                  <span className="text-xs sm:text-sm font-medium text-slate-500 dark:text-slate-400">Even swap</span>
-                </>
-              )}
-            </div>
-          </div>
-        )}
       </div>
     );
   };
 
+  // ─── Render ────────────────────────────────────────────────────────
+
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
-      {/* Header */}
-      <div className="mb-4 sm:mb-6">
-        <PageHeader title="Transactions" backTo="/league">
-          <span className="px-2 py-0.5 sm:px-2.5 sm:py-1 bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-slate-400 text-xs sm:text-sm font-medium rounded-full">
-            {transactions.length} Total
-          </span>
-        </PageHeader>
-          
-        {/* Filter & Sort Dropdowns */}
-        <div className="flex flex-wrap items-center gap-2 sm:gap-3 -mt-2">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto">
+      <div className="mb-6">
+        <PageHeader title="Transactions" />
+        <p className="text-[#555555] text-xs -mt-3 mb-4">Latest completed trades with KTC value analysis</p>
+
+        <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-1.5">
-            <Filter className="h-4 w-4 text-slate-400 flex-shrink-0" />
+            <Filter className="h-4 w-4 text-[#555555]" />
             <select
               value={typeFilter}
               onChange={(e) => handleFilterChange(e.target.value)}
-              className="px-2 sm:px-3 py-1.5 sm:py-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-accent-500 dark:focus:ring-accent-400 dark:text-white"
+              className="px-3 py-2 bg-[#0a0a0a] border border-[#151515] rounded-md text-xs font-medium focus:outline-none focus:ring-2 focus:ring-accent-500 text-white"
             >
               <option value="all">All Types</option>
               <option value="trade">Trades</option>
@@ -826,157 +576,120 @@ export default function Transactions() {
               <option value="commissioner">Commissioner</option>
             </select>
           </div>
-          
-          {/* Sort Dropdown */}
+
           <div className="flex items-center gap-1.5">
-            <ArrowUpDown className="h-4 w-4 text-slate-400 flex-shrink-0" />
+            <ArrowUpDown className="h-4 w-4 text-[#555555]" />
             <select
               value={sortBy}
               onChange={(e) => handleSortChange(e.target.value)}
-              className="px-2 sm:px-3 py-1.5 sm:py-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-accent-500 dark:focus:ring-accent-400 dark:text-white"
+              className="px-3 py-2 bg-[#0a0a0a] border border-[#151515] rounded-md text-xs font-medium focus:outline-none focus:ring-2 focus:ring-accent-500 text-white"
             >
-              <option value="recent">Recent</option>
-              <option value="value-high">High Value</option>
-              <option value="value-low">Low Value</option>
-              <option value="best-moves">Most Lopsided</option>
-              <option value="worst-moves">Most Even</option>
+              <option value="recent">Most Recent</option>
+              <option value="value-high">Highest Value</option>
+              <option value="value-low">Lowest Value</option>
+              <option value="most-lopsided">Most Lopsided</option>
+              <option value="most-even">Most Even</option>
             </select>
           </div>
         </div>
       </div>
 
-      {/* Transaction List */}
-      <div className="mt-6">
-        <div className="mb-4">
-          <p className="text-sm text-slate-500 dark:text-slate-400">
-            {typeFilter === 'all' ? 'All transactions' : `Showing ${typeFilter.replace('_', ' ')}s`} • {filteredAndSortedTransactions.length} results
-          </p>
-        </div>
-
-        <div className="space-y-4">
-          {paginatedTransactions.map((tx) => (
-            tx.type === 'trade' ? (
-              <TradeCard key={tx.transaction_id} tx={tx} />
-            ) : (
-              <RosterMoveCard key={tx.transaction_id} tx={tx} />
-            )
-          ))}
-          {paginatedTransactions.length === 0 && (
-            <div className="text-center py-12">
-              <p className="text-slate-500 dark:text-slate-400">No transactions found for this filter.</p>
-            </div>
-          )}
-        </div>
-
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-            <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 order-2 sm:order-1">
-              Showing {((currentPage - 1) * ITEMS_PER_PAGE) + 1}-{Math.min(currentPage * ITEMS_PER_PAGE, filteredAndSortedTransactions.length)} of {filteredAndSortedTransactions.length}
-            </p>
-            <div className="flex items-center gap-1 sm:gap-2 order-1 sm:order-2">
-              {/* First page button */}
-              <button
-                onClick={() => setCurrentPage(1)}
-                disabled={currentPage === 1}
-                className="p-1.5 sm:p-2 rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 hover:bg-slate-50 dark:hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                title="First page"
-              >
-                <svg className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-slate-600 dark:text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
-                </svg>
-              </button>
-              {/* Previous button */}
-              <button
-                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                disabled={currentPage === 1}
-                className="p-1.5 sm:p-2 rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 hover:bg-slate-50 dark:hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                title="Previous page"
-              >
-                <ChevronLeft className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-slate-600 dark:text-slate-400" />
-              </button>
-              
-              {/* Page numbers - show fewer on mobile */}
-              <div className="flex items-center gap-1">
-                {(() => {
-                  const maxVisible = 3; // Show max 3 page buttons on mobile
-                  const pages: (number | string)[] = [];
-                  
-                  if (totalPages <= maxVisible + 2) {
-                    // Show all pages if few enough
-                    for (let i = 1; i <= totalPages; i++) pages.push(i);
-                  } else {
-                    // Always show first page
-                    pages.push(1);
-                    
-                    if (currentPage > 3) {
-                      pages.push('...');
-                    }
-                    
-                    // Show pages around current
-                    const start = Math.max(2, currentPage - 1);
-                    const end = Math.min(totalPages - 1, currentPage + 1);
-                    for (let i = start; i <= end; i++) {
-                      if (!pages.includes(i)) pages.push(i);
-                    }
-                    
-                    if (currentPage < totalPages - 2) {
-                      pages.push('...');
-                    }
-                    
-                    // Always show last page
-                    if (!pages.includes(totalPages)) pages.push(totalPages);
-                  }
-                  
-                  return pages.map((page, idx) => {
-                    if (page === '...') {
-                      return (
-                        <span key={`ellipsis-${idx}`} className="px-1 sm:px-2 text-slate-400 dark:text-slate-500 text-xs sm:text-sm">
-                          …
-                        </span>
-                      );
-                    }
-                    return (
-                      <button
-                        key={page}
-                        onClick={() => setCurrentPage(page as number)}
-                        className={`min-w-[28px] sm:min-w-[36px] h-7 sm:h-9 px-1.5 sm:px-3 rounded-lg text-xs sm:text-sm font-medium transition-colors ${
-                          currentPage === page
-                            ? 'bg-accent-600 text-white'
-                            : 'bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-zinc-800'
-                        }`}
-                      >
-                        {page}
-                      </button>
-                    );
-                  });
-                })()}
-              </div>
-              
-              {/* Next button */}
-              <button
-                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                disabled={currentPage === totalPages}
-                className="p-1.5 sm:p-2 rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 hover:bg-slate-50 dark:hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                title="Next page"
-              >
-                <ChevronRight className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-slate-600 dark:text-slate-400" />
-              </button>
-              {/* Last page button */}
-              <button
-                onClick={() => setCurrentPage(totalPages)}
-                disabled={currentPage === totalPages}
-                className="p-1.5 sm:p-2 rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 hover:bg-slate-50 dark:hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                title="Last page"
-              >
-                <svg className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-slate-600 dark:text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
-                </svg>
-              </button>
-            </div>
+      <div className="space-y-3">
+        {paginatedTransactions.map((tx) => (
+          tx.type === 'trade' ? (
+            <TradeCard key={tx.transaction_id} tx={tx} />
+          ) : (
+            <RosterMoveCard key={tx.transaction_id} tx={tx} />
+          )
+        ))}
+        {paginatedTransactions.length === 0 && (
+          <div className="text-center py-12">
+            <p className="text-[#888888]">No transactions found for this filter.</p>
           </div>
         )}
       </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <p className="text-xs text-[#555555] order-2 sm:order-1">
+            Showing {((currentPage - 1) * ITEMS_PER_PAGE) + 1}–{Math.min(currentPage * ITEMS_PER_PAGE, filteredAndSortedTransactions.length)} of {filteredAndSortedTransactions.length}
+          </p>
+          <div className="flex items-center gap-1 order-1 sm:order-2">
+            <button
+              onClick={() => setCurrentPage(1)}
+              disabled={currentPage === 1}
+              className="p-2 rounded-md border border-[#151515] bg-[#0a0a0a] hover:bg-[#111111] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              <svg className="h-4 w-4 text-[#888888]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+              </svg>
+            </button>
+            <button
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className="p-2 rounded-md border border-[#151515] bg-[#0a0a0a] hover:bg-[#111111] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              <ChevronLeft className="h-4 w-4 text-[#888888]" />
+            </button>
+
+            <div className="flex items-center gap-1">
+              {(() => {
+                const pages: (number | string)[] = [];
+                if (totalPages <= 5) {
+                  for (let i = 1; i <= totalPages; i++) pages.push(i);
+                } else {
+                  pages.push(1);
+                  if (currentPage > 3) pages.push('...');
+                  const start = Math.max(2, currentPage - 1);
+                  const end = Math.min(totalPages - 1, currentPage + 1);
+                  for (let i = start; i <= end; i++) {
+                    if (!pages.includes(i)) pages.push(i);
+                  }
+                  if (currentPage < totalPages - 2) pages.push('...');
+                  if (!pages.includes(totalPages)) pages.push(totalPages);
+                }
+
+                return pages.map((page, idx) => {
+                  if (page === '...') {
+                    return <span key={`ellipsis-${idx}`} className="px-2 text-[#555555] text-xs">…</span>;
+                  }
+                  return (
+                    <button
+                      key={page}
+                      onClick={() => setCurrentPage(page as number)}
+                      className={`min-w-[36px] h-9 px-3 rounded-md text-sm font-medium transition-colors ${
+                        currentPage === page
+                          ? 'bg-accent-500 text-white'
+                          : 'bg-[#0a0a0a] border border-[#151515] text-[#888888] hover:bg-[#111111]'
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  );
+                });
+              })()}
+            </div>
+
+            <button
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              className="p-2 rounded-md border border-[#151515] bg-[#0a0a0a] hover:bg-[#111111] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              <ChevronRight className="h-4 w-4 text-[#888888]" />
+            </button>
+            <button
+              onClick={() => setCurrentPage(totalPages)}
+              disabled={currentPage === totalPages}
+              className="p-2 rounded-md border border-[#151515] bg-[#0a0a0a] hover:bg-[#111111] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              <svg className="h-4 w-4 text-[#888888]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

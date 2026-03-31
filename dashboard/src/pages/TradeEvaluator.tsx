@@ -17,7 +17,6 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import { analyzeTrade, calculateSideValue, type TradeAsset as ValueAdjustmentAsset } from '../lib/trade-value-adjustment';
-import { PageHeader } from '../components/PageHeader';
 
 // Types
 interface Player {
@@ -83,17 +82,17 @@ interface TradeSide {
 const getPositionBadgeClass = (position: string): string => {
   switch (position) {
     case 'QB':
-      return 'bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-500/30';
+      return 'bg-red-500/20 text-red-400 border border-red-500/30';
     case 'RB':
-      return 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30';
+      return 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30';
     case 'WR':
-      return 'bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-500/30';
+      return 'bg-blue-500/20 text-blue-400 border border-blue-500/30';
     case 'TE':
-      return 'bg-orange-100 dark:bg-orange-500/20 text-orange-700 dark:text-orange-400 border border-orange-200 dark:border-orange-500/30';
+      return 'bg-orange-500/20 text-orange-400 border border-orange-500/30';
     case 'PICK':
-      return 'bg-cyan-100 dark:bg-cyan-500/20 text-cyan-700 dark:text-cyan-400 border border-cyan-200 dark:border-cyan-500/30';
+      return 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30';
     default:
-      return 'bg-slate-100 dark:bg-zinc-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-zinc-600';
+      return 'bg-[#111111] text-[#333333] border border-[#151515]';
   }
 };
 
@@ -179,64 +178,64 @@ function AssetDropdown({
       <div className="fixed inset-0 bg-black/50 z-40" onClick={onClose} />
       <div
         ref={dropdownRef}
-        className="fixed z-50 left-4 right-4 top-1/2 -translate-y-1/2 max-w-lg mx-auto bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-2xl overflow-hidden"
+        className="fixed z-50 left-4 right-4 top-1/2 -translate-y-1/2 max-w-lg mx-auto bg-[#0a0a0a] border border-[#151515] rounded-md shadow-2xl overflow-hidden"
       >
-        <div className="px-4 py-3 bg-slate-50 dark:bg-zinc-800/50 border-b border-slate-200 dark:border-zinc-700 flex items-center justify-between">
-          <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{title}</span>
-          <button onClick={onClose} className="p-1.5 hover:bg-slate-200 dark:hover:bg-zinc-700 rounded-lg transition-colors">
-            <X className="h-4 w-4 text-slate-400" />
+        <div className="px-4 py-3 bg-[#0a0a0a] border-b border-[#151515] flex items-center justify-between">
+          <span className="text-xs font-semibold text-[#888888] uppercase tracking-wider">{title}</span>
+          <button onClick={onClose} className="p-1.5 hover:bg-[#111111] rounded-md transition-colors">
+            <X className="h-4 w-4 text-[#888888]" />
           </button>
         </div>
 
-        <div className="p-3 border-b border-slate-200 dark:border-zinc-700">
+        <div className="p-3 border-b border-[#151515]">
           <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 dark:text-slate-500" />
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[#888888]" />
             <input
               ref={inputRef}
               type="text"
               placeholder="Search players or picks..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-9 pr-4 py-2.5 text-sm bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-transparent transition-colors"
+              className="w-full pl-9 pr-4 py-2.5 text-sm bg-[#0a0a0a] border border-[#151515] rounded-md text-white placeholder-[#555555] focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-transparent transition-colors"
             />
           </div>
         </div>
 
-        <div className="px-4 py-2 bg-slate-50 dark:bg-zinc-800/30 border-b border-slate-100 dark:border-zinc-800">
-          <span className="text-xs text-slate-500 dark:text-slate-400">
+        <div className="px-4 py-2 bg-[#0a0a0a] border-b border-[#151515]">
+          <span className="text-xs text-[#888888]">
             Showing {filteredItems.length} {filteredItems.length === 1 ? 'asset' : 'assets'}
           </span>
         </div>
 
         <div className="max-h-96 overflow-y-auto overscroll-contain">
           {filteredItems.length === 0 ? (
-            <div className="p-8 text-sm text-slate-500 text-center">{emptyMessage}</div>
+            <div className="p-8 text-sm text-[#888888] text-center">{emptyMessage}</div>
           ) : (
             <table className="w-full">
               <thead>
-                <tr className="bg-slate-50 dark:bg-zinc-800/50 border-b border-slate-200 dark:border-zinc-700">
-                  <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Asset</th>
-                  <th className="px-4 py-2.5 text-center text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Type</th>
-                  <th className="px-4 py-2.5 text-right text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Value</th>
+                <tr className="bg-[#0a0a0a] border-b border-[#151515]">
+                  <th className="px-4 py-2.5 text-left text-xs font-semibold text-[#888888] uppercase tracking-wider">Asset</th>
+                  <th className="px-4 py-2.5 text-center text-xs font-semibold text-[#888888] uppercase tracking-wider">Type</th>
+                  <th className="px-4 py-2.5 text-right text-xs font-semibold text-[#888888] uppercase tracking-wider">Value</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-zinc-800">
+              <tbody className="divide-y divide-[#111111]">
                 {filteredItems.map((item) => (
                   <tr
                     key={item.id}
                     onClick={() => { onSelect(item); onClose(); }}
-                    className="hover:bg-slate-50 dark:hover:bg-zinc-800/50 cursor-pointer transition-colors"
+                    className="hover:bg-[#111111] cursor-pointer transition-colors"
                   >
                     <td className="px-4 py-3">
-                      <span className="text-sm text-slate-900 dark:text-white font-medium">{item.name}</span>
+                      <span className="text-sm text-white font-medium">{item.name}</span>
                     </td>
                     <td className="px-4 py-3 text-center">
-                      <span className={`px-2 py-0.5 text-xs font-medium rounded-lg ${getPositionBadgeClass(item.type === 'player' ? (item.position || '') : 'PICK')}`}>
+                      <span className={`px-2 py-0.5 text-xs font-medium rounded-md ${getPositionBadgeClass(item.type === 'player' ? (item.position || '') : 'PICK')}`}>
                         {item.type === 'player' ? item.position : 'PICK'}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <span className="text-sm font-bold text-accent-600 dark:text-accent-400">{item.value.toLocaleString()}</span>
+                      <span className="text-sm font-bold text-accent-400">{item.value.toLocaleString()}</span>
                     </td>
                   </tr>
                 ))}
@@ -278,26 +277,26 @@ function TeamDropdown({
       <div className="fixed inset-0 bg-black/50 z-40" onClick={onClose} />
       <div
         ref={dropdownRef}
-        className="fixed z-50 left-4 right-4 top-1/2 -translate-y-1/2 max-w-md mx-auto bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-2xl overflow-hidden"
+        className="fixed z-50 left-4 right-4 top-1/2 -translate-y-1/2 max-w-md mx-auto bg-[#0a0a0a] border border-[#151515] rounded-md shadow-2xl overflow-hidden"
       >
-        <div className="px-4 py-3 bg-slate-50 dark:bg-zinc-800/50 border-b border-slate-200 dark:border-zinc-700 flex items-center justify-between">
-          <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{title}</span>
-          <button onClick={onClose} className="p-1.5 hover:bg-slate-200 dark:hover:bg-zinc-700 rounded-lg transition-colors">
-            <X className="h-4 w-4 text-slate-400" />
+        <div className="px-4 py-3 bg-[#0a0a0a] border-b border-[#151515] flex items-center justify-between">
+          <span className="text-xs font-semibold text-[#888888] uppercase tracking-wider">{title}</span>
+          <button onClick={onClose} className="p-1.5 hover:bg-[#111111] rounded-md transition-colors">
+            <X className="h-4 w-4 text-[#888888]" />
           </button>
         </div>
 
-        <div className="max-h-96 overflow-y-auto overscroll-contain divide-y divide-slate-100 dark:divide-zinc-800">
+        <div className="max-h-96 overflow-y-auto overscroll-contain divide-y divide-[#111111]">
           {filteredRosters.map((roster) => (
             <button
               key={roster.roster_id}
               onClick={() => { onSelect(roster); onClose(); }}
-              className="w-full px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-zinc-800/50 transition-colors flex items-center justify-between"
+              className="w-full px-4 py-3 text-left hover:bg-[#111111] transition-colors flex items-center justify-between"
             >
-              <span className="text-sm text-slate-900 dark:text-white font-medium">
+              <span className="text-sm text-white font-medium">
                 {roster.teamName || roster.ownerName}
               </span>
-              <span className="text-xs text-slate-500 dark:text-slate-400">
+              <span className="text-xs text-[#888888]">
                 {roster.wins}-{roster.losses}
               </span>
             </button>
@@ -323,8 +322,8 @@ export function TradeEvaluator() {
       if (!rostersData?.length) return [];
       return (rostersData as any[]).map((roster: any) => {
         const owner = (users as any[])?.find((u: any) => u.user_id === roster.owner_id);
-        return { 
-          ...roster, 
+        return {
+          ...roster,
           ownerName: owner?.display_name || owner?.username || 'Unknown',
           teamName: owner?.team_name || null,
         };
@@ -499,12 +498,12 @@ export function TradeEvaluator() {
 
   const tradeAnalysis = useMemo(() => {
     if (tradeSides.some((s) => s.rosterId === 0) || tradeSides.some((s) => s.assets.length === 0)) return null;
-    
+
     const analysis = analyzeTrade(
       tradeSides[0].assets as ValueAdjustmentAsset[],
       tradeSides[1].assets as ValueAdjustmentAsset[]
     );
-    
+
     return {
       winner: tradeSides[analysis.winnerIndex].rosterId,
       loser: tradeSides[analysis.winnerIndex === 0 ? 1 : 0].rosterId,
@@ -526,25 +525,20 @@ export function TradeEvaluator() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-slate-50 dark:bg-zinc-950 flex items-center justify-center">
+      <div className="flex items-center justify-center py-24">
         <Loader2 className="h-8 w-8 animate-spin text-accent-500" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-zinc-950">
-      <div className="max-w-4xl mx-auto px-4 py-6 sm:py-8">
-        {/* Header */}
-        <div className="mb-4 sm:mb-6 flex items-center justify-between">
-          <div className="flex-1">
-            <PageHeader title="Trade Evaluator" backTo="/tools" />
-            <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 -mt-3">Evaluate trades using KTC dynasty values</p>
-          </div>
+    <div>
+        {/* Reset button */}
+        <div className="mb-4 sm:mb-6 flex items-center justify-end">
           {hasAssets && (
             <button
               onClick={resetTrade}
-              className="flex items-center gap-1.5 px-3 py-2 text-slate-500 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-zinc-800 rounded-lg text-xs sm:text-sm font-medium transition-colors"
+              className="flex items-center gap-1.5 px-3 py-2 text-[#888888] hover:text-white hover:bg-[#111111] rounded-md text-xs sm:text-sm font-medium transition-colors"
             >
               <RotateCcw className="h-4 w-4" />
               <span className="hidden sm:inline">Reset</span>
@@ -555,14 +549,14 @@ export function TradeEvaluator() {
         {/* Trade Analysis Banner - matching TradeFinder style */}
         {tradeAnalysis && (
           <div
-            className={`mb-4 sm:mb-6 bg-white dark:bg-zinc-900 border-2 rounded-xl p-4 sm:p-6 ${
+            className={`mb-4 sm:mb-6 bg-[#0a0a0a] border-2 rounded-md p-4 sm:p-6 ${
               tradeAnalysis.fairness === 'fair'
-                ? 'border-emerald-300 dark:border-emerald-500/50'
+                ? 'border-emerald-500/50'
                 : tradeAnalysis.fairness === 'slight'
-                ? 'border-blue-300 dark:border-blue-500/50'
+                ? 'border-blue-500/50'
                 : tradeAnalysis.fairness === 'unfair'
-                ? 'border-amber-300 dark:border-amber-500/50'
-                : 'border-red-300 dark:border-red-500/50'
+                ? 'border-amber-500/50'
+                : 'border-red-500/50'
             }`}
           >
             <div className="flex items-center justify-between flex-wrap gap-2">
@@ -578,40 +572,40 @@ export function TradeEvaluator() {
                       : 'text-red-500'
                   }`}
                 />
-                <span className="text-sm sm:text-base font-semibold text-slate-900 dark:text-white">
+                <span className="text-sm sm:text-base font-semibold text-white">
                   {tradeAnalysis.fairness === 'fair' ? 'Fair Trade' : tradeAnalysis.fairness === 'slight' ? 'Slightly Uneven' : tradeAnalysis.fairness === 'unfair' ? 'Unfair' : 'Lopsided'}
                 </span>
                 <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded uppercase ${
                   tradeAnalysis.fairness === 'fair'
-                    ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'
+                    ? 'bg-emerald-900/30 text-emerald-400'
                     : tradeAnalysis.fairness === 'slight'
-                    ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400'
+                    ? 'bg-blue-900/30 text-blue-400'
                     : tradeAnalysis.fairness === 'unfair'
-                    ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400'
-                    : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
+                    ? 'bg-amber-900/30 text-amber-400'
+                    : 'bg-red-900/30 text-red-400'
                 }`}>
                   {tradeAnalysis.fairness}
                 </span>
               </div>
-              <span className="text-xs sm:text-sm text-slate-600 dark:text-slate-300">
+              <span className="text-xs sm:text-sm text-[#333333]">
                 <span className="font-semibold">{rosters?.find((r) => r.roster_id === tradeAnalysis.winner)?.teamName || rosters?.find((r) => r.roster_id === tradeAnalysis.winner)?.ownerName}</span> wins by{' '}
                 <span className="font-bold">{tradeAnalysis.adjustedDifference.toLocaleString()}</span>
               </span>
             </div>
             {/* Value Adjustment Explanation */}
             {tradeAnalysis.rawDifference !== tradeAnalysis.adjustedDifference && (
-              <div className="mt-3 pt-3 border-t border-slate-100 dark:border-zinc-800 flex items-start gap-1.5">
-                <Info className="h-3 w-3 text-slate-400 mt-0.5 shrink-0" />
-                <span className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400">
+              <div className="mt-3 pt-3 border-t border-[#151515] flex items-start gap-1.5">
+                <Info className="h-3 w-3 text-[#888888] mt-0.5 shrink-0" />
+                <span className="text-[10px] sm:text-xs text-[#888888]">
                   Raw: {tradeAnalysis.rawDifference.toLocaleString()} → Adj: {tradeAnalysis.adjustedDifference.toLocaleString()}
                 </span>
               </div>
             )}
             {/* Tier Mismatch Warning */}
             {tradeAnalysis.tierMismatchExplanation && (
-              <div className="mt-2 pt-2 border-t border-slate-100 dark:border-zinc-800 flex items-start gap-1.5">
+              <div className="mt-2 pt-2 border-t border-[#151515] flex items-start gap-1.5">
                 <AlertTriangle className="h-3 w-3 text-amber-500 mt-0.5 shrink-0" />
-                <span className="text-[10px] sm:text-xs text-amber-600 dark:text-amber-400">
+                <span className="text-[10px] sm:text-xs text-amber-400">
                   {tradeAnalysis.tierMismatchExplanation}
                 </span>
               </div>
@@ -630,16 +624,16 @@ export function TradeEvaluator() {
             return (
               <div
                 key={sideIndex}
-                className={`bg-white dark:bg-zinc-900 border-2 rounded-xl overflow-hidden ${
+                className={`bg-[#0a0a0a] border-2 rounded-md overflow-hidden ${
                   isWinner
-                    ? 'border-emerald-300 dark:border-emerald-500/50'
+                    ? 'border-emerald-500/50'
                     : isLoser
-                    ? 'border-red-300 dark:border-red-500/50'
-                    : 'border-slate-200 dark:border-zinc-800'
+                    ? 'border-red-500/50'
+                    : 'border-[#151515]'
                 }`}
               >
                 {/* Team Header with dropdown button */}
-                <div className="px-3 sm:px-4 py-3 bg-slate-50 dark:bg-zinc-800/50 border-b border-slate-200 dark:border-zinc-700">
+                <div className="px-3 sm:px-4 py-3 bg-[#0a0a0a] border-b border-[#151515]">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       {isWinner ? (
@@ -649,63 +643,63 @@ export function TradeEvaluator() {
                       ) : null}
                     </div>
                     {sideTotal && sideTotal.adjustedTotal > 0 && (
-                      <span className={`text-[10px] sm:text-xs font-semibold px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-lg ${
+                      <span className={`text-[10px] sm:text-xs font-semibold px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md ${
                         isWinner
-                          ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'
+                          ? 'bg-emerald-900/30 text-emerald-400'
                           : isLoser
-                          ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
-                          : 'bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-slate-300'
+                          ? 'bg-red-900/30 text-red-400'
+                          : 'bg-[#111111] text-[#333333]'
                       }`}>
                         {tradeAnalysis && isWinner ? '+' : tradeAnalysis && isLoser ? '-' : ''}{sideTotal.adjustedTotal.toLocaleString()}
                       </span>
                     )}
                   </div>
-                  
+
                   {/* Team Selector Button */}
                   <button
                     onClick={() => setActiveDropdown({ side: sideIndex, type: 'team' })}
-                    className="w-full mt-2 p-3 rounded-lg border border-slate-200 dark:border-zinc-700 hover:border-slate-300 dark:hover:border-zinc-600 transition-colors flex items-center justify-between"
+                    className="w-full mt-2 p-3 rounded-md border border-[#151515] hover:border-[#333333] transition-colors flex items-center justify-between"
                   >
                     <div className="flex items-center gap-2 sm:gap-3">
-                      <Users className="h-4 w-4 sm:h-5 sm:w-5 text-slate-400" />
-                      <span className={`text-xs sm:text-sm font-medium ${roster ? 'text-slate-900 dark:text-white' : 'text-slate-400'}`}>
+                      <Users className="h-4 w-4 sm:h-5 sm:w-5 text-[#888888]" />
+                      <span className={`text-xs sm:text-sm font-medium ${roster ? 'text-white' : 'text-[#888888]'}`}>
                         {roster ? (roster.teamName || roster.ownerName) : 'Select team...'}
                       </span>
                     </div>
-                    <ChevronDown className="h-4 w-4 sm:h-5 sm:w-5 text-slate-400" />
+                    <ChevronDown className="h-4 w-4 sm:h-5 sm:w-5 text-[#888888]" />
                   </button>
                 </div>
 
                 {/* Assets Section - matching TradeFinder GIVE/GET style */}
                 <div className="p-3 sm:p-4">
                   {side.rosterId === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-8 text-slate-400">
+                    <div className="flex flex-col items-center justify-center py-8 text-[#888888]">
                       <Users className="h-8 w-8 mb-2 opacity-50" />
                       <p className="text-xs sm:text-sm">Select a team above</p>
                     </div>
                   ) : (
-                    <div className={`rounded-lg p-3 ${
+                    <div className={`rounded-md p-3 ${
                       isLoser
-                        ? 'bg-red-50/50 dark:bg-red-900/10'
+                        ? 'bg-red-900/10'
                         : isWinner
-                        ? 'bg-emerald-50/50 dark:bg-emerald-900/10'
-                        : 'bg-slate-50/50 dark:bg-zinc-800/30'
+                        ? 'bg-emerald-900/10'
+                        : 'bg-[#111111]'
                     }`}>
                       <div className={`text-[10px] sm:text-xs font-semibold uppercase tracking-wider mb-2 ${
                         isLoser
-                          ? 'text-red-600 dark:text-red-400'
+                          ? 'text-red-400'
                           : isWinner
-                          ? 'text-emerald-600 dark:text-emerald-400'
-                          : 'text-slate-500 dark:text-slate-400'
+                          ? 'text-emerald-400'
+                          : 'text-[#888888]'
                       }`}>
                         {isLoser ? 'Give' : isWinner ? 'Get' : 'Assets'}
                         {sideTotal && sideTotal.adjustedTotal > 0 && (
-                          <span className="font-normal text-slate-500 dark:text-slate-400 ml-1">
+                          <span className="font-normal text-[#888888] ml-1">
                             ({sideTotal.adjustedTotal.toLocaleString()})
                           </span>
                         )}
                       </div>
-                      
+
                       {/* Asset List */}
                       <div className="space-y-1.5 sm:space-y-2">
                         {side.assets.map((asset) => (
@@ -714,12 +708,12 @@ export function TradeEvaluator() {
                               <span className={`px-1.5 py-0.5 text-[10px] sm:text-xs font-medium rounded shrink-0 ${getPositionBadgeClass(asset.type === 'player' ? (asset.position || '') : 'PICK')}`}>
                                 {asset.type === 'player' ? asset.position : 'PICK'}
                               </span>
-                              <span className="text-xs sm:text-sm text-slate-700 dark:text-slate-200 truncate">{asset.name}</span>
+                              <span className="text-xs sm:text-sm text-white truncate">{asset.name}</span>
                             </div>
                             <div className="flex items-center gap-2 shrink-0">
-                              <span className="text-[10px] sm:text-xs text-slate-400">{asset.value.toLocaleString()}</span>
-                              <button onClick={() => removeAsset(sideIndex, asset.id)} className="p-1 hover:bg-slate-200 dark:hover:bg-zinc-700 rounded transition-colors">
-                                <X className="h-3 w-3 text-slate-400 hover:text-red-500" />
+                              <span className="text-[10px] sm:text-xs text-[#888888]">{asset.value.toLocaleString()}</span>
+                              <button onClick={() => removeAsset(sideIndex, asset.id)} className="p-1 hover:bg-[#111111] rounded transition-colors">
+                                <X className="h-3 w-3 text-[#888888] hover:text-red-500" />
                               </button>
                             </div>
                           </div>
@@ -727,17 +721,17 @@ export function TradeEvaluator() {
                       </div>
 
                       {/* Add Buttons */}
-                      <div className="flex gap-2 mt-3 pt-3 border-t border-slate-200/50 dark:border-zinc-700/50">
+                      <div className="flex gap-2 mt-3 pt-3 border-t border-[#151515]">
                         <button
                           onClick={() => setActiveDropdown({ side: sideIndex, type: 'player' })}
-                          className="flex-1 flex items-center justify-center gap-1.5 py-2 border border-dashed border-slate-300 dark:border-zinc-600 rounded-lg text-xs sm:text-sm text-slate-500 hover:border-accent-400 hover:text-accent-600 hover:bg-accent-50 dark:hover:bg-accent-500/5 transition-colors"
+                          className="flex-1 flex items-center justify-center gap-1.5 py-2 border border-dashed border-[#333333] rounded-md text-xs sm:text-sm text-[#888888] hover:border-accent-400 hover:text-accent-500 hover:bg-accent-500/5 transition-colors"
                         >
                           <Plus className="h-3.5 w-3.5" />
                           Player
                         </button>
                         <button
                           onClick={() => setActiveDropdown({ side: sideIndex, type: 'pick' })}
-                          className="flex-1 flex items-center justify-center gap-1.5 py-2 border border-dashed border-slate-300 dark:border-zinc-600 rounded-lg text-xs sm:text-sm text-slate-500 hover:border-cyan-400 hover:text-cyan-600 hover:bg-cyan-50 dark:hover:bg-cyan-500/5 transition-colors"
+                          className="flex-1 flex items-center justify-center gap-1.5 py-2 border border-dashed border-[#333333] rounded-md text-xs sm:text-sm text-[#888888] hover:border-cyan-400 hover:text-cyan-400 hover:bg-cyan-500/5 transition-colors"
                         >
                           <Plus className="h-3.5 w-3.5" />
                           Pick
@@ -755,16 +749,16 @@ export function TradeEvaluator() {
                         ? 'bg-emerald-500/10 border-emerald-500/30'
                         : isLoser
                         ? 'bg-red-500/10 border-red-500/30'
-                        : 'bg-slate-50 dark:bg-zinc-800/50 border-slate-200 dark:border-zinc-700'
+                        : 'bg-[#0a0a0a] border-[#151515]'
                     }`}
                   >
                     <div className="flex items-center justify-between">
-                      <span className="text-[10px] sm:text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Total</span>
+                      <span className="text-[10px] sm:text-xs font-medium text-[#888888] uppercase">Total</span>
                       <div className="flex items-center gap-1.5">
                         {isWinner && <TrendingUp className="h-4 w-4 text-emerald-500" />}
                         {isLoser && <TrendingDown className="h-4 w-4 text-red-500" />}
                         <span className={`text-base sm:text-lg font-bold tabular-nums ${
-                          isWinner ? 'text-emerald-600 dark:text-emerald-400' : isLoser ? 'text-red-600 dark:text-red-400' : 'text-slate-900 dark:text-white'
+                          isWinner ? 'text-emerald-400' : isLoser ? 'text-red-400' : 'text-white'
                         }`}>
                           {sideTotal.adjustedTotal.toLocaleString()}
                         </span>
@@ -772,9 +766,9 @@ export function TradeEvaluator() {
                     </div>
                     {/* Value Adjustment Breakdown */}
                     {(sideTotal.studBonus > 0 || sideTotal.consolidationBonus > 0 || sideTotal.piecesPenalty > 0 || sideTotal.tierMismatchPenalty > 0) && (
-                      <div className="mt-2 pt-2 border-t border-slate-200/50 dark:border-zinc-700/50 flex items-start gap-1.5">
-                        <Info className="h-3 w-3 text-slate-400 mt-0.5 shrink-0" />
-                        <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                      <div className="mt-2 pt-2 border-t border-[#151515] flex items-start gap-1.5">
+                        <Info className="h-3 w-3 text-[#888888] mt-0.5 shrink-0" />
+                        <span className="text-[10px] text-[#888888]">
                           Raw: {sideTotal.rawTotal.toLocaleString()} {sideTotal.adjustmentBreakdown}
                         </span>
                       </div>
@@ -789,12 +783,11 @@ export function TradeEvaluator() {
         {/* Swap Icon between cards */}
         {!hasAssets && (
           <div className="flex justify-center my-4">
-            <div className="w-10 h-10 bg-slate-100 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-full flex items-center justify-center">
-              <ArrowLeftRight className="w-5 h-5 text-slate-400" />
+            <div className="w-10 h-10 bg-[#111111] border border-[#151515] rounded-full flex items-center justify-center">
+              <ArrowLeftRight className="w-5 h-5 text-[#888888]" />
             </div>
           </div>
         )}
-      </div>
 
       {/* Dropdowns */}
       {tradeSides.map((_, sideIndex) => (

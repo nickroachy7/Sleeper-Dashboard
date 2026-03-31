@@ -1,21 +1,22 @@
 @import "tailwindcss";
 
 /* Design System - Sleeper League Dashboard */
-/* Inspired by KeepTradeCut.com */
+/* Inspired by Dynasty Reloaded Newsletter Design Spec */
+/* Dark-mode only editorial aesthetic */
 
 /* Custom Theme Properties */
 @theme {
-  /* Kelly Green Accent - Primary brand color */
-  --color-accent-50: #f0fdf4;
-  --color-accent-100: #dcfce7;
-  --color-accent-200: #bbf7d0;
-  --color-accent-300: #86efac;
-  --color-accent-400: #4ade80;
-  --color-accent-500: #4CBB17;
-  --color-accent-600: #3da314;
-  --color-accent-700: #2f8010;
-  --color-accent-800: #256510;
-  --color-accent-900: #1a4a0c;
+  /* Newsletter Green Accent */
+  --color-accent-50: #052e16;
+  --color-accent-100: #064e2a;
+  --color-accent-200: #0a7a3f;
+  --color-accent-300: #15803d;
+  --color-accent-400: #16a34a;
+  --color-accent-500: #22c55e;
+  --color-accent-600: #4ade80;
+  --color-accent-700: #86efac;
+  --color-accent-800: #bbf7d0;
+  --color-accent-900: #dcfce7;
 
   /* Position Colors */
   --color-pos-qb: #ef4444;
@@ -25,6 +26,11 @@
   --color-pos-pick: #06b6d4;
   --color-pos-def: #8b5cf6;
   --color-pos-k: #eab308;
+
+  /* Rank Colors */
+  --color-rank-gold: #ffd700;
+  --color-rank-silver: #c0c0c0;
+  --color-rank-bronze: #cd7f32;
 }
 
 * {
@@ -32,42 +38,33 @@
 }
 
 html {
-  color-scheme: light dark;
+  color-scheme: dark;
 }
 
 body {
   font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  background-color: #000000;
+  color: #ffffff;
 }
 
-/* Light mode (default) */
+/* Dark-only theme tokens */
 :root {
-  --bg-primary: #ffffff;
-  --bg-secondary: #f8fafc;
-  --bg-tertiary: #f1f5f9;
-  --bg-card: #ffffff;
-  --bg-card-hover: #f8fafc;
-  --border-primary: #e2e8f0;
-  --border-secondary: #f1f5f9;
-  --text-primary: #0f172a;
-  --text-secondary: #475569;
-  --text-tertiary: #94a3b8;
-  --shadow-color: rgba(0, 0, 0, 0.1);
-}
-
-/* Dark mode */
-.dark {
-  --bg-primary: #0a0a0a;
-  --bg-secondary: #111111;
-  --bg-tertiary: #1a1a1a;
-  --bg-card: #111111;
-  --bg-card-hover: #1a1a1a;
-  --border-primary: #262626;
-  --border-secondary: #1a1a1a;
-  --text-primary: #fafafa;
-  --text-secondary: #a1a1aa;
-  --text-tertiary: #71717a;
+  --bg-primary: #000000;
+  --bg-secondary: #0a0a0a;
+  --bg-tertiary: #111111;
+  --bg-card: #0a0a0a;
+  --bg-card-hover: #111111;
+  --border-primary: #151515;
+  --border-secondary: #151515;
+  --border-subtle: #111111;
+  --text-primary: #ffffff;
+  --text-secondary: #cccccc;
+  --text-tertiary: #888888;
+  --text-muted: #555555;
+  --text-faint: #444444;
+  --text-ghost: #333333;
   --shadow-color: rgba(0, 0, 0, 0.5);
 }
 
@@ -78,70 +75,70 @@ body {
   }
 }
 
-/* Custom scrollbar for dark mode */
-.dark ::-webkit-scrollbar {
+/* Custom scrollbar */
+::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 
-.dark ::-webkit-scrollbar-track {
-  background: #1a1a1a;
+::-webkit-scrollbar-track {
+  background: #0a0a0a;
 }
 
-.dark ::-webkit-scrollbar-thumb {
-  background: #404040;
+::-webkit-scrollbar-thumb {
+  background: #333333;
   border-radius: 4px;
 }
 
-.dark ::-webkit-scrollbar-thumb:hover {
-  background: #525252;
+::-webkit-scrollbar-thumb:hover {
+  background: #444444;
 }
 
 /* Table styling utilities */
 .table-header {
-  @apply bg-slate-50 dark:bg-zinc-900 border-b border-slate-200 dark:border-zinc-800;
+  @apply border-b border-[#151515];
 }
 
 .table-row {
-  @apply border-b border-slate-100 dark:border-zinc-800 hover:bg-slate-50 dark:hover:bg-zinc-900 transition-colors;
+  @apply border-b border-[#111111] hover:bg-[#111111] transition-colors;
 }
 
 /* Card styling utilities */
 .card {
-  @apply bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-sm dark:shadow-none;
+  @apply bg-transparent border border-[#151515] rounded-md shadow-none;
 }
 
 .card-header {
-  @apply px-5 py-4 border-b border-slate-100 dark:border-zinc-800;
+  @apply px-5 py-4 border-b border-[#151515];
 }
 
-/* Position badge colors - consistent across themes */
+/* Position badge colors */
 .pos-badge-qb {
-  @apply bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-500/30;
+  @apply bg-red-500/20 text-red-400 border border-red-500/30;
 }
 
 .pos-badge-rb {
-  @apply bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30;
+  @apply bg-emerald-500/20 text-emerald-400 border border-emerald-500/30;
 }
 
 .pos-badge-wr {
-  @apply bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-500/30;
+  @apply bg-blue-500/20 text-blue-400 border border-blue-500/30;
 }
 
 .pos-badge-te {
-  @apply bg-orange-100 dark:bg-orange-500/20 text-orange-700 dark:text-orange-400 border border-orange-200 dark:border-orange-500/30;
+  @apply bg-orange-500/20 text-orange-400 border border-orange-500/30;
 }
 
 .pos-badge-pick {
-  @apply bg-cyan-100 dark:bg-cyan-500/20 text-cyan-700 dark:text-cyan-400 border border-cyan-200 dark:border-cyan-500/30;
+  @apply bg-cyan-500/20 text-cyan-400 border border-cyan-500/30;
 }
 
 .pos-badge-k {
-  @apply bg-yellow-100 dark:bg-yellow-500/20 text-yellow-700 dark:text-yellow-400 border border-yellow-200 dark:border-yellow-500/30;
+  @apply bg-yellow-500/20 text-yellow-400 border border-yellow-500/30;
 }
 
 .pos-badge-def {
-  @apply bg-purple-100 dark:bg-purple-500/20 text-purple-700 dark:text-purple-400 border border-purple-200 dark:border-purple-500/30;
+  @apply bg-purple-500/20 text-purple-400 border border-purple-500/30;
 }
 
 /* Accent button */
@@ -150,12 +147,12 @@ body {
 }
 
 .btn-secondary {
-  @apply bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 text-slate-700 dark:text-slate-300 font-medium px-4 py-2.5 rounded-lg border border-slate-200 dark:border-zinc-700 transition-colors;
+  @apply bg-[#111111] hover:bg-[#1a1a1a] text-[#cccccc] font-medium px-4 py-2.5 rounded-lg border border-[#151515] transition-colors;
 }
 
 /* Input styling */
 .input {
-  @apply bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg px-3 py-2 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-transparent transition-colors;
+  @apply bg-[#0a0a0a] border border-[#151515] rounded-lg px-3 py-2 text-white placeholder-[#555555] focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-transparent transition-colors;
 }
 
 /* Gradient accent for featured cards */
@@ -172,28 +169,46 @@ body {
   display: none;
 }
 
+/* Newsletter-style section header */
+.section-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: #555555;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+}
+
+.section-title {
+  font-size: 24px;
+  font-weight: 800;
+  color: #ffffff;
+  letter-spacing: -0.5px;
+}
+
+.section-subtitle {
+  font-size: 13px;
+  font-weight: 400;
+  color: #666666;
+}
+
 /* Mobile-first compact utilities */
 @media (max-width: 640px) {
-  /* Reduce base font size on mobile for data-dense screens */
   .mobile-compact {
     font-size: 0.75rem;
     line-height: 1.25rem;
   }
-  
-  /* Compact table cells on mobile */
+
   .mobile-compact-table th,
   .mobile-compact-table td {
     padding: 0.5rem 0.75rem;
     font-size: 0.75rem;
   }
-  
-  /* Compact cards on mobile */
+
   .mobile-compact-card {
     padding: 0.75rem;
     border-radius: 0.5rem;
   }
-  
-  /* Smaller page padding on mobile */
+
   .mobile-compact-page {
     padding: 0.75rem;
   }

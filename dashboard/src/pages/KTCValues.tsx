@@ -1,10 +1,10 @@
 import { useState, useMemo, Fragment } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
-import { 
-  TrendingUp, 
-  TrendingDown, 
-  Minus, 
+import {
+  TrendingUp,
+  TrendingDown,
+  Minus,
   Search,
   ArrowUpDown,
   Filter,
@@ -67,21 +67,21 @@ interface UnifiedValue {
 const getPositionBadgeClass = (position: string): string => {
   switch (position) {
     case 'QB':
-      return 'bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-500/30';
+      return 'bg-red-500/20 text-red-400 border border-red-500/30';
     case 'RB':
-      return 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30';
+      return 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30';
     case 'WR':
-      return 'bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-500/30';
+      return 'bg-blue-500/20 text-blue-400 border border-blue-500/30';
     case 'TE':
-      return 'bg-orange-100 dark:bg-orange-500/20 text-orange-700 dark:text-orange-400 border border-orange-200 dark:border-orange-500/30';
+      return 'bg-orange-500/20 text-orange-400 border border-orange-500/30';
     case 'PICK':
-      return 'bg-cyan-100 dark:bg-cyan-500/20 text-cyan-700 dark:text-cyan-400 border border-cyan-200 dark:border-cyan-500/30';
+      return 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30';
     case 'K':
-      return 'bg-yellow-100 dark:bg-yellow-500/20 text-yellow-700 dark:text-yellow-400 border border-yellow-200 dark:border-yellow-500/30';
+      return 'bg-yellow-500/20 text-yellow-400 border border-yellow-200 border-yellow-500/30';
     case 'DEF':
-      return 'bg-purple-100 dark:bg-purple-500/20 text-purple-700 dark:text-purple-400 border border-purple-200 dark:border-purple-500/30';
+      return 'bg-purple-500/20 text-purple-400 border border-purple-500/30';
     default:
-      return 'bg-slate-100 dark:bg-zinc-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-zinc-600';
+      return 'bg-[#1a1a1a] text-[#333333] border border-zinc-600';
   }
 };
 
@@ -103,7 +103,7 @@ async function fetchPlayerValues(): Promise<PlayerValue[]> {
     .order('rank', { ascending: true });
 
   if (error) throw error;
-  
+
   return (data || []).map(pv => ({
     ...pv,
     player: Array.isArray(pv.player) ? pv.player[0] : pv.player
@@ -131,7 +131,7 @@ export function KTCValues() {
   const [sortField, setSortField] = useState<SortField>('rank');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   const [currentPage, setCurrentPage] = useState(1);
-  
+
   const { data: playerValues, isLoading: playersLoading, error: playersError } = useQuery({
     queryKey: ['playerValues'],
     queryFn: fetchPlayerValues
@@ -209,22 +209,22 @@ export function KTCValues() {
   // Filter and sort combined list
   const filteredAndSorted = useMemo(() => {
     let filtered = [...unifiedValues];
-    
+
     // Search filter
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(item => 
+      filtered = filtered.filter(item =>
         item.name.toLowerCase().includes(query) ||
         item.team?.toLowerCase().includes(query) ||
         item.position.toLowerCase().includes(query)
       );
     }
-    
+
     // Position filter
     if (positionFilter !== 'ALL') {
       filtered = filtered.filter(item => item.position === positionFilter);
     }
-    
+
     // Sort
     filtered.sort((a, b) => {
       let comparison = 0;
@@ -241,7 +241,7 @@ export function KTCValues() {
       }
       return sortDirection === 'asc' ? comparison : -comparison;
     });
-    
+
     return filtered;
   }, [unifiedValues, searchQuery, positionFilter, sortField, sortDirection]);
 
@@ -272,9 +272,9 @@ export function KTCValues() {
       acc[pos] = players.filter(p => p.position === pos).length;
       return acc;
     }, {} as Record<string, number>);
-    
+
     const lastUpdated = unifiedValues[0]?.fetchedAt;
-    
+
     return {
       totalPlayers: players.length,
       totalPicks: picks.length,
@@ -286,18 +286,18 @@ export function KTCValues() {
 
   const TrendIndicator = ({ trend }: { trend: number | null }) => {
     if (trend === null || trend === 0) {
-      return <Minus className="w-3 h-3 sm:w-4 sm:h-4 text-slate-400 dark:text-slate-500" />;
+      return <Minus className="w-3 h-3 sm:w-4 sm:h-4 text-[#888888]" />;
     }
     if (trend > 0) {
       return (
-        <div className="flex items-center gap-0.5 sm:gap-1 text-emerald-600 dark:text-emerald-400">
+        <div className="flex items-center gap-0.5 sm:gap-1 text-emerald-400">
           <TrendingUp className="w-3 h-3 sm:w-4 sm:h-4" />
           <span className="text-[10px] sm:text-xs font-medium">+{trend}</span>
         </div>
       );
     }
     return (
-      <div className="flex items-center gap-0.5 sm:gap-1 text-red-600 dark:text-red-400">
+      <div className="flex items-center gap-0.5 sm:gap-1 text-red-400">
         <TrendingDown className="w-3 h-3 sm:w-4 sm:h-4" />
         <span className="text-[10px] sm:text-xs font-medium">{trend}</span>
       </div>
@@ -317,7 +317,7 @@ export function KTCValues() {
   if (error) {
     return (
       <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
-        <div className="bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 rounded-xl p-4 sm:p-5 text-red-700 dark:text-red-400 text-sm">
+        <div className="bg-red-500/10 border border-red-500/30 rounded-md p-4 sm:p-5 text-red-400 text-sm">
           Error loading values: {error instanceof Error ? error.message : 'Unknown error'}
         </div>
       </div>
@@ -328,12 +328,12 @@ export function KTCValues() {
     <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
       {/* Header */}
       <div className="mb-4 sm:mb-6">
-        <PageHeader 
-          title="KTC Values" 
-          backTo="/tools"
+        <PageHeader
+          title="KTC Values"
+          backTo="/"
           icon={<img src="/ktc-logo.png" alt="KTC" className="h-5 w-5" />}
         />
-        <p className="text-slate-500 dark:text-slate-400 -mt-3 text-xs sm:text-sm">
+        <p className="text-[#888888] -mt-3 text-xs sm:text-sm">
           Powered by KeepTradeCut • Superflex Rankings
         </p>
       </div>
@@ -342,28 +342,28 @@ export function KTCValues() {
       <div className="mb-4 sm:mb-6 flex flex-col md:flex-row gap-3 sm:gap-4">
         {/* Search */}
         <div className="relative flex-1">
-          <Search className="absolute left-2.5 sm:left-3 top-1/2 -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-slate-400 dark:text-slate-500" />
+          <Search className="absolute left-2.5 sm:left-3 top-1/2 -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-[#888888]" />
           <input
             type="text"
             placeholder="Search players or picks..."
             value={searchQuery}
             onChange={(e) => handleSearchChange(e.target.value)}
-            className="w-full pl-8 sm:pl-10 pr-3 sm:pr-4 py-2 sm:py-2.5 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg text-sm sm:text-base text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-transparent transition-colors"
+            className="w-full pl-8 sm:pl-10 pr-3 sm:pr-4 py-2 sm:py-2.5 bg-[#0a0a0a] border border-[#151515] rounded-md text-sm sm:text-base text-white placeholder-[#555555] focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-transparent transition-colors"
           />
         </div>
-        
+
         {/* Position Filter */}
         <div className="flex items-center gap-1.5 sm:gap-2">
-          <Filter className="w-4 h-4 sm:w-5 sm:h-5 text-slate-400 dark:text-slate-500 hidden sm:block" />
+          <Filter className="w-4 h-4 sm:w-5 sm:h-5 text-[#888888] hidden sm:block" />
           <div className="flex gap-1 flex-wrap">
             {['ALL', 'QB', 'RB', 'WR', 'TE', 'PICK'].map(pos => (
               <button
                 key={pos}
                 onClick={() => handlePositionFilterChange(pos)}
-                className={`px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors ${
-                  positionFilter === pos 
-                    ? 'bg-accent-500 text-white' 
-                    : 'bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-zinc-700 hover:text-slate-900 dark:hover:text-white'
+                className={`px-2 sm:px-3 py-1.5 sm:py-2 rounded-md text-xs sm:text-sm font-medium transition-colors ${
+                  positionFilter === pos
+                    ? 'bg-accent-500 text-white'
+                    : 'bg-[#111111] text-[#888888] hover:bg-[#1a1a1a] hover:text-white'
                 }`}
               >
                 {pos === 'PICK' ? 'Picks' : pos}
@@ -374,7 +374,7 @@ export function KTCValues() {
       </div>
 
       {/* Last Updated */}
-      <div className="mt-4 sm:mt-6 text-xs sm:text-sm text-slate-500 dark:text-slate-400">
+      <div className="mt-4 sm:mt-6 text-xs sm:text-sm text-[#888888]">
         {stats.lastUpdated && (
           <span className="text-[10px] sm:text-sm">
             Last updated: {new Date(stats.lastUpdated).toLocaleString()}
@@ -383,54 +383,54 @@ export function KTCValues() {
       </div>
 
       {/* Combined Table */}
-      <div className="mt-3 sm:mt-4 bg-white dark:bg-zinc-900 rounded-lg sm:rounded-xl border border-slate-200 dark:border-zinc-800 shadow-sm dark:shadow-none overflow-hidden">
+      <div className="mt-3 sm:mt-4 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="bg-slate-50 dark:bg-zinc-800/50 border-b border-slate-200 dark:border-zinc-700">
-                <th className="px-2 sm:px-5 py-2.5 sm:py-4 text-left text-[10px] sm:text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                  <button 
+              <tr className="border-b border-[#151515]">
+                <th className="px-2 sm:px-5 py-2.5 sm:py-4 text-left text-[10px] sm:text-xs font-semibold text-[#888888] uppercase tracking-wider">
+                  <button
                     onClick={() => handleSort('rank')}
-                    className="flex items-center gap-1 hover:text-slate-700 dark:hover:text-white transition-colors"
+                    className="flex items-center gap-1 hover:text-white transition-colors"
                   >
                     Rank
                     <ArrowUpDown className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
                   </button>
                 </th>
-                <th className="px-2 sm:px-5 py-2.5 sm:py-4 text-left text-[10px] sm:text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                  <button 
+                <th className="px-2 sm:px-5 py-2.5 sm:py-4 text-left text-[10px] sm:text-xs font-semibold text-[#888888] uppercase tracking-wider">
+                  <button
                     onClick={() => handleSort('name')}
-                    className="flex items-center gap-1 hover:text-slate-700 dark:hover:text-white transition-colors"
+                    className="flex items-center gap-1 hover:text-white transition-colors"
                   >
                     Asset
                     <ArrowUpDown className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
                   </button>
                 </th>
-                <th className="px-2 sm:px-5 py-2.5 sm:py-4 text-center text-[10px] sm:text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Type</th>
-                <th className="hidden sm:table-cell px-5 py-4 text-center text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Team</th>
-                <th className="px-2 sm:px-5 py-2.5 sm:py-4 text-right text-[10px] sm:text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                  <button 
+                <th className="px-2 sm:px-5 py-2.5 sm:py-4 text-center text-[10px] sm:text-xs font-semibold text-[#888888] uppercase tracking-wider">Type</th>
+                <th className="hidden sm:table-cell px-5 py-4 text-center text-xs font-semibold text-[#888888] uppercase tracking-wider">Team</th>
+                <th className="px-2 sm:px-5 py-2.5 sm:py-4 text-right text-[10px] sm:text-xs font-semibold text-[#888888] uppercase tracking-wider">
+                  <button
                     onClick={() => handleSort('value')}
-                    className="flex items-center gap-1 hover:text-slate-700 dark:hover:text-white transition-colors ml-auto"
+                    className="flex items-center gap-1 hover:text-white transition-colors ml-auto"
                   >
                     Value
                     <ArrowUpDown className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
                   </button>
                 </th>
-                <th className="hidden md:table-cell px-5 py-4 text-center text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Tier</th>
-                <th className="hidden lg:table-cell px-5 py-4 text-center text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Pos Rank</th>
-                <th className="hidden lg:table-cell px-5 py-4 text-right text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Age</th>
-                <th className="px-2 sm:px-5 py-2.5 sm:py-4 text-center text-[10px] sm:text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Trend</th>
+                <th className="hidden md:table-cell px-5 py-4 text-center text-xs font-semibold text-[#888888] uppercase tracking-wider">Tier</th>
+                <th className="hidden lg:table-cell px-5 py-4 text-center text-xs font-semibold text-[#888888] uppercase tracking-wider">Pos Rank</th>
+                <th className="hidden lg:table-cell px-5 py-4 text-right text-xs font-semibold text-[#888888] uppercase tracking-wider">Age</th>
+                <th className="px-2 sm:px-5 py-2.5 sm:py-4 text-center text-[10px] sm:text-xs font-semibold text-[#888888] uppercase tracking-wider">Trend</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-zinc-800">
+            <tbody className="divide-y divide-[#111111]">
               {paginatedValues.map((item, idx) => {
                 // Show tier header when tier changes (when sorting by rank)
                 const prevItem = idx > 0 ? paginatedValues[idx - 1] : null;
-                const showTierHeader = sortField === 'rank' && 
-                  item.tier && 
+                const showTierHeader = sortField === 'rank' &&
+                  item.tier &&
                   (!prevItem || prevItem.tier !== item.tier);
-                
+
                 const tierLabels: Record<number, string> = {
                   1: 'Tier 1',
                   2: 'Tier 2',
@@ -438,38 +438,38 @@ export function KTCValues() {
                   4: 'Tier 4',
                   5: 'Tier 5',
                 };
-                
+
                 return (
                   <Fragment key={item.id}>
                     {showTierHeader && (
-                      <tr className="bg-slate-100 dark:bg-zinc-800">
+                      <tr className="bg-[#111111]">
                         <td colSpan={9} className="px-2 sm:px-5 py-2 sm:py-3">
-                          <span className="text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-300">
+                          <span className="text-xs sm:text-sm font-bold text-[#333333]">
                             {tierLabels[item.tier!] || `Tier ${item.tier}`}
                           </span>
                         </td>
                       </tr>
                     )}
-                    <tr 
-                      className="hover:bg-slate-50 dark:hover:bg-zinc-800/50 transition-colors"
+                    <tr
+                      className="hover:bg-[#0a0a0a] transition-colors"
                     >
                       <td className="px-2 sm:px-5 py-2 sm:py-4">
-                        <span className="text-xs sm:text-sm text-slate-900 dark:text-white font-medium">#{item.rank || '-'}</span>
+                        <span className="text-xs sm:text-sm text-white font-medium">#{item.rank || '-'}</span>
                       </td>
                       <td className="px-2 sm:px-5 py-2 sm:py-4">
                         <div className="flex items-center gap-1 sm:gap-2 flex-wrap">
-                          {item.type === 'pick' && <FileText className="w-3 h-3 sm:w-4 sm:h-4 text-cyan-500 dark:text-cyan-400" />}
-                          <span className="text-xs sm:text-sm text-slate-900 dark:text-white font-medium">{item.name}</span>
+                          {item.type === 'pick' && <FileText className="w-3 h-3 sm:w-4 sm:h-4 text-cyan-400" />}
+                          <span className="text-xs sm:text-sm text-white font-medium">{item.name}</span>
                           {item.injuryStatus && (
-                            <span className="px-1 sm:px-1.5 py-0.5 text-[10px] sm:text-xs bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-400 rounded font-medium">
+                            <span className="px-1 sm:px-1.5 py-0.5 text-[10px] sm:text-xs bg-red-500/20 text-red-400 rounded font-medium">
                               {item.injuryStatus}
                             </span>
                           )}
                           {item.pickTier && (
                             <span className={`px-1 sm:px-1.5 py-0.5 text-[10px] sm:text-xs rounded font-medium ${
-                              item.pickTier === 'Early' ? 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400' :
-                              item.pickTier === 'Mid' ? 'bg-yellow-100 dark:bg-yellow-500/20 text-yellow-700 dark:text-yellow-400' :
-                              'bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-400'
+                              item.pickTier === 'Early' ? 'bg-emerald-500/20 text-emerald-400' :
+                              item.pickTier === 'Mid' ? 'bg-yellow-500/20 text-yellow-400' :
+                              'bg-red-500/20 text-red-400'
                             }`}>
                               {item.pickTier}
                             </span>
@@ -477,36 +477,36 @@ export function KTCValues() {
                         </div>
                       </td>
                       <td className="px-2 sm:px-5 py-2 sm:py-4 text-center">
-                        <span className={`px-1.5 sm:px-2.5 py-0.5 sm:py-1 text-[10px] sm:text-xs font-medium rounded-lg ${getPositionBadgeClass(item.position)}`}>
+                        <span className={`px-1.5 sm:px-2.5 py-0.5 sm:py-1 text-[10px] sm:text-xs font-medium rounded-md ${getPositionBadgeClass(item.position)}`}>
                           {item.position}
                         </span>
                       </td>
                       <td className="hidden sm:table-cell px-5 py-4 text-center">
-                        <span className="text-slate-600 dark:text-slate-300 font-medium text-sm">{item.team || '-'}</span>
+                        <span className="text-[#333333] font-medium text-sm">{item.team || '-'}</span>
                       </td>
                       <td className="px-2 sm:px-5 py-2 sm:py-4 text-right">
-                        <span className="text-sm sm:text-lg font-bold text-accent-600 dark:text-accent-400">{item.value.toLocaleString()}</span>
+                        <span className="text-sm sm:text-lg font-bold text-accent-400">{item.value.toLocaleString()}</span>
                       </td>
                       <td className="hidden md:table-cell px-5 py-4 text-center">
                         {item.tier ? (
-                          <span className={`px-2.5 py-1 text-xs font-medium rounded-lg ${
-                            item.tier === 1 ? 'bg-yellow-100 dark:bg-yellow-500/20 text-yellow-700 dark:text-yellow-400' :
-                            item.tier === 2 ? 'bg-slate-200 dark:bg-slate-400/20 text-slate-700 dark:text-slate-300' :
-                            item.tier === 3 ? 'bg-orange-100 dark:bg-orange-500/20 text-orange-700 dark:text-orange-400' :
-                            item.tier === 4 ? 'bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-400' :
-                            'bg-slate-100 dark:bg-slate-600/20 text-slate-600 dark:text-slate-400'
+                          <span className={`px-2.5 py-1 text-xs font-medium rounded-md ${
+                            item.tier === 1 ? 'bg-yellow-500/20 text-yellow-400' :
+                            item.tier === 2 ? 'bg-slate-400/20 text-[#333333]' :
+                            item.tier === 3 ? 'bg-orange-500/20 text-orange-400' :
+                            item.tier === 4 ? 'bg-blue-500/20 text-blue-400' :
+                            'bg-slate-600/20 text-[#888888]'
                           }`}>
                             Tier {item.tier}
                           </span>
                         ) : '-'}
                       </td>
                       <td className="hidden lg:table-cell px-5 py-4 text-center">
-                        <span className="text-slate-600 dark:text-slate-300 text-sm">
+                        <span className="text-[#333333] text-sm">
                           {item.positionRank ? `${item.position}${item.positionRank}` : '-'}
                         </span>
                       </td>
                       <td className="hidden lg:table-cell px-5 py-4 text-right">
-                        <span className="text-slate-600 dark:text-slate-300 text-sm">{item.age || '-'}</span>
+                        <span className="text-[#333333] text-sm">{item.age || '-'}</span>
                       </td>
                       <td className="px-2 sm:px-5 py-2 sm:py-4">
                         <div className="flex justify-center">
@@ -525,16 +525,16 @@ export function KTCValues() {
       {/* Pagination */}
       {totalPages > 1 && (
         <div className="mt-4 sm:mt-6 flex items-center justify-between">
-          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
+          <p className="text-xs sm:text-sm text-[#888888]">
             Page {currentPage} of {totalPages}
           </p>
           <div className="flex items-center gap-1 sm:gap-2">
             <button
               onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
               disabled={currentPage === 1}
-              className="p-1.5 sm:p-2 rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 hover:bg-slate-50 dark:hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="p-1.5 sm:p-2 rounded-md border border-[#151515] bg-[#0a0a0a] hover:bg-[#111111] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
-              <ChevronLeft className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-slate-600 dark:text-slate-400" />
+              <ChevronLeft className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-[#888888]" />
             </button>
             <div className="hidden sm:flex items-center gap-1">
               {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
@@ -552,10 +552,10 @@ export function KTCValues() {
                   <button
                     key={pageNum}
                     onClick={() => setCurrentPage(pageNum)}
-                    className={`min-w-[36px] h-9 px-3 rounded-lg text-sm font-medium transition-colors ${
+                    className={`min-w-[36px] h-9 px-3 rounded-md text-sm font-medium transition-colors ${
                       currentPage === pageNum
-                        ? 'bg-accent-600 text-white'
-                        : 'bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-zinc-800'
+                        ? 'bg-accent-500 text-white'
+                        : 'bg-[#0a0a0a] border border-[#151515] text-[#888888] hover:bg-[#111111]'
                     }`}
                   >
                     {pageNum}
@@ -563,15 +563,15 @@ export function KTCValues() {
                 );
               })}
             </div>
-            <span className="sm:hidden text-xs text-slate-600 dark:text-slate-400 min-w-[40px] text-center">
+            <span className="sm:hidden text-xs text-[#888888] min-w-[40px] text-center">
               {currentPage}/{totalPages}
             </span>
             <button
               onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
               disabled={currentPage === totalPages}
-              className="p-1.5 sm:p-2 rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 hover:bg-slate-50 dark:hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="p-1.5 sm:p-2 rounded-md border border-[#151515] bg-[#0a0a0a] hover:bg-[#111111] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
-              <ChevronRight className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-slate-600 dark:text-slate-400" />
+              <ChevronRight className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-[#888888]" />
             </button>
           </div>
         </div>
