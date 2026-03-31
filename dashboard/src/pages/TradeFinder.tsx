@@ -325,25 +325,48 @@ export function TradeFinder() {
     setScenarios([]);
   }, [tradeMode, myRoster, targetRoster]);
 
-  // Fetch the current (most recent) league
-  const { data: currentLeagueId } = useQuery({
-    queryKey: ['currentLeague'],
+  // Fetch the two most recent leagues (current for rosters, previous for standings fallback)
+  const { data: leagueIds } = useQuery({
+    queryKey: ['tradeLeagues'],
     queryFn: async () => {
-      const { data } = await supabase.from('leagues').select('league_id').order('season', { ascending: false }).limit(1).single();
-      return data?.league_id as string;
+      const { data } = await supabase.from('leagues').select('league_id').order('season', { ascending: false }).limit(2);
+      return { current: data?.[0]?.league_id as string, previous: data?.[1]?.league_id as string | undefined };
     },
   });
+  const currentLeagueId = leagueIds?.current;
 
   const { data: rosters, isLoading: rostersLoading } = useQuery({
-    queryKey: ['rosters-finder', currentLeagueId],
+    queryKey: ['rosters-finder', currentLeagueId, leagueIds?.previous],
     enabled: !!currentLeagueId,
     queryFn: async () => {
       const { data: rostersData } = await supabase.from('rosters').select('*').eq('league_id', currentLeagueId!);
       const { data: users } = await supabase.from('users').select('*');
       if (!rostersData?.length) return [];
+
+      // If all teams are 0-0 (new season), pull win/loss from previous season for pick tier projections
+      const allZero = (rostersData as any[]).every((r: any) => (r.wins || 0) === 0 && (r.losses || 0) === 0);
+      let prevStandings: Map<string, { wins: number; losses: number; fpts: number }> | null = null;
+      if (allZero && leagueIds?.previous) {
+        const { data: prevRosters } = await supabase.from('rosters').select('owner_id, wins, losses, fpts').eq('league_id', leagueIds.previous);
+        if (prevRosters?.length) {
+          prevStandings = new Map();
+          for (const pr of prevRosters as any[]) {
+            prevStandings.set(pr.owner_id, { wins: pr.wins || 0, losses: pr.losses || 0, fpts: Number(pr.fpts) || 0 });
+          }
+        }
+      }
+
       return (rostersData as any[]).map((roster: any) => {
         const owner = (users as any[])?.find((u: any) => u.user_id === roster.owner_id);
-        return { ...roster, ownerName: owner?.display_name || owner?.username || 'Unknown', teamName: owner?.team_name || null };
+        const prev = prevStandings?.get(roster.owner_id);
+        return {
+          ...roster,
+          wins: prev ? prev.wins : roster.wins || 0,
+          losses: prev ? prev.losses : roster.losses || 0,
+          fpts: prev ? prev.fpts : Number(roster.fpts) || 0,
+          ownerName: owner?.display_name || owner?.username || 'Unknown',
+          teamName: owner?.team_name || null,
+        };
       }) as Roster[];
     },
   });
