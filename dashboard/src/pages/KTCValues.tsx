@@ -8,7 +8,6 @@ import {
   Search,
   ArrowUpDown,
   Filter,
-  FileText,
   ChevronLeft,
   ChevronRight
 } from 'lucide-react';
@@ -64,27 +63,6 @@ interface UnifiedValue {
   fetchedAt: string;
 }
 
-// Position badge classes using the design system
-const getPositionBadgeClass = (position: string): string => {
-  switch (position) {
-    case 'QB':
-      return 'bg-red-500/20 text-red-400 border border-red-500/30';
-    case 'RB':
-      return 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30';
-    case 'WR':
-      return 'bg-blue-500/20 text-blue-400 border border-blue-500/30';
-    case 'TE':
-      return 'bg-orange-500/20 text-orange-400 border border-orange-500/30';
-    case 'PICK':
-      return 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30';
-    case 'K':
-      return 'bg-yellow-500/20 text-yellow-400 border border-yellow-200 border-yellow-500/30';
-    case 'DEF':
-      return 'bg-purple-500/20 text-purple-400 border border-purple-500/30';
-    default:
-      return 'bg-[#1a1a1a] text-[#333333] border border-zinc-600';
-  }
-};
 
 async function fetchPlayerValues(): Promise<PlayerValue[]> {
   const { data, error } = await supabase
@@ -146,14 +124,7 @@ export function KTCValues() {
   const isLoading = playersLoading || picksLoading;
   const error = playersError || picksError;
 
-  const handleSort = (field: SortField) => {
-    if (sortField === field) {
-      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortField(field);
-      setSortDirection(field === 'name' ? 'asc' : 'desc');
-    }
-  };
+
 
   // Combine players and picks into unified list
   const unifiedValues = useMemo<UnifiedValue[]>(() => {

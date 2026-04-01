@@ -8,7 +8,6 @@ import {
   Loader2,
   ArrowDown,
   ArrowUp,
-  Info,
   User,
   FileText,
   SlidersHorizontal,
@@ -647,13 +646,6 @@ export function TradeFinder() {
     }
   };
 
-  const fairnessBorder = (f: string) => {
-    switch (f) {
-      case 'fair': return 'border-emerald-500/25';
-      case 'slight': return 'border-blue-500/25';
-      default: return 'border-[#1a1a1a]';
-    }
-  };
 
   return (
     <div>
