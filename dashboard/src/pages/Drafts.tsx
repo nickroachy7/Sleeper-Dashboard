@@ -224,7 +224,7 @@ export default function Drafts() {
 
   if (isLoading) {
     return (
-      <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
+      <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto">
         <div className="flex items-center justify-center h-96">
           <div className="text-center">
             <Loader2 className="h-8 w-8 sm:h-10 sm:w-10 animate-spin text-accent-500 mx-auto" />
@@ -237,7 +237,7 @@ export default function Drafts() {
 
   if (!data?.drafts?.length && !data?.tradedPicks?.length) {
     return (
-      <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
+      <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto">
         <div className="flex flex-col items-center justify-center py-12 text-center">
           <div className="w-12 h-12 sm:w-16 sm:h-16 bg-[#111111] rounded-2xl flex items-center justify-center mb-4">
             <FileText className="h-6 w-6 sm:h-8 sm:w-8 text-[#888888]" />
@@ -262,18 +262,18 @@ export default function Drafts() {
   const rounds = Object.keys(currentDraftPicks).map(Number).sort((a, b) => a - b);
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto">
       {/* Header */}
       <PageHeader sectionLabel="League" title="Drafts" subtitle="View draft history and future pick ownership" />
 
       {/* Tab Navigation */}
-      <div className="mb-4 sm:mb-6 flex gap-1 p-1 bg-[#111111] rounded-md w-fit">
+      <div className="flex gap-1 mb-6">
         <button
           onClick={() => setActiveTab('history')}
-          className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-md text-xs sm:text-sm font-medium transition-all ${
+          className={`flex items-center gap-1.5 px-3 py-1.5 sm:py-2 rounded-md text-xs sm:text-sm font-medium transition-colors ${
             activeTab === 'history'
-              ? 'bg-[#0a0a0a] text-white'
-              : 'text-[#888888] hover:text-white'
+              ? 'bg-accent-500 text-white'
+              : 'bg-[#111111] text-[#888888] hover:bg-[#1a1a1a] hover:text-white'
           }`}
         >
           <History className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
@@ -281,10 +281,10 @@ export default function Drafts() {
         </button>
         <button
           onClick={() => setActiveTab('capital')}
-          className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-md text-xs sm:text-sm font-medium transition-all ${
+          className={`flex items-center gap-1.5 px-3 py-1.5 sm:py-2 rounded-md text-xs sm:text-sm font-medium transition-colors ${
             activeTab === 'capital'
-              ? 'bg-[#0a0a0a] text-white'
-              : 'text-[#888888] hover:text-white'
+              ? 'bg-accent-500 text-white'
+              : 'bg-[#111111] text-[#888888] hover:bg-[#1a1a1a] hover:text-white'
           }`}
         >
           <Calendar className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
@@ -297,16 +297,16 @@ export default function Drafts() {
         <div className="space-y-6">
           {/* Draft Selector */}
           {data.drafts.length > 0 && (
-            <div className="flex items-center gap-4">
-              <label className="text-sm font-medium text-[#333333]">Select Draft:</label>
-              <div className="relative">
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-1.5">
+                <FileText className="h-4 w-4 text-[#555555]" />
                 <select
                   value={selectedDraft || ''}
                   onChange={(e) => {
                     setSelectedDraft(e.target.value);
                     setExpandedRounds(new Set([1]));
                   }}
-                  className="appearance-none px-4 py-2 pr-10 bg-[#0a0a0a] border border-[#151515] rounded-md text-sm font-medium text-white focus:ring-2 focus:ring-accent-500 focus:border-accent-500"
+                  className="px-3 py-2 bg-[#0a0a0a] border border-[#151515] rounded-md text-xs font-medium text-white focus:outline-none focus:ring-2 focus:ring-accent-500"
                 >
                   {data.drafts.map((draft: any) => (
                     <option key={draft.draft_id} value={draft.draft_id}>
@@ -314,7 +314,6 @@ export default function Drafts() {
                     </option>
                   ))}
                 </select>
-                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#888888] pointer-events-none" />
               </div>
               {currentDraft && (
                 <span className={`px-2.5 py-1 rounded-md text-xs font-medium ${

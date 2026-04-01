@@ -570,28 +570,45 @@ export function TradeEvaluator() {
                     {/* Asset List */}
                     {side.assets.length > 0 && (
                       <div className="space-y-1 mb-3">
-                        {side.assets.map((asset) => (
-                          <div
-                            key={asset.id}
-                            className="flex items-center justify-between gap-2 group px-2.5 py-2 rounded-lg hover:bg-[#111111] transition-colors"
-                          >
-                            <div className="flex items-center gap-2 min-w-0">
-                              <span className={`px-1.5 py-0.5 text-[10px] font-bold rounded shrink-0 ${getPositionBadgeClass(asset.type === 'player' ? (asset.position || '') : 'PICK')}`}>
-                                {asset.type === 'player' ? asset.position : 'PICK'}
-                              </span>
-                              <span className="text-sm text-white truncate">{asset.name}</span>
+                        {side.assets.map((asset) => {
+                          const playerId = asset.type === 'player' ? asset.id.replace('player-', '') : null;
+                          return (
+                            <div
+                              key={asset.id}
+                              className="flex items-center justify-between gap-2 group px-2.5 py-2 rounded-lg hover:bg-[#111111] transition-colors"
+                            >
+                              <div className="flex items-center gap-2 min-w-0 text-[13px]">
+                                {asset.type === 'player' ? (
+                                  <img
+                                    src={`https://sleepercdn.com/content/nfl/players/${playerId}.jpg`}
+                                    alt=""
+                                    className="w-5 h-5 rounded-full object-cover bg-[#111111] flex-shrink-0"
+                                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                  />
+                                ) : (
+                                  <div className="w-5 h-5 rounded-full bg-[#111111] flex items-center justify-center flex-shrink-0">
+                                    <span className="text-[8px] font-bold text-[#555555]">PK</span>
+                                  </div>
+                                )}
+                                <span className="text-[#cccccc] truncate">{asset.name}</span>
+                                {asset.type === 'player' && (
+                                  <span className="text-[#444444] shrink-0">
+                                    ({asset.position || '?'}{asset.team ? `, ${asset.team}` : ''})
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <span className="text-[#555555] text-[11px] tabular-nums">({asset.value.toLocaleString()})</span>
+                                <button
+                                  onClick={() => removeAsset(sideIndex, asset.id)}
+                                  className="p-0.5 rounded opacity-0 group-hover:opacity-100 hover:bg-red-500/10 transition-all"
+                                >
+                                  <X className="h-3 w-3 text-[#555555] hover:text-red-400" />
+                                </button>
+                              </div>
                             </div>
-                            <div className="flex items-center gap-1.5 shrink-0">
-                              <span className="text-xs text-[#555555] tabular-nums">{asset.value.toLocaleString()}</span>
-                              <button
-                                onClick={() => removeAsset(sideIndex, asset.id)}
-                                className="p-0.5 rounded opacity-0 group-hover:opacity-100 hover:bg-red-500/10 transition-all"
-                              >
-                                <X className="h-3 w-3 text-[#555555] hover:text-red-400" />
-                              </button>
-                            </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
 

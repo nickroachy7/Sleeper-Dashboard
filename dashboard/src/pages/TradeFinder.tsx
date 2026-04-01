@@ -910,80 +910,98 @@ export function TradeFinder() {
             </span>
           </div>
 
-          <div className="space-y-2.5">
-            {scenarios.map((scenario, idx) => (
-              <div
-                key={idx}
-                className={`bg-[#0a0a0a] border rounded-xl overflow-hidden ${fairnessBorder(scenario.fairness)}`}
-              >
-                {/* Card Header */}
-                <div className="px-4 py-2.5 flex items-center justify-between border-b border-[#111111]">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-semibold text-white">
-                      {scenario.partnerRoster.teamName || scenario.partnerRoster.ownerName}
-                    </span>
-                    <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border ${fairnessBadge(scenario.fairness)}`}>
-                      {scenario.fairness}
-                    </span>
-                  </div>
-                  <span className={`text-xs font-semibold tabular-nums ${
-                    Math.abs(scenario.differencePercent) < 5 ? 'text-emerald-400' : 'text-[#555555]'
-                  }`}>
-                    {scenario.adjustedDifference >= 0 ? '+' : ''}{scenario.adjustedDifference.toLocaleString()}
-                  </span>
-                </div>
+          <div className="space-y-5 sm:space-y-6">
+            {scenarios.map((scenario, idx) => {
+              // Build two sides in TradeCard format: each side shows what that team RECEIVES
+              const myTeamName = myRoster ? (myRoster.teamName || myRoster.ownerName) : 'My Team';
+              const partnerTeamName = scenario.partnerRoster.teamName || scenario.partnerRoster.ownerName;
+              const diff = scenario.getAdjusted - scenario.giveAdjusted;
+              const winnerId = diff > 0 ? 'my' : diff < 0 ? 'partner' : null;
+              const isEvenTrade = diff === 0;
 
-                {/* Give / Get */}
-                <div className="grid grid-cols-[1fr,1fr] divide-x divide-[#111111]">
-                  {/* Give Side */}
-                  <div className="p-3">
-                    <div className="text-[10px] font-semibold text-red-400/70 uppercase tracking-wider mb-2 flex items-center justify-between">
-                      <span>Give</span>
-                      <span className="text-[#444444] font-normal tabular-nums">{scenario.giveAdjusted.toLocaleString()}</span>
+              const sides = [
+                { id: 'my', teamName: myTeamName, assets: scenario.get, value: scenario.getAdjusted },
+                { id: 'partner', teamName: partnerTeamName, assets: scenario.give, value: scenario.giveAdjusted },
+              ];
+
+              return (
+                <div key={idx} className="border-b border-[#151515] pb-5 sm:pb-6">
+                  {/* Trade header */}
+                  <div className="flex items-center justify-between mb-3 sm:mb-4">
+                    <div className="flex items-center gap-2">
+                      <span className="px-2 py-0.5 bg-white text-black text-[10px] font-extrabold tracking-[1px] rounded-sm">TRADE</span>
+                      <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border ${fairnessBadge(scenario.fairness)}`}>
+                        {scenario.fairness}
+                      </span>
                     </div>
-                    <div className="space-y-1.5">
-                      {scenario.give.map((asset, i) => (
-                        <div key={i} className="flex items-center gap-1.5">
-                          <span className={`px-1 py-0.5 text-[9px] font-bold rounded shrink-0 ${getPositionBadgeClass(asset.type === 'player' ? (asset.position || '') : 'PICK')}`}>
-                            {asset.type === 'player' ? asset.position : 'PICK'}
-                          </span>
-                          <span className="text-xs text-white truncate">{asset.name}</span>
+                    {isEvenTrade ? (
+                      <span className="text-[10px] sm:text-xs text-[#555555] font-medium">Even Trade</span>
+                    ) : (
+                      <span className="text-[10px] sm:text-xs text-emerald-400 font-medium">
+                        {winnerId === 'my' ? myTeamName : partnerTeamName} +{Math.abs(diff).toLocaleString()}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Trade sides */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+                    {sides.map((side) => {
+                      const isWinner = side.id === winnerId;
+                      return (
+                        <div
+                          key={side.id}
+                          className={`pl-3 sm:pl-4 border-l-2 ${isWinner ? 'border-l-[#22c55e]' : 'border-l-[#222222]'}`}
+                        >
+                          {/* Team name + total */}
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                              <span className="text-[13px] font-bold text-white">{side.teamName}</span>
+                              {isWinner && (
+                                <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded">W</span>
+                              )}
+                            </div>
+                            <span className="text-[10px] text-[#444444]">{side.value.toLocaleString()} KTC</span>
+                          </div>
+
+                          {/* Assets */}
+                          <div className="space-y-1">
+                            {side.assets.map((asset, i) => {
+                              if (asset.type === 'player') {
+                                const playerId = asset.id.replace('player-', '');
+                                return (
+                                  <div key={i} className="flex items-center gap-2 text-[13px]">
+                                    <img
+                                      src={`https://sleepercdn.com/content/nfl/players/${playerId}.jpg`}
+                                      alt=""
+                                      className="w-5 h-5 rounded-full object-cover bg-[#111111] flex-shrink-0"
+                                      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                    />
+                                    <span className="text-[#cccccc]">{asset.name}</span>
+                                    <span className="text-[#444444]">
+                                      ({asset.position || '?'}{asset.team ? `, ${asset.team}` : ''})
+                                    </span>
+                                    <span className="text-[#555555] text-[11px]">({asset.value > 0 ? asset.value.toLocaleString() : '0'})</span>
+                                  </div>
+                                );
+                              }
+                              return (
+                                <div key={i} className="flex items-center gap-2 text-[13px]">
+                                  <div className="w-5 h-5 rounded-full bg-[#111111] flex items-center justify-center flex-shrink-0">
+                                    <span className="text-[8px] font-bold text-[#555555]">PK</span>
+                                  </div>
+                                  <span className="text-[#cccccc]">{asset.name}</span>
+                                  <span className="text-[#555555] text-[11px]">({asset.value > 0 ? asset.value.toLocaleString() : '0'})</span>
+                                </div>
+                              );
+                            })}
+                          </div>
                         </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Get Side */}
-                  <div className="p-3">
-                    <div className="text-[10px] font-semibold text-emerald-400/70 uppercase tracking-wider mb-2 flex items-center justify-between">
-                      <span>Get</span>
-                      <span className="text-[#444444] font-normal tabular-nums">{scenario.getAdjusted.toLocaleString()}</span>
-                    </div>
-                    <div className="space-y-1.5">
-                      {scenario.get.map((asset, i) => (
-                        <div key={i} className="flex items-center gap-1.5">
-                          <span className={`px-1 py-0.5 text-[9px] font-bold rounded shrink-0 ${getPositionBadgeClass(asset.type === 'player' ? (asset.position || '') : 'PICK')}`}>
-                            {asset.type === 'player' ? asset.position : 'PICK'}
-                          </span>
-                          <span className="text-xs text-white truncate">{asset.name}</span>
-                        </div>
-                      ))}
-                    </div>
+                      );
+                    })}
                   </div>
                 </div>
-
-                {/* Adjustment Info */}
-                {scenario.difference !== scenario.adjustedDifference && (
-                  <div className="px-4 py-2 border-t border-[#111111] flex items-center gap-1.5">
-                    <Info className="h-3 w-3 text-[#333333] shrink-0" />
-                    <span className="text-[10px] text-[#444444]">
-                      Raw: {scenario.difference >= 0 ? '+' : ''}{scenario.difference.toLocaleString()} &rarr;
-                      Adj: {scenario.adjustedDifference >= 0 ? '+' : ''}{scenario.adjustedDifference.toLocaleString()}
-                    </span>
-                  </div>
-                )}
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}

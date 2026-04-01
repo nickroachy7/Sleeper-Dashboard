@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useMemo } from 'react';
+import { PageHeader } from '../components/PageHeader';
 
 // ─── Types ───────────────────────────────────────────────────────────
 
@@ -334,40 +335,18 @@ export default function Home() {
 
   // ─── Main Render ─────────────────────────────────────────────────
 
-  const now = new Date();
-  const dateLabel = now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto">
 
-      {/* ── MASTHEAD ──────────────────────────────────────────────── */}
-      <div className="text-center mb-6 sm:mb-8 pb-6 border-b border-[#151515]">
-        <h1 className="text-lg sm:text-xl font-extrabold text-white tracking-[4px] uppercase">
-          {league.name || 'DYNASTY RELOADED'}
-        </h1>
-        <p className="text-xs text-[#555555] tracking-[1px] uppercase mt-2">
-          Weekly · {dateLabel}
-        </p>
-        <div className="mt-3 pt-3 border-t border-[#151515]">
-          <p className="text-[11px] text-[#444444] tracking-[1px]">
-            {league.total_rosters}-TEAM SUPERFLEX · HALF-PPR · TEP · SLEEPER
-          </p>
-        </div>
-      </div>
-
       {/* ── POWER RANKINGS ────────────────────────────────────────── */}
       {powerRankings.length > 0 && (
         <section className="mb-8">
-          <div className="mb-5">
-            <p className="text-[10px] font-bold text-[#555555] tracking-[3px] uppercase mb-2">POWER RANKINGS</p>
-            <div className="flex items-center justify-between">
-              <h2 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight">Dynasty Value Rankings</h2>
-              <Link to="/ktc-values" className="text-xs text-[#555555] hover:text-[#888888] transition-colors flex items-center gap-1">
-                KTC Rankings <ChevronRight className="h-3 w-3" />
-              </Link>
-            </div>
-            <p className="text-[13px] text-[#666666] mt-1">Teams ranked by total KTC roster value (SF+TEP)</p>
-          </div>
+          <PageHeader sectionLabel="Power Rankings" title="Dynasty Value Rankings" subtitle="Teams ranked by total KTC roster value (SF+TEP)">
+            <Link to="/ktc-values" className="text-xs text-[#555555] hover:text-[#888888] transition-colors flex items-center gap-1">
+              KTC Rankings <ChevronRight className="h-3 w-3" />
+            </Link>
+          </PageHeader>
 
           <div className="overflow-hidden">
             <div className="divide-y divide-[#111111]">
@@ -433,16 +412,11 @@ export default function Home() {
       {/* ── THE WIRE (RECENT TRADES) ──────────────────────────────── */}
       {tradesWithTeams.length > 0 && (
         <section className="mb-8">
-          <div className="mb-5">
-            <p className="text-[10px] font-bold text-[#555555] tracking-[3px] uppercase mb-2">THE WIRE</p>
-            <div className="flex items-center justify-between">
-              <h2 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight">Recent Trades</h2>
-              <Link to="/transactions" className="text-xs text-[#555555] hover:text-[#888888] transition-colors flex items-center gap-1">
-                All Trades <ChevronRight className="h-3 w-3" />
-              </Link>
-            </div>
-            <p className="text-[13px] text-[#666666] mt-1">Latest completed trades with KTC value analysis</p>
-          </div>
+          <PageHeader sectionLabel="The Wire" title="Recent Trades" subtitle="Latest completed trades with KTC value analysis">
+            <Link to="/transactions" className="text-xs text-[#555555] hover:text-[#888888] transition-colors flex items-center gap-1">
+              All Trades <ChevronRight className="h-3 w-3" />
+            </Link>
+          </PageHeader>
 
           <div className="space-y-5 sm:space-y-6">
             {tradesWithTeams.map((trade: any) => (
@@ -606,10 +580,7 @@ export default function Home() {
 
       {/* ── QUICK LINKS ───────────────────────────────────────────── */}
       <section className="mb-8">
-        <div className="mb-5">
-          <p className="text-[10px] font-bold text-[#555555] tracking-[3px] uppercase mb-2">NAVIGATE</p>
-          <h2 className="text-xl font-extrabold text-white tracking-tight">Quick Links</h2>
-        </div>
+        <PageHeader sectionLabel="Navigate" title="Quick Links" />
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
           {quickLinks.map(({ to, icon: Icon, label, color }) => (
             <Link

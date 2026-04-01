@@ -488,39 +488,37 @@ export default function Transactions() {
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto">
-      <div className="mb-6">
-        <PageHeader sectionLabel="League" title="Transactions" subtitle="Latest completed trades with KTC value analysis" />
+      <PageHeader sectionLabel="League" title="Transactions" subtitle="Latest completed trades with KTC value analysis" />
 
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-1.5">
-            <Filter className="h-4 w-4 text-[#555555]" />
-            <select
-              value={typeFilter}
-              onChange={(e) => handleFilterChange(e.target.value)}
-              className="px-3 py-2 bg-[#0a0a0a] border border-[#151515] rounded-md text-xs font-medium focus:outline-none focus:ring-2 focus:ring-accent-500 text-white"
-            >
-              <option value="all">All Types</option>
-              <option value="trade">Trades</option>
-              <option value="waiver">Waivers</option>
-              <option value="free_agent">Free Agent</option>
-              <option value="commissioner">Commissioner</option>
-            </select>
-          </div>
+      <div className="flex flex-wrap items-center gap-3 mb-5 sm:mb-6">
+        <div className="flex items-center gap-1.5">
+          <Filter className="h-4 w-4 text-[#555555]" />
+          <select
+            value={typeFilter}
+            onChange={(e) => handleFilterChange(e.target.value)}
+            className="px-3 py-2 bg-[#0a0a0a] border border-[#151515] rounded-md text-xs font-medium focus:outline-none focus:ring-2 focus:ring-accent-500 text-white"
+          >
+            <option value="all">All Types</option>
+            <option value="trade">Trades</option>
+            <option value="waiver">Waivers</option>
+            <option value="free_agent">Free Agent</option>
+            <option value="commissioner">Commissioner</option>
+          </select>
+        </div>
 
-          <div className="flex items-center gap-1.5">
-            <ArrowUpDown className="h-4 w-4 text-[#555555]" />
-            <select
-              value={sortBy}
-              onChange={(e) => handleSortChange(e.target.value)}
-              className="px-3 py-2 bg-[#0a0a0a] border border-[#151515] rounded-md text-xs font-medium focus:outline-none focus:ring-2 focus:ring-accent-500 text-white"
-            >
-              <option value="recent">Most Recent</option>
-              <option value="value-high">Highest Value</option>
-              <option value="value-low">Lowest Value</option>
-              <option value="most-lopsided">Most Lopsided</option>
-              <option value="most-even">Most Even</option>
-            </select>
-          </div>
+        <div className="flex items-center gap-1.5">
+          <ArrowUpDown className="h-4 w-4 text-[#555555]" />
+          <select
+            value={sortBy}
+            onChange={(e) => handleSortChange(e.target.value)}
+            className="px-3 py-2 bg-[#0a0a0a] border border-[#151515] rounded-md text-xs font-medium focus:outline-none focus:ring-2 focus:ring-accent-500 text-white"
+          >
+            <option value="recent">Most Recent</option>
+            <option value="value-high">Highest Value</option>
+            <option value="value-low">Lowest Value</option>
+            <option value="most-lopsided">Most Lopsided</option>
+            <option value="most-even">Most Even</option>
+          </select>
         </div>
       </div>
 

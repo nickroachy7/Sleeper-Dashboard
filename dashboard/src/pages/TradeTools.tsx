@@ -16,7 +16,7 @@ export default function TradeTools() {
 
   return (
     <div className="min-h-screen bg-black">
-      <div className="max-w-5xl mx-auto px-4 py-6 sm:py-8">
+      <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto">
         <PageHeader
           sectionLabel="Tools"
           title="Trade Tools"
@@ -24,18 +24,18 @@ export default function TradeTools() {
         />
 
         {/* Tabs */}
-        <div className="flex gap-1 bg-[#0a0a0a] border border-[#151515] rounded-lg p-1 mb-6">
+        <div className="flex gap-1 mb-6">
           {tabs.map(({ id, label, icon: Icon }) => (
             <button
               key={id}
               onClick={() => setActiveTab(id)}
-              className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-md text-sm font-medium transition-all ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 sm:py-2 rounded-md text-xs sm:text-sm font-medium transition-colors ${
                 activeTab === id
-                  ? 'bg-accent-500/15 text-accent-400'
-                  : 'text-[#888888] hover:text-white hover:bg-[#111111]'
+                  ? 'bg-accent-500 text-white'
+                  : 'bg-[#111111] text-[#888888] hover:bg-[#1a1a1a] hover:text-white'
               }`}
             >
-              <Icon className="h-4 w-4" />
+              <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               {label}
             </button>
           ))}

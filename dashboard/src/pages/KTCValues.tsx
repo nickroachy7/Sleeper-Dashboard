@@ -48,6 +48,7 @@ interface PickValue {
 // Unified type for combined list
 interface UnifiedValue {
   id: string;
+  playerId: string | null;
   type: 'player' | 'pick';
   name: string;
   position: string;
@@ -164,6 +165,7 @@ export function KTCValues() {
         if (!pv.player) continue;
         combined.push({
           id: pv.id,
+          playerId: pv.player_id,
           type: 'player',
           name: pv.player.full_name,
           position: pv.player.position,
@@ -186,6 +188,7 @@ export function KTCValues() {
       for (const pick of pickValues) {
         combined.push({
           id: pick.id,
+          playerId: null,
           type: 'pick',
           name: pick.pick_type,
           position: 'PICK',
@@ -306,7 +309,7 @@ export function KTCValues() {
 
   if (isLoading) {
     return (
-      <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
+      <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto">
         <div className="flex items-center justify-center h-64">
           <div className="animate-spin rounded-full h-10 w-10 sm:h-12 sm:w-12 border-b-2 border-accent-500"></div>
         </div>
@@ -316,7 +319,7 @@ export function KTCValues() {
 
   if (error) {
     return (
-      <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
+      <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto">
         <div className="bg-red-500/10 border border-red-500/30 rounded-md p-4 sm:p-5 text-red-400 text-sm">
           Error loading values: {error instanceof Error ? error.message : 'Unknown error'}
         </div>
@@ -325,18 +328,15 @@ export function KTCValues() {
   }
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
-      {/* Header */}
-      <div className="mb-4 sm:mb-6">
-        <PageHeader
-          sectionLabel="Players"
-          title="KTC Values"
-          subtitle="Powered by KeepTradeCut • Superflex Rankings"
-        />
-      </div>
+    <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto">
+      <PageHeader
+        sectionLabel="Players"
+        title="KTC Values"
+        subtitle="Powered by KeepTradeCut • Superflex Rankings"
+      />
 
       {/* Filters */}
-      <div className="mb-4 sm:mb-6 flex flex-col md:flex-row gap-3 sm:gap-4">
+      <div className="mb-5 sm:mb-6 flex flex-col md:flex-row gap-3 sm:gap-4">
         {/* Search */}
         <div className="relative flex-1">
           <Search className="absolute left-2.5 sm:left-3 top-1/2 -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-[#888888]" />
@@ -379,144 +379,107 @@ export function KTCValues() {
         )}
       </div>
 
-      {/* Combined Table */}
-      <div className="mt-3 sm:mt-4 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-[#151515]">
-                <th className="px-2 sm:px-5 py-2.5 sm:py-4 text-left text-[10px] sm:text-xs font-semibold text-[#888888] uppercase tracking-wider">
-                  <button
-                    onClick={() => handleSort('rank')}
-                    className="flex items-center gap-1 hover:text-white transition-colors"
-                  >
-                    Rank
-                    <ArrowUpDown className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
-                  </button>
-                </th>
-                <th className="px-2 sm:px-5 py-2.5 sm:py-4 text-left text-[10px] sm:text-xs font-semibold text-[#888888] uppercase tracking-wider">
-                  <button
-                    onClick={() => handleSort('name')}
-                    className="flex items-center gap-1 hover:text-white transition-colors"
-                  >
-                    Asset
-                    <ArrowUpDown className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
-                  </button>
-                </th>
-                <th className="px-2 sm:px-5 py-2.5 sm:py-4 text-center text-[10px] sm:text-xs font-semibold text-[#888888] uppercase tracking-wider">Type</th>
-                <th className="hidden sm:table-cell px-5 py-4 text-center text-xs font-semibold text-[#888888] uppercase tracking-wider">Team</th>
-                <th className="px-2 sm:px-5 py-2.5 sm:py-4 text-right text-[10px] sm:text-xs font-semibold text-[#888888] uppercase tracking-wider">
-                  <button
-                    onClick={() => handleSort('value')}
-                    className="flex items-center gap-1 hover:text-white transition-colors ml-auto"
-                  >
-                    Value
-                    <ArrowUpDown className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
-                  </button>
-                </th>
-                <th className="hidden md:table-cell px-5 py-4 text-center text-xs font-semibold text-[#888888] uppercase tracking-wider">Tier</th>
-                <th className="hidden lg:table-cell px-5 py-4 text-center text-xs font-semibold text-[#888888] uppercase tracking-wider">Pos Rank</th>
-                <th className="hidden lg:table-cell px-5 py-4 text-right text-xs font-semibold text-[#888888] uppercase tracking-wider">Age</th>
-                <th className="px-2 sm:px-5 py-2.5 sm:py-4 text-center text-[10px] sm:text-xs font-semibold text-[#888888] uppercase tracking-wider">Trend</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[#111111]">
-              {paginatedValues.map((item, idx) => {
-                // Show tier header when tier changes (when sorting by rank)
-                const prevItem = idx > 0 ? paginatedValues[idx - 1] : null;
-                const showTierHeader = sortField === 'rank' &&
-                  item.tier &&
-                  (!prevItem || prevItem.tier !== item.tier);
-
-                const tierLabels: Record<number, string> = {
-                  1: 'Tier 1',
-                  2: 'Tier 2',
-                  3: 'Tier 3',
-                  4: 'Tier 4',
-                  5: 'Tier 5',
-                };
-
-                return (
-                  <Fragment key={item.id}>
-                    {showTierHeader && (
-                      <tr className="bg-[#111111]">
-                        <td colSpan={9} className="px-2 sm:px-5 py-2 sm:py-3">
-                          <span className="text-xs sm:text-sm font-bold text-[#333333]">
-                            {tierLabels[item.tier!] || `Tier ${item.tier}`}
-                          </span>
-                        </td>
-                      </tr>
-                    )}
-                    <tr
-                      className="hover:bg-[#0a0a0a] transition-colors"
-                    >
-                      <td className="px-2 sm:px-5 py-2 sm:py-4">
-                        <span className="text-xs sm:text-sm text-white font-medium">#{item.rank || '-'}</span>
-                      </td>
-                      <td className="px-2 sm:px-5 py-2 sm:py-4">
-                        <div className="flex items-center gap-1 sm:gap-2 flex-wrap">
-                          {item.type === 'pick' && <FileText className="w-3 h-3 sm:w-4 sm:h-4 text-cyan-400" />}
-                          <span className="text-xs sm:text-sm text-white font-medium">{item.name}</span>
-                          {item.injuryStatus && (
-                            <span className="px-1 sm:px-1.5 py-0.5 text-[10px] sm:text-xs bg-red-500/20 text-red-400 rounded font-medium">
-                              {item.injuryStatus}
-                            </span>
-                          )}
-                          {item.pickTier && (
-                            <span className={`px-1 sm:px-1.5 py-0.5 text-[10px] sm:text-xs rounded font-medium ${
-                              item.pickTier === 'Early' ? 'bg-emerald-500/20 text-emerald-400' :
-                              item.pickTier === 'Mid' ? 'bg-yellow-500/20 text-yellow-400' :
-                              'bg-red-500/20 text-red-400'
-                            }`}>
-                              {item.pickTier}
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-2 sm:px-5 py-2 sm:py-4 text-center">
-                        <span className={`px-1.5 sm:px-2.5 py-0.5 sm:py-1 text-[10px] sm:text-xs font-medium rounded-md ${getPositionBadgeClass(item.position)}`}>
-                          {item.position}
-                        </span>
-                      </td>
-                      <td className="hidden sm:table-cell px-5 py-4 text-center">
-                        <span className="text-[#333333] font-medium text-sm">{item.team || '-'}</span>
-                      </td>
-                      <td className="px-2 sm:px-5 py-2 sm:py-4 text-right">
-                        <span className="text-sm sm:text-lg font-bold text-accent-400">{item.value.toLocaleString()}</span>
-                      </td>
-                      <td className="hidden md:table-cell px-5 py-4 text-center">
-                        {item.tier ? (
-                          <span className={`px-2.5 py-1 text-xs font-medium rounded-md ${
-                            item.tier === 1 ? 'bg-yellow-500/20 text-yellow-400' :
-                            item.tier === 2 ? 'bg-slate-400/20 text-[#333333]' :
-                            item.tier === 3 ? 'bg-orange-500/20 text-orange-400' :
-                            item.tier === 4 ? 'bg-blue-500/20 text-blue-400' :
-                            'bg-slate-600/20 text-[#888888]'
-                          }`}>
-                            Tier {item.tier}
-                          </span>
-                        ) : '-'}
-                      </td>
-                      <td className="hidden lg:table-cell px-5 py-4 text-center">
-                        <span className="text-[#333333] text-sm">
-                          {item.positionRank ? `${item.position}${item.positionRank}` : '-'}
-                        </span>
-                      </td>
-                      <td className="hidden lg:table-cell px-5 py-4 text-right">
-                        <span className="text-[#333333] text-sm">{item.age || '-'}</span>
-                      </td>
-                      <td className="px-2 sm:px-5 py-2 sm:py-4">
-                        <div className="flex justify-center">
-                          <TrendIndicator trend={item.trend} />
-                        </div>
-                      </td>
-                    </tr>
-                  </Fragment>
-                );
-              })}
-            </tbody>
-          </table>
+      {/* Sort Controls */}
+      <div className="flex items-center gap-3 mt-3 sm:mt-4 mb-3">
+        <div className="flex items-center gap-1.5">
+          <ArrowUpDown className="h-4 w-4 text-[#555555]" />
+          <select
+            value={`${sortField}-${sortDirection}`}
+            onChange={(e) => {
+              const [field, dir] = e.target.value.split('-') as [SortField, SortDirection];
+              setSortField(field);
+              setSortDirection(dir);
+            }}
+            className="px-3 py-2 bg-[#0a0a0a] border border-[#151515] rounded-md text-xs font-medium focus:outline-none focus:ring-2 focus:ring-accent-500 text-white"
+          >
+            <option value="rank-asc">Rank (High → Low)</option>
+            <option value="rank-desc">Rank (Low → High)</option>
+            <option value="value-desc">Value (High → Low)</option>
+            <option value="value-asc">Value (Low → High)</option>
+            <option value="name-asc">Name (A → Z)</option>
+            <option value="name-desc">Name (Z → A)</option>
+          </select>
         </div>
+      </div>
+
+      {/* Asset List */}
+      <div className="divide-y divide-[#111111]">
+        {paginatedValues.map((item, idx) => {
+          const prevItem = idx > 0 ? paginatedValues[idx - 1] : null;
+          const showTierHeader = sortField === 'rank' &&
+            item.tier &&
+            (!prevItem || prevItem.tier !== item.tier);
+
+          const tierLabels: Record<number, string> = {
+            1: 'Tier 1', 2: 'Tier 2', 3: 'Tier 3', 4: 'Tier 4', 5: 'Tier 5',
+          };
+
+          return (
+            <Fragment key={item.id}>
+              {showTierHeader && (
+                <div className="bg-[#111111] px-3 sm:px-4 py-2 sm:py-2.5">
+                  <span className="text-xs sm:text-sm font-bold text-[#333333]">
+                    {tierLabels[item.tier!] || `Tier ${item.tier}`}
+                  </span>
+                </div>
+              )}
+              <div className="flex items-center gap-2 sm:gap-3 px-1 sm:px-2 py-2.5 sm:py-3 hover:bg-[#0a0a0a] transition-colors">
+                {/* Rank */}
+                <span className="text-[11px] sm:text-xs text-[#555555] font-medium w-7 sm:w-8 text-right shrink-0 tabular-nums">
+                  #{item.rank || '-'}
+                </span>
+
+                {/* Avatar */}
+                {item.type === 'player' && item.playerId ? (
+                  <img
+                    src={`https://sleepercdn.com/content/nfl/players/${item.playerId}.jpg`}
+                    alt=""
+                    className="w-7 h-7 sm:w-8 sm:h-8 rounded-full object-cover bg-[#111111] flex-shrink-0"
+                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                  />
+                ) : (
+                  <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-[#111111] flex items-center justify-center flex-shrink-0">
+                    <span className="text-[8px] sm:text-[9px] font-bold text-[#555555]">PK</span>
+                  </div>
+                )}
+
+                {/* Name + meta */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-[13px] sm:text-sm text-[#cccccc] font-medium truncate">{item.name}</span>
+                    {item.injuryStatus && (
+                      <span className="px-1 py-0.5 text-[10px] bg-red-500/20 text-red-400 rounded font-medium">
+                        {item.injuryStatus}
+                      </span>
+                    )}
+                    {item.pickTier && (
+                      <span className={`px-1 py-0.5 text-[10px] rounded font-medium ${
+                        item.pickTier === 'Early' ? 'bg-emerald-500/20 text-emerald-400' :
+                        item.pickTier === 'Mid' ? 'bg-yellow-500/20 text-yellow-400' :
+                        'bg-red-500/20 text-red-400'
+                      }`}>
+                        {item.pickTier}
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-[11px] sm:text-xs text-[#444444]">
+                    {item.position}{item.team ? ` · ${item.team}` : ''}{item.positionRank ? ` · ${item.position}${item.positionRank}` : ''}{item.age ? ` · ${item.age}yr` : ''}
+                  </span>
+                </div>
+
+                {/* Trend */}
+                <div className="shrink-0">
+                  <TrendIndicator trend={item.trend} />
+                </div>
+
+                {/* Value */}
+                <span className="text-sm sm:text-base font-bold text-white tabular-nums shrink-0">
+                  {item.value.toLocaleString()}
+                </span>
+              </div>
+            </Fragment>
+          );
+        })}
       </div>
 
       {/* Pagination */}
