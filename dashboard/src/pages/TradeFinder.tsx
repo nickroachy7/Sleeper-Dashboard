@@ -189,10 +189,13 @@ export function TradeFinder() {
   const [maxPieces, setMaxPieces] = useState<MaxPieces>(0);
   const [positionFilters, setPositionFilters] = useState<Set<PositionFilter>>(new Set());
 
+  // Clear selected assets only when the asset-source roster changes (or mode flips)
+  // In dump mode, assets come from myRoster; in acquire mode, from targetRoster
+  const assetSourceId = tradeMode === 'dump' ? myRoster?.roster_id : targetRoster?.roster_id;
   useEffect(() => {
     setSelectedAssetIds([]);
     setScenarios([]);
-  }, [tradeMode, myRoster, targetRoster]);
+  }, [tradeMode, assetSourceId]);
 
   // ── Data ──
 
