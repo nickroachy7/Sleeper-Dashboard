@@ -2,7 +2,6 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import {
   ArrowRightLeft,
-  Loader2,
   Clock,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';

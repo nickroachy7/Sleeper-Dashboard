@@ -46,7 +46,7 @@ export default function Home() {
 
   const resolveTeamName = useMemo(() => {
     if (!rostersData) return () => 'Unknown';
-    const { rosters, users, leagueUsers } = rostersData;
+    const { users, leagueUsers } = rostersData;
     return (ownerId: string) => {
       const owner = users.find((u: any) => u.user_id === ownerId);
       const lu = leagueUsers.find((l) => l.user_id === ownerId);

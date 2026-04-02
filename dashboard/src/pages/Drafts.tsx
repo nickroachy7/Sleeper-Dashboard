@@ -2,7 +2,6 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import {
   FileText,
-  Loader2,
   ArrowRightLeft,
   ChevronRight,
   History,
