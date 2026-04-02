@@ -86,6 +86,7 @@ export function usePlayerValues() {
       }
       return valueMap;
     },
+    structuralSharing: false, // Maps are not structurally shareable
   });
 }
 
@@ -102,6 +103,7 @@ export function usePlayerValuesList() {
       }
       return map;
     },
+    structuralSharing: false, // Maps are not structurally shareable
   });
 }
 
