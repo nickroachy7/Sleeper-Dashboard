@@ -1,6 +1,5 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '../lib/supabase';
+import { useTradeData } from '../hooks/useLeagueData';
 import {
   Search,
   X,
@@ -9,69 +8,30 @@ import {
   ArrowDown,
   ArrowUp,
   User,
-  FileText,
   SlidersHorizontal,
 } from 'lucide-react';
 import {
   analyzeTrade,
   calculateSideValue,
-  type TradeAsset as ValueAdjustmentAsset
+  type TradeAsset as ValueAdjustmentAsset,
 } from '../lib/trade-value-adjustment';
+import {
+  type Roster,
+  type TradeAsset,
+  type Fairness,
+  getPositionBadgeClass,
+  useClickOutside,
+  buildPicksForRoster,
+  getTeamDisplayName,
+  getPlayerImageUrl,
+  FAIRNESS_CONFIG,
+} from '../lib/trade-shared';
+// Note: getPositionBadgeClass still used in AssetDropdown modal
+import { TeamDropdown } from '../components/TeamDropdown';
+import { TradeCard, type TradeSide as TradeCardSide } from '../components/TradeCard';
+import { PositionBadge } from '../components/PositionBadge';
 
-// Types
-interface Player {
-  player_id: string;
-  full_name: string;
-  position: string;
-  team: string | null;
-}
-
-interface PlayerValue {
-  player_id: string;
-  value: number;
-  player: {
-    full_name: string;
-    position: string;
-    team: string | null;
-  };
-}
-
-interface PickValue {
-  pick_year: string;
-  pick_round: number;
-  pick_tier: string | null;
-  value: number;
-}
-
-interface Roster {
-  roster_id: number;
-  owner_id: string;
-  players: string[];
-  wins: number;
-  losses: number;
-  fpts: number;
-  ownerName: string;
-  teamName: string | null;
-}
-
-interface TradedPick {
-  season: string;
-  round: number;
-  roster_id: number;
-  owner_id: number;
-}
-
-interface TradeAsset {
-  id: string;
-  type: 'player' | 'pick';
-  name: string;
-  value: number;
-  position?: string;
-  team?: string | null;
-  pickYear?: string;
-  pickRound?: number;
-  pickTier?: string;
-}
+// ── Types ──────────────────────────────────────────────────────────
 
 interface TradeScenario {
   give: TradeAsset[];
@@ -83,58 +43,17 @@ interface TradeScenario {
   difference: number;
   adjustedDifference: number;
   differencePercent: number;
-  fairness: 'fair' | 'slight' | 'unfair' | 'lopsided';
+  fairness: Fairness;
   partnerRoster: Roster;
 }
 
 type TradeMode = 'dump' | 'acquire';
 type AssetPreference = 'all' | 'players' | 'picks';
+type MaxPieces = 1 | 2 | 3 | 0; // 0 = any
+type PositionFilter = 'QB' | 'RB' | 'WR' | 'TE' | 'PICK';
 
-const getPositionBadgeClass = (position: string): string => {
-  switch (position) {
-    case 'QB': return 'bg-red-500/20 text-red-400';
-    case 'RB': return 'bg-emerald-500/20 text-emerald-400';
-    case 'WR': return 'bg-blue-500/20 text-blue-400';
-    case 'TE': return 'bg-orange-500/20 text-orange-400';
-    case 'PICK': return 'bg-cyan-500/20 text-cyan-400';
-    default: return 'bg-[#111111] text-[#555555]';
-  }
-};
+// ── Multi-Select Asset Modal ───────────────────────────────────────
 
-function getProjectedPickTier(roster_id: number, rosters: Roster[]): string {
-  const sortedRosters = [...rosters].sort((a, b) => {
-    const winsA = a.wins || 0;
-    const winsB = b.wins || 0;
-    if (winsA !== winsB) return winsB - winsA;
-    const fptsA = Number(a.fpts) || 0;
-    const fptsB = Number(b.fpts) || 0;
-    return fptsB - fptsA;
-  });
-  const standing = sortedRosters.findIndex((r) => r.roster_id === roster_id) + 1;
-  const totalRosters = rosters.length;
-  if (standing > (totalRosters * 2) / 3) return 'Early';
-  if (standing > totalRosters / 3) return 'Mid';
-  return 'Late';
-}
-
-function getPickDisplayName(year: string, round: number, tier: string): string {
-  const roundSuffix = round === 1 ? '1st' : round === 2 ? '2nd' : round === 3 ? '3rd' : `${round}th`;
-  return `${year} ${tier} ${roundSuffix}`;
-}
-
-function useClickOutside(ref: React.RefObject<HTMLElement | null>, callback: () => void) {
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (ref.current && !ref.current.contains(event.target as Node)) {
-        callback();
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [ref, callback]);
-}
-
-// Asset selection dropdown with multi-select
 function AssetDropdown({
   isOpen,
   onClose,
@@ -180,10 +99,10 @@ function AssetDropdown({
 
   return (
     <>
-      <div className="fixed inset-0 bg-black/60 z-40" onClick={onClose} />
+      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40" onClick={onClose} />
       <div
         ref={dropdownRef}
-        className="fixed z-50 left-4 right-4 top-1/2 -translate-y-1/2 max-w-md mx-auto bg-[#0a0a0a] border border-[#222222] rounded-xl shadow-2xl overflow-hidden"
+        className="fixed z-50 left-4 right-4 top-1/2 -translate-y-1/2 max-w-md mx-auto bg-[#0a0a0a] border border-[#1e1e1e] rounded-xl shadow-2xl overflow-hidden"
       >
         <div className="px-4 py-3 border-b border-[#151515] flex items-center justify-between">
           <span className="text-sm font-semibold text-white">{title}</span>
@@ -254,57 +173,7 @@ function AssetDropdown({
   );
 }
 
-// Team selector dropdown
-function TeamDropdown({
-  isOpen,
-  onClose,
-  title,
-  rosters,
-  excludeRosterId,
-  onSelect,
-}: {
-  isOpen: boolean;
-  onClose: () => void;
-  title: string;
-  rosters: Roster[];
-  excludeRosterId?: number;
-  onSelect: (roster: Roster) => void;
-}) {
-  const dropdownRef = useRef<HTMLDivElement>(null);
-  useClickOutside(dropdownRef, onClose);
-  if (!isOpen) return null;
-
-  const filteredRosters = rosters.filter(r => r.roster_id !== excludeRosterId);
-
-  return (
-    <>
-      <div className="fixed inset-0 bg-black/60 z-40" onClick={onClose} />
-      <div
-        ref={dropdownRef}
-        className="fixed z-50 left-4 right-4 top-1/2 -translate-y-1/2 max-w-sm mx-auto bg-[#0a0a0a] border border-[#222222] rounded-xl shadow-2xl overflow-hidden"
-      >
-        <div className="px-4 py-3 border-b border-[#151515] flex items-center justify-between">
-          <span className="text-sm font-semibold text-white">{title}</span>
-          <button onClick={onClose} className="p-1.5 hover:bg-[#151515] rounded-lg transition-colors">
-            <X className="h-4 w-4 text-[#666666]" />
-          </button>
-        </div>
-        <div className="max-h-80 overflow-y-auto overscroll-contain divide-y divide-[#111111]">
-          {filteredRosters.map((roster) => (
-            <button
-              key={roster.roster_id}
-              onClick={() => { onSelect(roster); onClose(); }}
-              className="w-full px-4 py-3 text-left hover:bg-[#111111] transition-colors flex items-center justify-between"
-            >
-              <span className="text-sm text-white font-medium">{roster.teamName || roster.ownerName}</span>
-              <span className="text-xs text-[#555555] tabular-nums">{roster.wins}-{roster.losses}</span>
-            </button>
-          ))}
-        </div>
-      </div>
-    </>
-  );
-}
+// ── Main Component ─────────────────────────────────────────────────
 
 export function TradeFinder() {
   const [tradeMode, setTradeMode] = useState<TradeMode>('dump');
@@ -317,136 +186,23 @@ export function TradeFinder() {
   const [isSearching, setIsSearching] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState<'myTeam' | 'targetTeam' | 'assets' | null>(null);
   const [showFilters, setShowFilters] = useState(false);
+  const [maxPieces, setMaxPieces] = useState<MaxPieces>(0);
+  const [positionFilters, setPositionFilters] = useState<Set<PositionFilter>>(new Set());
 
   useEffect(() => {
     setSelectedAssetIds([]);
     setScenarios([]);
   }, [tradeMode, myRoster, targetRoster]);
 
-  // Fetch the two most recent leagues (current for rosters, previous for standings fallback)
-  const { data: leagueIds } = useQuery({
-    queryKey: ['tradeLeagues'],
-    queryFn: async () => {
-      const { data } = await supabase.from('leagues').select('league_id').order('season', { ascending: false }).limit(2);
-      return { current: data?.[0]?.league_id as string, previous: data?.[1]?.league_id as string | undefined };
-    },
-  });
-  const currentLeagueId = leagueIds?.current;
+  // ── Data ──
 
-  const { data: rosters, isLoading: rostersLoading } = useQuery({
-    queryKey: ['rosters-finder', currentLeagueId, leagueIds?.previous],
-    enabled: !!currentLeagueId,
-    queryFn: async () => {
-      const { data: rostersData } = await supabase.from('rosters').select('*').eq('league_id', currentLeagueId!);
-      const { data: users } = await supabase.from('users').select('*');
-      if (!rostersData?.length) return [];
+  const { rosters, playerValues, pickValues, tradedPicks, isLoading: dataLoading } = useTradeData();
 
-      // If all teams are 0-0 (new season), pull win/loss from previous season for pick tier projections
-      const allZero = (rostersData as any[]).every((r: any) => (r.wins || 0) === 0 && (r.losses || 0) === 0);
-      let prevStandings: Map<string, { wins: number; losses: number; fpts: number }> | null = null;
-      if (allZero && leagueIds?.previous) {
-        const { data: prevRosters } = await supabase.from('rosters').select('owner_id, wins, losses, fpts').eq('league_id', leagueIds.previous);
-        if (prevRosters?.length) {
-          prevStandings = new Map();
-          for (const pr of prevRosters as any[]) {
-            prevStandings.set(pr.owner_id, { wins: pr.wins || 0, losses: pr.losses || 0, fpts: Number(pr.fpts) || 0 });
-          }
-        }
-      }
-
-      return (rostersData as any[]).map((roster: any) => {
-        const owner = (users as any[])?.find((u: any) => u.user_id === roster.owner_id);
-        const prev = prevStandings?.get(roster.owner_id);
-        return {
-          ...roster,
-          wins: prev ? prev.wins : roster.wins || 0,
-          losses: prev ? prev.losses : roster.losses || 0,
-          fpts: prev ? prev.fpts : Number(roster.fpts) || 0,
-          ownerName: owner?.display_name || owner?.username || 'Unknown',
-          teamName: owner?.team_name || null,
-        };
-      }) as Roster[];
-    },
-  });
-
-  useQuery({
-    queryKey: ['players-finder'],
-    queryFn: async () => {
-      const { data } = await supabase.from('players').select('player_id, full_name, position, team');
-      return (data as Player[]) || [];
-    },
-  });
-
-  const { data: playerValues, isLoading: valuesLoading } = useQuery({
-    queryKey: ['playerValues-finder'],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from('player_values')
-        .select('player_id, value, player:players(full_name, position, team)');
-      const valueMap = new Map<string, PlayerValue>();
-      (data || []).forEach((pv: any) => {
-        const player = Array.isArray(pv.player) ? pv.player[0] : pv.player;
-        if (player) valueMap.set(pv.player_id, { ...pv, player });
-      });
-      return valueMap;
-    },
-  });
-
-  const { data: pickValues, isLoading: picksLoading } = useQuery({
-    queryKey: ['pickValues-finder'],
-    queryFn: async () => {
-      const { data } = await supabase.from('pick_values').select('pick_year, pick_round, pick_tier, value');
-      return (data as PickValue[]) || [];
-    },
-  });
-
-  const { data: tradedPicks } = useQuery({
-    queryKey: ['tradedPicks-finder', currentLeagueId],
-    enabled: !!currentLeagueId,
-    queryFn: async () => {
-      const { data } = await supabase.from('traded_picks').select('season, round, roster_id, owner_id').eq('league_id', currentLeagueId!);
-      return (data as TradedPick[]) || [];
-    },
-  });
+  // ── Derived Data ──
 
   const getPicksOwnedByRoster = useCallback((rosterId: number): TradeAsset[] => {
     if (!rosters || !pickValues || !tradedPicks) return [];
-    const picks: TradeAsset[] = [];
-    const futureYears = ['2025', '2026', '2027', '2028'];
-    const rounds = [1, 2, 3, 4];
-
-    for (const year of futureYears) {
-      for (const round of rounds) {
-        for (const originalRoster of rosters) {
-          const tradedPick = tradedPicks.find(
-            (tp) => tp.season === year && tp.round === round && tp.roster_id === originalRoster.roster_id
-          );
-          const currentOwnerId = tradedPick ? tradedPick.owner_id : originalRoster.roster_id;
-          if (currentOwnerId === rosterId) {
-            const tier = getProjectedPickTier(originalRoster.roster_id, rosters);
-            const pickValue = pickValues.find(
-              (pv) => pv.pick_year === year && pv.pick_round === round && pv.pick_tier === tier
-            );
-            if (pickValue) {
-              const pickName = getPickDisplayName(year, round, tier);
-              const displayName = originalRoster.roster_id !== rosterId
-                ? `${pickName} (via ${originalRoster.ownerName})`
-                : pickName;
-              picks.push({
-                id: `pick-${year}-${round}-${originalRoster.roster_id}`,
-                type: 'pick',
-                name: displayName,
-                value: pickValue.value,
-                pickYear: year,
-                pickRound: round,
-                pickTier: tier,
-              });
-            }
-          }
-        }
-      }
-    }
-    return picks.sort((a, b) => b.value - a.value);
+    return buildPicksForRoster(rosterId, rosters, pickValues, tradedPicks);
   }, [rosters, pickValues, tradedPicks]);
 
   const getPlayersOwnedByRoster = useCallback((roster: Roster): TradeAsset[] => {
@@ -510,6 +266,8 @@ export function TradeFinder() {
     return 50;
   };
 
+  // ── Search ──
+
   const findTrades = useCallback(() => {
     if (!rosters || selectedAssets.length === 0) return;
 
@@ -533,18 +291,33 @@ export function TradeFinder() {
             ...getPicksOwnedByRoster(searchRoster.roster_id),
           ];
 
+          // Filter search assets by position if filters are active
+          const filteredAssets = positionFilters.size > 0
+            ? searchAssets.filter(a => {
+                if (a.type === 'pick') return positionFilters.has('PICK');
+                return a.position ? positionFilters.has(a.position as PositionFilter) : false;
+              })
+            : searchAssets;
+
+          // Generate combinations respecting maxPieces
           const combinations: TradeAsset[][] = [];
-          searchAssets.forEach(a => combinations.push([a]));
-          for (let i = 0; i < searchAssets.length; i++) {
-            for (let j = i + 1; j < searchAssets.length; j++) {
-              combinations.push([searchAssets[i], searchAssets[j]]);
+          if (maxPieces === 0 || maxPieces >= 1) {
+            filteredAssets.forEach(a => combinations.push([a]));
+          }
+          if (maxPieces === 0 || maxPieces >= 2) {
+            for (let i = 0; i < filteredAssets.length; i++) {
+              for (let j = i + 1; j < filteredAssets.length; j++) {
+                combinations.push([filteredAssets[i], filteredAssets[j]]);
+              }
             }
           }
-          const topAssets = searchAssets.slice(0, 25);
-          for (let i = 0; i < topAssets.length; i++) {
-            for (let j = i + 1; j < topAssets.length; j++) {
-              for (let k = j + 1; k < topAssets.length; k++) {
-                combinations.push([topAssets[i], topAssets[j], topAssets[k]]);
+          if (maxPieces === 0 || maxPieces >= 3) {
+            const topAssets = filteredAssets.slice(0, 25);
+            for (let i = 0; i < topAssets.length; i++) {
+              for (let j = i + 1; j < topAssets.length; j++) {
+                for (let k = j + 1; k < topAssets.length; k++) {
+                  combinations.push([topAssets[i], topAssets[j], topAssets[k]]);
+                }
               }
             }
           }
@@ -597,35 +370,45 @@ export function TradeFinder() {
           });
         });
 
-        newScenarios.sort((a, b) => {
-          const aCombo = tradeMode === 'dump' ? a.get : a.give;
-          const bCombo = tradeMode === 'dump' ? b.get : b.give;
-          const aPreferenceScore = getPreferenceScore(aCombo, assetPreference);
-          const bPreferenceScore = getPreferenceScore(bCombo, assetPreference);
-          const maxDiff = Math.max(...newScenarios.map(s => Math.abs(s.adjustedDifference)), 1);
-          const aValueScore = 100 - (Math.abs(a.adjustedDifference) / maxDiff) * 100;
-          const bValueScore = 100 - (Math.abs(b.adjustedDifference) / maxDiff) * 100;
+        // Sort: best value match first, with quality tiebreakers
+        const maxDiff = Math.max(...newScenarios.map(s => Math.abs(s.adjustedDifference)), 1);
+
+        const scoreScenario = (s: TradeScenario) => {
+          const returnCombo = tradeMode === 'dump' ? s.get : s.give;
+
+          // Fairness: how close to even (0 diff = best)
+          const fairnessScore = 100 - (Math.abs(s.adjustedDifference) / maxDiff) * 100;
+
+          // Quality: highest single asset value in the return
+          const maxAssetValue = Math.max(...returnCombo.map(a => a.value), 0);
+          const allMaxValues = newScenarios.flatMap(sc => (tradeMode === 'dump' ? sc.get : sc.give).map(a => a.value));
+          const maxPossible = Math.max(...allMaxValues, 1);
+          const qualityScore = (maxAssetValue / maxPossible) * 100;
+
+          // Fewer assets = slight bonus (1 = 100, 2 = 66, 3 = 50)
+          const concenScore = (1 / returnCombo.length) * 100;
+
+          // Asset preference bonus
+          const prefScore = getPreferenceScore(returnCombo, assetPreference);
 
           if (assetPreference !== 'all') {
-            const aBlended = (aPreferenceScore * 0.6) + (aValueScore * 0.4);
-            const bBlended = (bPreferenceScore * 0.6) + (bValueScore * 0.4);
-            return bBlended - aBlended;
+            return (fairnessScore * 0.30) + (qualityScore * 0.25) + (concenScore * 0.15) + (prefScore * 0.30);
           }
-          return Math.abs(a.adjustedDifference) - Math.abs(b.adjustedDifference);
-        });
+          return (fairnessScore * 0.40) + (qualityScore * 0.35) + (concenScore * 0.25);
+        };
+
+        newScenarios.sort((a, b) => scoreScenario(b) - scoreScenario(a));
         setScenarios(newScenarios.slice(0, 50));
       } finally {
         setIsSearching(false);
       }
     }, 100);
-  }, [rosters, myRoster, targetRoster, selectedAssets, selectedValueInfo, tolerance, tradeMode, assetPreference, getPlayersOwnedByRoster, getPicksOwnedByRoster]);
+  }, [rosters, myRoster, targetRoster, selectedAssets, selectedValueInfo, tolerance, tradeMode, assetPreference, maxPieces, positionFilters, getPlayersOwnedByRoster, getPicksOwnedByRoster]);
 
-  const isLoading = rostersLoading || valuesLoading || picksLoading;
+  const isLoading = dataLoading;
   const canSearch = tradeMode === 'dump'
     ? myRoster && selectedAssetIds.length > 0
     : myRoster && targetRoster && selectedAssetIds.length > 0;
-
-  // Which team the user picks assets from
   const assetSourceRoster = tradeMode === 'dump' ? myRoster : targetRoster;
 
   if (isLoading) {
@@ -636,22 +419,11 @@ export function TradeFinder() {
     );
   }
 
-  const fairnessBadge = (f: string) => {
-    switch (f) {
-      case 'fair': return 'bg-emerald-500/15 text-emerald-400 border-emerald-500/20';
-      case 'slight': return 'bg-blue-500/15 text-blue-400 border-blue-500/20';
-      case 'unfair': return 'bg-amber-500/15 text-amber-400 border-amber-500/20';
-      case 'lopsided': return 'bg-red-500/15 text-red-400 border-red-500/20';
-      default: return 'bg-[#111111] text-[#555555]';
-    }
-  };
-
-
   return (
     <div>
-      {/* Unified Setup Card */}
-      <div className="bg-[#0a0a0a] border border-[#1a1a1a] rounded-xl overflow-hidden mb-4">
-        {/* Mode Toggle - integrated as card header */}
+      {/* ── Setup Card ── */}
+      <div className="bg-[#0a0a0a] rounded-xl overflow-hidden mb-4">
+        {/* Mode Toggle */}
         <div className="flex border-b border-[#151515]">
           <button
             onClick={() => setTradeMode('dump')}
@@ -692,32 +464,30 @@ export function TradeFinder() {
                 <div className="text-left">
                   <span className="text-[10px] text-[#555555] block leading-tight">Your Team</span>
                   <span className={`text-sm font-medium ${myRoster ? 'text-white' : 'text-[#444444]'}`}>
-                    {myRoster ? (myRoster.teamName || myRoster.ownerName) : 'Select...'}
+                    {myRoster ? getTeamDisplayName(myRoster) : 'Select...'}
                   </span>
                 </div>
               </div>
               <ChevronDown className="h-4 w-4 text-[#444444]" />
             </button>
           ) : (
-            <>
-              <button
-                onClick={() => setDropdownOpen('targetTeam')}
-                className="w-full p-3 rounded-lg border border-[#1a1a1a] hover:border-[#333333] transition-colors flex items-center justify-between"
-              >
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-lg bg-[#111111] flex items-center justify-center shrink-0">
-                    <User className="h-4 w-4 text-[#555555]" />
-                  </div>
-                  <div className="text-left">
-                    <span className="text-[10px] text-[#555555] block leading-tight">Trade With</span>
-                    <span className={`text-sm font-medium ${targetRoster ? 'text-white' : 'text-[#444444]'}`}>
-                      {targetRoster ? (targetRoster.teamName || targetRoster.ownerName) : 'Select...'}
-                    </span>
-                  </div>
+            <button
+              onClick={() => setDropdownOpen('targetTeam')}
+              className="w-full p-3 rounded-lg border border-[#1a1a1a] hover:border-[#333333] transition-colors flex items-center justify-between"
+            >
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-[#111111] flex items-center justify-center shrink-0">
+                  <User className="h-4 w-4 text-[#555555]" />
                 </div>
-                <ChevronDown className="h-4 w-4 text-[#444444]" />
-              </button>
-            </>
+                <div className="text-left">
+                  <span className="text-[10px] text-[#555555] block leading-tight">Trade With</span>
+                  <span className={`text-sm font-medium ${targetRoster ? 'text-white' : 'text-[#444444]'}`}>
+                    {targetRoster ? getTeamDisplayName(targetRoster) : 'Select...'}
+                  </span>
+                </div>
+              </div>
+              <ChevronDown className="h-4 w-4 text-[#444444]" />
+            </button>
           )}
 
           {/* Step 2: Asset Selection */}
@@ -743,23 +513,44 @@ export function TradeFinder() {
                 <ChevronDown className="h-4 w-4 text-[#444444] shrink-0" />
               </button>
 
-              {/* Selected Asset Chips */}
+              {/* Selected Assets — ValueWatch-style rows */}
               {selectedAssets.length > 0 && (
-                <div className="flex flex-wrap gap-1.5 px-1">
-                  {selectedAssets.map(asset => (
-                    <span
-                      key={asset.id}
-                      className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium ${getPositionBadgeClass(asset.type === 'player' ? (asset.position || '') : 'PICK')}`}
-                    >
-                      {asset.name.length > 15 ? asset.name.slice(0, 15) + '...' : asset.name}
-                      <button
-                        onClick={(e) => { e.stopPropagation(); removeAsset(asset.id); }}
-                        className="ml-0.5 hover:opacity-70"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </span>
-                  ))}
+                <div className="divide-y divide-[#111111]">
+                  {selectedAssets.map(asset => {
+                    const playerId = asset.type === 'player' ? asset.id.replace('player-', '') : null;
+                    return (
+                      <div key={asset.id} className="flex items-center gap-2.5 py-2 group/row">
+                        {asset.type === 'player' ? (
+                          <img
+                            src={getPlayerImageUrl(playerId!)}
+                            alt=""
+                            className="w-7 h-7 rounded-full object-cover bg-[#111111] shrink-0"
+                            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                          />
+                        ) : (
+                          <div className="w-7 h-7 rounded-full bg-[#111111] flex items-center justify-center shrink-0">
+                            <span className="text-[8px] font-bold text-[#555555]">PK</span>
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[12px] font-semibold text-white truncate">{asset.name}</p>
+                          <div className="flex items-center gap-1">
+                            <PositionBadge position={asset.type === 'player' ? (asset.position || '?') : 'PICK'} size="xs" />
+                            {asset.team && <span className="text-[10px] text-[#444444]">{asset.team}</span>}
+                          </div>
+                        </div>
+                        <span className="text-[12px] font-bold text-white tabular-nums shrink-0">
+                          {asset.value > 0 ? asset.value.toLocaleString() : '—'}
+                        </span>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); removeAsset(asset.id); }}
+                          className="p-1 rounded opacity-0 group-hover/row:opacity-100 hover:bg-red-500/10 transition-all shrink-0"
+                        >
+                          <X className="h-3 w-3 text-[#555555] hover:text-red-400" />
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
 
@@ -793,7 +584,7 @@ export function TradeFinder() {
                 <div className="text-left">
                   <span className="text-[10px] text-[#555555] block leading-tight">Your Team</span>
                   <span className={`text-sm font-medium ${myRoster ? 'text-white' : 'text-[#444444]'}`}>
-                    {myRoster ? (myRoster.teamName || myRoster.ownerName) : 'Select...'}
+                    {myRoster ? getTeamDisplayName(myRoster) : 'Select...'}
                   </span>
                 </div>
               </div>
@@ -802,7 +593,7 @@ export function TradeFinder() {
           )}
         </div>
 
-        {/* Filters Row - collapsible */}
+        {/* Filters Row */}
         <div className="border-t border-[#151515]">
           <button
             onClick={() => setShowFilters(!showFilters)}
@@ -811,9 +602,14 @@ export function TradeFinder() {
             <div className="flex items-center gap-1.5">
               <SlidersHorizontal className="h-3.5 w-3.5" />
               <span>Filters</span>
-              {(assetPreference !== 'all' || tolerance !== 10) && (
+              {(assetPreference !== 'all' || tolerance !== 10 || maxPieces !== 0 || positionFilters.size > 0) && (
                 <span className="px-1.5 py-0.5 bg-accent-500/15 text-accent-400 rounded text-[10px] font-medium">
-                  {assetPreference !== 'all' ? assetPreference : ''}{assetPreference !== 'all' && tolerance !== 10 ? ' · ' : ''}{tolerance !== 10 ? `${tolerance}%` : ''}
+                  {[
+                    assetPreference !== 'all' ? assetPreference : '',
+                    tolerance !== 10 ? `±${tolerance}%` : '',
+                    maxPieces !== 0 ? `max ${maxPieces}` : '',
+                    positionFilters.size > 0 ? [...positionFilters].join('/') : '',
+                  ].filter(Boolean).join(' · ')}
                 </span>
               )}
             </div>
@@ -821,46 +617,110 @@ export function TradeFinder() {
           </button>
 
           {showFilters && (
-            <div className="px-4 pb-4 pt-1 flex flex-col sm:flex-row gap-4">
-              {/* Preference */}
-              <div className="flex-1">
-                <span className="text-[10px] font-semibold text-[#555555] uppercase tracking-wider block mb-1.5">
-                  {tradeMode === 'dump' ? 'Prefer to receive' : 'Prefer to give up'}
-                </span>
-                <div className="flex gap-1">
-                  {(['all', 'players', 'picks'] as AssetPreference[]).map(pref => (
-                    <button
-                      key={pref}
-                      onClick={() => setAssetPreference(pref)}
-                      className={`flex-1 py-1.5 px-2 rounded-md text-xs font-medium transition-all flex items-center justify-center gap-1 ${
-                        assetPreference === pref
-                          ? 'bg-accent-500/15 text-accent-400'
-                          : 'text-[#555555] hover:text-[#888888] hover:bg-[#111111]'
-                      }`}
-                    >
-                      {pref === 'players' && <User className="h-3 w-3" />}
-                      {pref === 'picks' && <FileText className="h-3 w-3" />}
-                      {pref === 'all' ? 'Any' : pref === 'players' ? 'Players' : 'Picks'}
-                    </button>
-                  ))}
+            <div className="px-4 pb-4 pt-1 space-y-4">
+              {/* Row 1: Max return pieces + Tolerance */}
+              <div className="flex flex-col sm:flex-row gap-4">
+                <div className="flex-1">
+                  <span className="text-[10px] font-semibold text-[#555555] uppercase tracking-wider block mb-1.5">
+                    Max Return Pieces
+                  </span>
+                  <div className="flex gap-1">
+                    {([0, 1, 2, 3] as MaxPieces[]).map(n => (
+                      <button
+                        key={n}
+                        onClick={() => setMaxPieces(n)}
+                        className={`flex-1 py-1.5 px-2 rounded-md text-xs font-medium transition-all ${
+                          maxPieces === n
+                            ? 'bg-accent-500/15 text-accent-400'
+                            : 'text-[#555555] hover:text-[#888888] hover:bg-[#111111]'
+                        }`}
+                      >
+                        {n === 0 ? 'Any' : `${n}`}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="sm:w-40">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-[10px] font-semibold text-[#555555] uppercase tracking-wider">Tolerance</span>
+                    <span className="text-xs font-bold text-accent-400 tabular-nums">&plusmn;{tolerance}%</span>
+                  </div>
+                  <input
+                    type="range"
+                    min={5}
+                    max={25}
+                    step={5}
+                    value={tolerance}
+                    onChange={(e) => setTolerance(Number(e.target.value))}
+                    className="w-full h-1.5 bg-[#222222] rounded-full appearance-none cursor-pointer accent-accent-500"
+                  />
                 </div>
               </div>
 
-              {/* Tolerance */}
-              <div className="sm:w-40">
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-[10px] font-semibold text-[#555555] uppercase tracking-wider">Tolerance</span>
-                  <span className="text-xs font-bold text-accent-400 tabular-nums">&plusmn;{tolerance}%</span>
+              {/* Row 2: Position filter + Asset type */}
+              <div className="flex flex-col sm:flex-row gap-4">
+                <div className="flex-1">
+                  <span className="text-[10px] font-semibold text-[#555555] uppercase tracking-wider block mb-1.5">
+                    Positions
+                  </span>
+                  <div className="flex gap-1">
+                    {(['QB', 'RB', 'WR', 'TE', 'PICK'] as PositionFilter[]).map(pos => {
+                      const isActive = positionFilters.has(pos);
+                      const colors: Record<string, string> = {
+                        QB: isActive ? 'bg-red-500/15 text-red-400' : '',
+                        RB: isActive ? 'bg-blue-500/15 text-blue-400' : '',
+                        WR: isActive ? 'bg-green-500/15 text-green-400' : '',
+                        TE: isActive ? 'bg-teal-500/15 text-teal-400' : '',
+                        PICK: isActive ? 'bg-amber-500/15 text-amber-400' : '',
+                      };
+                      return (
+                        <button
+                          key={pos}
+                          onClick={() => {
+                            setPositionFilters(prev => {
+                              const next = new Set(prev);
+                              if (next.has(pos)) next.delete(pos);
+                              else next.add(pos);
+                              return next;
+                            });
+                          }}
+                          className={`flex-1 py-1.5 px-2 rounded-md text-xs font-medium transition-all ${
+                            isActive
+                              ? colors[pos]
+                              : 'text-[#555555] hover:text-[#888888] hover:bg-[#111111]'
+                          }`}
+                        >
+                          {pos}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {positionFilters.size === 0 && (
+                    <span className="text-[10px] text-[#333333] mt-1 block">All positions shown when none selected</span>
+                  )}
                 </div>
-                <input
-                  type="range"
-                  min={5}
-                  max={25}
-                  step={5}
-                  value={tolerance}
-                  onChange={(e) => setTolerance(Number(e.target.value))}
-                  className="w-full h-1.5 bg-[#222222] rounded-full appearance-none cursor-pointer accent-accent-500"
-                />
+
+                <div className="sm:w-40">
+                  <span className="text-[10px] font-semibold text-[#555555] uppercase tracking-wider block mb-1.5">
+                    {tradeMode === 'dump' ? 'Prefer to receive' : 'Prefer to give up'}
+                  </span>
+                  <div className="flex gap-1">
+                    {(['all', 'players', 'picks'] as AssetPreference[]).map(pref => (
+                      <button
+                        key={pref}
+                        onClick={() => setAssetPreference(pref)}
+                        className={`flex-1 py-1.5 px-2 rounded-md text-xs font-medium transition-all ${
+                          assetPreference === pref
+                            ? 'bg-accent-500/15 text-accent-400'
+                            : 'text-[#555555] hover:text-[#888888] hover:bg-[#111111]'
+                        }`}
+                      >
+                        {pref === 'all' ? 'Any' : pref === 'players' ? 'Plyr' : 'Pick'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
           )}
@@ -871,9 +731,9 @@ export function TradeFinder() {
       <button
         onClick={findTrades}
         disabled={!canSearch || isSearching}
-        className={`w-full py-3.5 rounded-xl font-semibold text-white text-sm transition-all flex items-center justify-center gap-2 ${
+        className={`w-full py-3.5 rounded-xl font-semibold text-white text-sm transition-all flex items-center justify-center gap-2 mt-3 ${
           canSearch && !isSearching
-            ? 'bg-accent-500 hover:bg-accent-600 shadow-lg shadow-accent-500/20'
+            ? 'bg-accent-500 hover:bg-accent-600 shadow-[0_0_20px_rgba(34,197,94,0.15)]'
             : 'bg-[#1a1a1a] text-[#444444] cursor-not-allowed'
         }`}
       >
@@ -890,7 +750,7 @@ export function TradeFinder() {
         )}
       </button>
 
-      {/* Results */}
+      {/* ── Results ── */}
       {scenarios.length > 0 && (
         <div className="mt-6">
           <div className="flex items-center justify-between mb-3">
@@ -902,96 +762,58 @@ export function TradeFinder() {
             </span>
           </div>
 
-          <div className="space-y-5 sm:space-y-6">
+          <div className="space-y-3">
             {scenarios.map((scenario, idx) => {
-              // Build two sides in TradeCard format: each side shows what that team RECEIVES
-              const myTeamName = myRoster ? (myRoster.teamName || myRoster.ownerName) : 'My Team';
-              const partnerTeamName = scenario.partnerRoster.teamName || scenario.partnerRoster.ownerName;
-              const diff = scenario.getAdjusted - scenario.giveAdjusted;
-              const winnerId = diff > 0 ? 'my' : diff < 0 ? 'partner' : null;
-              const isEvenTrade = diff === 0;
+              const myTeamName = myRoster ? getTeamDisplayName(myRoster) : 'My Team';
+              const partnerTeamName = getTeamDisplayName(scenario.partnerRoster);
+              const config = FAIRNESS_CONFIG[scenario.fairness];
 
-              const sides = [
-                { id: 'my', teamName: myTeamName, assets: scenario.get, value: scenario.getAdjusted },
-                { id: 'partner', teamName: partnerTeamName, assets: scenario.give, value: scenario.giveAdjusted },
+              // Map scenario assets to TradeCard format
+              const mapAssets = (assets: TradeAsset[]) => {
+                const players = assets
+                  .filter(a => a.type === 'player')
+                  .map(a => ({
+                    id: a.id.replace('player-', ''),
+                    name: a.name,
+                    position: a.position || '?',
+                    team: a.team || null,
+                    value: a.value,
+                  }));
+                const picks = assets
+                  .filter(a => a.type === 'pick')
+                  .map(a => ({
+                    season: a.name.split(' ')[0] || '',
+                    round: parseInt(a.name.match(/Round (\d)/)?.[1] || '1'),
+                    value: a.value,
+                  }));
+                return { players, picks };
+              };
+
+              const myAssets = mapAssets(scenario.get);
+              const partnerAssets = mapAssets(scenario.give);
+
+              const sides: TradeCardSide[] = [
+                {
+                  teamName: myTeamName,
+                  players: myAssets.players,
+                  picks: myAssets.picks,
+                  totalValue: scenario.getAdjusted,
+                },
+                {
+                  teamName: partnerTeamName,
+                  players: partnerAssets.players,
+                  picks: partnerAssets.picks,
+                  totalValue: scenario.giveAdjusted,
+                },
               ];
 
               return (
-                <div key={idx} className="border-b border-[#151515] pb-5 sm:pb-6">
-                  {/* Trade header */}
-                  <div className="flex items-center justify-between mb-3 sm:mb-4">
-                    <div className="flex items-center gap-2">
-                      <span className="px-2 py-0.5 bg-white text-black text-[10px] font-extrabold tracking-[1px] rounded-sm">TRADE</span>
-                      <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border ${fairnessBadge(scenario.fairness)}`}>
-                        {scenario.fairness}
-                      </span>
-                    </div>
-                    {isEvenTrade ? (
-                      <span className="text-[10px] sm:text-xs text-[#555555] font-medium">Even Trade</span>
-                    ) : (
-                      <span className="text-[10px] sm:text-xs text-emerald-400 font-medium">
-                        {winnerId === 'my' ? myTeamName : partnerTeamName} +{Math.abs(diff).toLocaleString()}
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Trade sides */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-                    {sides.map((side) => {
-                      const isWinner = side.id === winnerId;
-                      return (
-                        <div
-                          key={side.id}
-                          className={`pl-3 sm:pl-4 border-l-2 ${isWinner ? 'border-l-[#22c55e]' : 'border-l-[#222222]'}`}
-                        >
-                          {/* Team name + total */}
-                          <div className="flex items-center justify-between mb-2">
-                            <div className="flex items-center gap-2">
-                              <span className="text-[13px] font-bold text-white">{side.teamName}</span>
-                              {isWinner && (
-                                <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded">W</span>
-                              )}
-                            </div>
-                            <span className="text-[10px] text-[#444444]">{side.value.toLocaleString()} KTC</span>
-                          </div>
-
-                          {/* Assets */}
-                          <div className="space-y-1">
-                            {side.assets.map((asset, i) => {
-                              if (asset.type === 'player') {
-                                const playerId = asset.id.replace('player-', '');
-                                return (
-                                  <div key={i} className="flex items-center gap-2 text-[13px]">
-                                    <img
-                                      src={`https://sleepercdn.com/content/nfl/players/${playerId}.jpg`}
-                                      alt=""
-                                      className="w-5 h-5 rounded-full object-cover bg-[#111111] flex-shrink-0"
-                                      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                                    />
-                                    <span className="text-[#cccccc]">{asset.name}</span>
-                                    <span className="text-[#444444]">
-                                      ({asset.position || '?'}{asset.team ? `, ${asset.team}` : ''})
-                                    </span>
-                                    <span className="text-[#555555] text-[11px]">({asset.value > 0 ? asset.value.toLocaleString() : '0'})</span>
-                                  </div>
-                                );
-                              }
-                              return (
-                                <div key={i} className="flex items-center gap-2 text-[13px]">
-                                  <div className="w-5 h-5 rounded-full bg-[#111111] flex items-center justify-center flex-shrink-0">
-                                    <span className="text-[8px] font-bold text-[#555555]">PK</span>
-                                  </div>
-                                  <span className="text-[#cccccc]">{asset.name}</span>
-                                  <span className="text-[#555555] text-[11px]">({asset.value > 0 ? asset.value.toLocaleString() : '0'})</span>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
+                <TradeCard
+                  key={idx}
+                  sides={sides}
+                  fairnessLabel={config.label}
+                  fairnessBadge={config.badge}
+                />
               );
             })}
           </div>
@@ -1012,7 +834,7 @@ export function TradeFinder() {
         onClose={() => setDropdownOpen(null)}
         title="Select Your Team"
         rosters={rosters || []}
-        excludeRosterId={targetRoster?.roster_id}
+        excludeRosterIds={targetRoster ? [targetRoster.roster_id] : []}
         onSelect={(roster) => setMyRoster(roster)}
       />
       <TeamDropdown
@@ -1020,7 +842,7 @@ export function TradeFinder() {
         onClose={() => setDropdownOpen(null)}
         title="Select Team to Trade With"
         rosters={rosters || []}
-        excludeRosterId={myRoster?.roster_id}
+        excludeRosterIds={myRoster ? [myRoster.roster_id] : []}
         onSelect={(roster) => setTargetRoster(roster)}
       />
       <AssetDropdown

@@ -1,45 +1,30 @@
 /**
  * Edge Function: sync-nfl-state
- * 
+ *
  * Syncs current NFL season/week state from Sleeper API.
  * Scheduled to run daily at 10 AM ET (14:00 UTC)
  */
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "jsr:@supabase/supabase-js@2";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { createServiceClient } from "../_shared/supabase-client.ts";
+import { handleCors, jsonResponse, errorResponse } from "../_shared/cors.ts";
+import { fetchWithRetry } from "../_shared/fetch-with-retry.ts";
 
 const SLEEPER_API = "https://api.sleeper.app/v1";
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
 
   try {
     const startTime = Date.now();
+    const supabase = createServiceClient();
 
-    // Initialize Supabase client
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const nflState = await fetchWithRetry(`${SLEEPER_API}/state/nfl`);
 
-    // Fetch NFL state from Sleeper
-    const response = await fetch(`${SLEEPER_API}/state/nfl`);
-    if (!response.ok) {
-      throw new Error(`Failed to fetch NFL state: ${response.status}`);
-    }
-
-    const nflState = await response.json();
-
-    // Upsert NFL state (we maintain a single row)
     const { error } = await supabase.from("nfl_state").upsert(
       {
-        id: "00000000-0000-0000-0000-000000000001", // Fixed UUID for single row
+        id: "00000000-0000-0000-0000-000000000001",
         season: nflState.season?.toString() || nflState.league_season?.toString(),
         season_type: nflState.season_type,
         week: nflState.week || nflState.display_week,
@@ -53,35 +38,18 @@ Deno.serve(async (req) => {
 
     if (error) throw error;
 
-    const duration = Date.now() - startTime;
-
-    return new Response(
-      JSON.stringify({
-        success: true,
-        nflState: {
-          season: nflState.season,
-          week: nflState.week,
-          seasonType: nflState.season_type,
-          displayWeek: nflState.display_week,
-        },
-        durationMs: duration,
-      }),
-      {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
-    );
+    return jsonResponse({
+      success: true,
+      nflState: {
+        season: nflState.season,
+        week: nflState.week,
+        seasonType: nflState.season_type,
+        displayWeek: nflState.display_week,
+      },
+      durationMs: Date.now() - startTime,
+    });
   } catch (error) {
     console.error("Error syncing NFL state:", error);
-
-    return new Response(
-      JSON.stringify({
-        success: false,
-        error: error instanceof Error ? error.message : "Unknown error",
-      }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
-    );
+    return errorResponse(error);
   }
 });

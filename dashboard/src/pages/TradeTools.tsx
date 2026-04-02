@@ -23,19 +23,15 @@ export default function TradeTools() {
           subtitle={tabs.find(t => t.id === activeTab)?.subtitle}
         />
 
-        {/* Tabs */}
-        <div className="flex gap-1 mb-6">
+        {/* Segmented Control */}
+        <div className="segmented-control mb-6">
           {tabs.map(({ id, label, icon: Icon }) => (
             <button
               key={id}
               onClick={() => setActiveTab(id)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 sm:py-2 rounded-md text-xs sm:text-sm font-medium transition-colors ${
-                activeTab === id
-                  ? 'bg-accent-500 text-white'
-                  : 'bg-[#111111] text-[#888888] hover:bg-[#1a1a1a] hover:text-white'
-              }`}
+              className={`flex items-center gap-1.5 ${activeTab === id ? 'active' : ''}`}
             >
-              <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              <Icon className="h-3.5 w-3.5" />
               {label}
             </button>
           ))}

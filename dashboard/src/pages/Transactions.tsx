@@ -4,26 +4,17 @@ import {
   ArrowRightLeft,
   Loader2,
   Clock,
-  Filter,
-  ChevronLeft,
-  ChevronRight,
-  ArrowUpDown
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useState, useMemo } from 'react';
 import { PageHeader } from '../components/PageHeader';
+import { Pagination } from '../components/Pagination';
+import { FilterBar, FilterPills, SortSelect } from '../components/FilterBar';
 
-interface Player {
-  player_id: string;
-  full_name: string;
-  position: string;
-  team: string | null;
-}
-
-interface PlayerValue {
-  player_id: string;
-  value: number;
-}
+import { usePlayerMap } from '../hooks/useLeagueData';
+import { usePlayerValuesList } from '../hooks/queries';
+import { TradeCard as SharedTradeCard, type TradeSide } from '../components/TradeCard';
+import { PositionBadge } from '../components/PositionBadge';
 
 interface LeagueUser {
   user_id: string;
@@ -38,25 +29,8 @@ export default function Transactions() {
   const [sortBy, setSortBy] = useState<string>('recent');
   const [currentPage, setCurrentPage] = useState(1);
 
-  const { data: players } = useQuery({
-    queryKey: ['players'],
-    queryFn: async () => {
-      const { data } = await supabase.from('players').select('*');
-      const playerMap = new Map<string, Player>();
-      (data as Player[] || []).forEach(p => playerMap.set(p.player_id, p));
-      return playerMap;
-    },
-  });
-
-  const { data: playerValues } = useQuery({
-    queryKey: ['playerValuesMap'],
-    queryFn: async () => {
-      const { data } = await supabase.from('player_values').select('player_id, value');
-      const valueMap = new Map<string, number>();
-      (data as PlayerValue[] || []).forEach(pv => valueMap.set(pv.player_id, pv.value));
-      return valueMap;
-    },
-  });
+  const { data: players } = usePlayerMap();
+  const { data: playerValues } = usePlayerValuesList();
 
   const { data: transactions, isLoading } = useQuery({
     queryKey: ['transactions'],
@@ -114,13 +88,18 @@ export default function Transactions() {
     },
   });
 
-  const getPlayer = (playerId: string): Player | undefined => {
-    return players?.get(playerId);
-  };
+  const getPlayer = (playerId: string) => players instanceof Map ? players.get(playerId) : undefined;
+  const getPlayerValue = (playerId: string): number => (playerValues instanceof Map ? playerValues.get(playerId) : 0) || 0;
 
-  const getPlayerValue = (playerId: string): number => {
-    return playerValues?.get(playerId) || 0;
-  };
+  // Stats
+  const typeCounts = useMemo(() => {
+    if (!transactions) return { trades: 0, waivers: 0, freeAgent: 0 };
+    return {
+      trades: transactions.filter((t: any) => t.type === 'trade').length,
+      waivers: transactions.filter((t: any) => t.type === 'waiver').length,
+      freeAgent: transactions.filter((t: any) => t.type === 'free_agent').length,
+    };
+  }, [transactions]);
 
   const filteredAndSortedTransactions = useMemo(() => {
     if (!transactions) return [];
@@ -199,16 +178,11 @@ export default function Transactions() {
       const metricsB = getTransactionValueMetrics(b);
 
       switch (sortBy) {
-        case 'value-high':
-          return metricsB.totalValue - metricsA.totalValue;
-        case 'value-low':
-          return metricsA.totalValue - metricsB.totalValue;
-        case 'most-lopsided':
-          return metricsB.valueDiff - metricsA.valueDiff;
-        case 'most-even':
-          return metricsA.valueDiff - metricsB.valueDiff;
-        default:
-          return 0;
+        case 'value-high': return metricsB.totalValue - metricsA.totalValue;
+        case 'value-low': return metricsA.totalValue - metricsB.totalValue;
+        case 'most-lopsided': return metricsB.valueDiff - metricsA.valueDiff;
+        case 'most-even': return metricsA.valueDiff - metricsB.valueDiff;
+        default: return 0;
       }
     });
   }, [transactions, typeFilter, sortBy, playerValues]);
@@ -219,24 +193,33 @@ export default function Transactions() {
     return filteredAndSortedTransactions.slice(startIndex, startIndex + ITEMS_PER_PAGE);
   }, [filteredAndSortedTransactions, currentPage]);
 
-  const handleFilterChange = (newFilter: string) => {
-    setTypeFilter(newFilter);
-    setCurrentPage(1);
-  };
-
-  const handleSortChange = (newSort: string) => {
-    setSortBy(newSort);
-    setCurrentPage(1);
-  };
+  const handleFilterChange = (newFilter: string) => { setTypeFilter(newFilter); setCurrentPage(1); };
+  const handleSortChange = (newSort: string) => { setSortBy(newSort); setCurrentPage(1); };
 
   if (isLoading) {
     return (
       <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto">
-        <div className="flex items-center justify-center h-96">
-          <div className="text-center">
-            <Loader2 className="h-8 w-8 animate-spin text-accent-500 mx-auto" />
-            <p className="mt-4 text-[#888888] text-xs sm:text-sm">Loading transactions...</p>
-          </div>
+        <div className="space-y-4 mt-12">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="bg-[#0a0a0a] rounded-xl p-5">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="skeleton w-16 h-5" />
+                <div className="skeleton w-20 h-4" />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <div className="skeleton w-28 h-4" />
+                  <div className="skeleton w-36 h-3" />
+                  <div className="skeleton w-32 h-3" />
+                </div>
+                <div className="space-y-2">
+                  <div className="skeleton w-28 h-4" />
+                  <div className="skeleton w-36 h-3" />
+                  <div className="skeleton w-32 h-3" />
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     );
@@ -245,17 +228,17 @@ export default function Transactions() {
   if (!transactions?.length) {
     return (
       <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto">
-        <div className="flex flex-col items-center justify-center py-12 text-center">
-          <div className="w-12 h-12 sm:w-16 sm:h-16 bg-[#111111] rounded-2xl flex items-center justify-center mb-4">
-            <ArrowRightLeft className="h-6 w-6 sm:h-8 sm:w-8 text-[#888888]" />
+        <div className="flex flex-col items-center justify-center py-16 text-center">
+          <div className="w-14 h-14 bg-[#111111] rounded-2xl flex items-center justify-center mb-4">
+            <ArrowRightLeft className="h-7 w-7 text-[#555555]" />
           </div>
-          <h3 className="text-lg font-semibold text-white mb-2">No Transactions</h3>
-          <p className="text-sm text-[#888888] max-w-sm mb-6">
+          <h3 className="text-lg font-bold text-white mb-2">No Transactions</h3>
+          <p className="text-sm text-[#666666] max-w-sm mb-6">
             Connect your league to see trades, waivers, and roster moves
           </p>
           <Link
             to="/settings"
-            className="inline-flex items-center gap-2 px-4 py-2.5 bg-accent-500 text-white text-sm font-medium rounded-md hover:bg-accent-400 transition-colors"
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-accent-500 text-white text-sm font-semibold rounded-xl hover:bg-accent-400 transition-all"
           >
             Connect League
           </Link>
@@ -268,6 +251,12 @@ export default function Transactions() {
     const timestamp = tx.created || tx.status_updated;
     const date = timestamp ? new Date(timestamp) : new Date(tx.created_at);
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  };
+
+  const getDateGroup = (tx: any) => {
+    const timestamp = tx.created || tx.status_updated;
+    const date = timestamp ? new Date(timestamp) : new Date(tx.created_at);
+    return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
   };
 
   const getTradeAssets = (tx: any) => {
@@ -299,102 +288,59 @@ export default function Transactions() {
     return teamAssets;
   };
 
-  // ─── Trade Card (matches Home.tsx style exactly) ────────────────────
+  // ─── Trade Card (uses shared component) ────────────────────────────
 
   const TradeCard = ({ tx }: { tx: any }) => {
     const teamAssets = getTradeAssets(tx);
     const teams = tx.teams || [];
     if (teams.length < 2) return null;
 
-    // Determine winner (always pick one, or mark as even if diff is 0)
-    const values = teams.map((t: any) => teamAssets[t.rosterId]?.value || 0);
-    const diff = values[0] - values[1];
-    const winnerId = diff !== 0 ? (diff > 0 ? teams[0].rosterId : teams[1].rosterId) : null;
-    const isEvenTrade = diff === 0;
+    const isLopsided = (() => {
+      const values = teams.map((t: any) => teamAssets[t.rosterId]?.value || 0);
+      return Math.abs(values[0] - values[1]) >= 2000;
+    })();
+    const hasDraftCapital = tx.draft_picks?.some((p: any) => p.round === 1);
+
+    // Build fairness badges
+    const badges: { label: string; badge: string }[] = [];
+    if (isLopsided) badges.push({ label: 'Lopsided', badge: 'bg-amber-500/15 text-amber-400' });
+    if (hasDraftCapital) badges.push({ label: 'Draft Capital', badge: 'bg-purple-500/15 text-purple-400' });
+
+    // Convert to shared TradeSide format
+    const sides: TradeSide[] = teams.map((team: any) => {
+      const assets = teamAssets[team.rosterId] || { players: [], picks: [], value: 0 };
+      return {
+        teamName: team.teamName,
+        players: assets.players.map((playerId: string) => {
+          const player = getPlayer(playerId);
+          return {
+            id: playerId,
+            name: player?.full_name || playerId,
+            position: player?.position || '?',
+            team: player?.team || null,
+            value: getPlayerValue(playerId),
+          };
+        }),
+        picks: assets.picks.map((pick: any) => ({
+          season: pick.season,
+          round: pick.round,
+          value: pick.round === 1 ? 5000 : pick.round === 2 ? 2000 : pick.round === 3 ? 800 : 400,
+        })),
+        totalValue: assets.value,
+      };
+    });
 
     return (
-      <div className="border-b border-[#151515] pb-5 sm:pb-6">
-        {/* Trade header */}
-        <div className="flex items-center justify-between mb-3 sm:mb-4">
-          <div className="flex items-center gap-2">
-            <span className="px-2 py-0.5 bg-white text-black text-[10px] font-extrabold tracking-[1px] rounded-sm">TRADE</span>
-            <span className="text-xs text-[#555555] flex items-center gap-1">
-              <Clock className="h-3 w-3" />
-              {formatDate(tx)}
-            </span>
-          </div>
-          {isEvenTrade ? (
-            <span className="text-[10px] sm:text-xs text-[#555555] font-medium">Even Trade</span>
-          ) : (
-            <span className="text-[10px] sm:text-xs text-emerald-400 font-medium">
-              {teams.find((t: any) => t.rosterId === winnerId)?.teamName} +{Math.abs(diff).toLocaleString()}
-            </span>
-          )}
-        </div>
-
-        {/* Trade sides */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-          {teams.map((team: any) => {
-            const assets = teamAssets[team.rosterId] || { players: [], picks: [], value: 0 };
-            const isWinner = team.rosterId === winnerId;
-            return (
-              <div
-                key={team.rosterId}
-                className={`pl-3 sm:pl-4 border-l-2 ${isWinner ? 'border-l-[#22c55e]' : 'border-l-[#222222]'}`}
-              >
-                {/* Team name + total */}
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-[13px] font-bold text-white">{team.teamName}</span>
-                    {isWinner && (
-                      <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded">W</span>
-                    )}
-                  </div>
-                  <span className="text-[10px] text-[#444444]">{assets.value.toLocaleString()} KTC</span>
-                </div>
-
-                {/* Assets */}
-                <div className="space-y-1">
-                  {assets.players.map((playerId: string) => {
-                    const player = getPlayer(playerId);
-                    const value = getPlayerValue(playerId);
-                    return (
-                      <div key={playerId} className="flex items-center gap-2 text-[13px]">
-                        <img
-                          src={`https://sleepercdn.com/content/nfl/players/${playerId}.jpg`}
-                          alt=""
-                          className="w-5 h-5 rounded-full object-cover bg-[#111111] flex-shrink-0"
-                          onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                        />
-                        <span className="text-[#cccccc]">{player?.full_name || playerId}</span>
-                        <span className="text-[#444444]">
-                          ({player?.position || '?'}{player?.team ? `, ${player.team}` : ''})
-                        </span>
-                        <span className="text-[#555555] text-[11px]">({value > 0 ? value.toLocaleString() : '0'})</span>
-                      </div>
-                    );
-                  })}
-                  {assets.picks.map((pick: any, idx: number) => (
-                    <div key={idx} className="flex items-center gap-2 text-[13px]">
-                      <div className="w-5 h-5 rounded-full bg-[#111111] flex items-center justify-center flex-shrink-0">
-                        <span className="text-[8px] font-bold text-[#555555]">PK</span>
-                      </div>
-                      <span className="text-[#cccccc]">{pick.season} Round {pick.round}</span>
-                      <span className="text-[#555555] text-[11px]">
-                        ({pick.round === 1 ? '5,000' : pick.round === 2 ? '2,000' : pick.round === 3 ? '800' : '400'})
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
+      <SharedTradeCard
+        sides={sides}
+        date={formatDate(tx)}
+        fairnessLabel={badges[0]?.label}
+        fairnessBadge={badges[0]?.badge}
+      />
     );
   };
 
-  // ─── Roster Move Card (same editorial style) ──────────────────────
+  // ─── Roster Move Card (compact) ──────────────────────────────────
 
   const RosterMoveCard = ({ tx }: { tx: any }) => {
     const team = tx.teams?.[0];
@@ -405,80 +351,97 @@ export default function Transactions() {
     const droppedValue = drops.reduce((sum, playerId) => sum + getPlayerValue(playerId), 0);
     const netValue = addedValue - droppedValue;
 
-    const typeLabel = tx.type === 'free_agent' ? 'FREE AGENT' : tx.type.toUpperCase();
+    const typeLabel = tx.type === 'free_agent' ? 'FREE AGENT' : tx.type === 'waiver' ? 'WAIVER' : tx.type.toUpperCase();
     const typeBadgeClass = tx.type === 'waiver'
-      ? 'bg-amber-500/20 text-amber-400'
+      ? 'bg-amber-500 text-black'
       : tx.type === 'free_agent'
-      ? 'bg-emerald-500/20 text-emerald-400'
-      : 'bg-[#111111] text-[#888888]';
+      ? 'bg-emerald-500 text-black'
+      : 'bg-[#555555] text-black';
 
     return (
-      <div className="border-b border-[#151515] pb-5 sm:pb-6">
+      <div className="bg-[#0a0a0a] rounded-xl p-4 sm:p-5 animate-smooth">
         {/* Header */}
         <div className="flex items-center justify-between mb-3 sm:mb-4">
           <div className="flex items-center gap-2">
             <span className={`px-2 py-0.5 text-[10px] font-extrabold tracking-[1px] rounded-sm ${typeBadgeClass}`}>
               {typeLabel}
             </span>
-            <span className="text-xs text-[#555555] flex items-center gap-1">
+            <span className="text-[11px] text-[#444444] flex items-center gap-1">
               <Clock className="h-3 w-3" />
               {formatDate(tx)}
             </span>
           </div>
           {(addedValue > 0 || droppedValue > 0) && (
-            <span className={`text-[10px] sm:text-xs font-medium tabular-nums ${
+            <span className={`text-[10px] font-semibold tabular-nums ${
               netValue > 0 ? 'text-emerald-400' : netValue < 0 ? 'text-red-400' : 'text-[#555555]'
             }`}>
-              {netValue > 0 ? '+' : ''}{netValue.toLocaleString()}
+              {netValue > 0 ? '+' : ''}{netValue.toLocaleString()} KTC
             </span>
           )}
         </div>
 
-        {/* Team name */}
-        <span className="text-[13px] font-bold text-white block mb-2">{team?.teamName || 'Unknown Team'}</span>
+        {/* Team + Assets — ValueWatch-style rows */}
+        <div className="pl-3 border-l-2 border-l-[#2a2a2a]">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-sm font-bold text-white">{team?.teamName || 'Unknown'}</span>
+          </div>
 
-        {/* Rows */}
-        <div className="space-y-1">
-          {adds.map((playerId) => {
-            const player = getPlayer(playerId);
-            const value = getPlayerValue(playerId);
-            return (
-              <div key={playerId} className="flex items-center gap-2 text-[13px]">
-                <span className="text-[10px] font-bold text-emerald-400 w-7 flex-shrink-0">ADD</span>
-                <img
-                  src={`https://sleepercdn.com/content/nfl/players/${playerId}.jpg`}
-                  alt=""
-                  className="w-5 h-5 rounded-full object-cover bg-[#111111] flex-shrink-0"
-                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                />
-                <span className="text-[#cccccc]">{player?.full_name || playerId}</span>
-                <span className="text-[#444444]">
-                  ({player?.position || '?'}{player?.team ? `, ${player.team}` : ''})
-                </span>
-                <span className="text-[#555555] text-[11px]">({value > 0 ? value.toLocaleString() : '0'})</span>
-              </div>
-            );
-          })}
-          {drops.map((playerId) => {
-            const player = getPlayer(playerId);
-            const value = getPlayerValue(playerId);
-            return (
-              <div key={playerId} className="flex items-center gap-2 text-[13px]">
-                <span className="text-[10px] font-bold text-red-400 w-7 flex-shrink-0">DROP</span>
-                <img
-                  src={`https://sleepercdn.com/content/nfl/players/${playerId}.jpg`}
-                  alt=""
-                  className="w-5 h-5 rounded-full object-cover bg-[#111111] flex-shrink-0"
-                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                />
-                <span className="text-[#cccccc]">{player?.full_name || playerId}</span>
-                <span className="text-[#444444]">
-                  ({player?.position || '?'}{player?.team ? `, ${player.team}` : ''})
-                </span>
-                <span className="text-[#555555] text-[11px]">({value > 0 ? value.toLocaleString() : '0'})</span>
-              </div>
-            );
-          })}
+          <div className="divide-y divide-[#111111]">
+            {adds.map((pid) => {
+              const p = getPlayer(pid);
+              const val = getPlayerValue(pid);
+              return (
+                <div key={pid} className="flex items-center gap-2.5 py-2">
+                  <img
+                    src={`https://sleepercdn.com/content/nfl/players/${pid}.jpg`}
+                    alt=""
+                    className="w-7 h-7 rounded-full object-cover bg-[#111111] shrink-0"
+                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-emerald-400 font-bold text-[11px]">+</span>
+                      <p className="text-[12px] font-semibold text-white truncate">{p?.full_name || pid}</p>
+                    </div>
+                    <div className="flex items-center gap-1 ml-4">
+                      {p?.position && <PositionBadge position={p.position} size="xs" />}
+                      {p?.team && <span className="text-[10px] text-[#444444]">{p.team}</span>}
+                    </div>
+                  </div>
+                  <span className="text-[12px] font-bold text-white tabular-nums shrink-0">
+                    {val > 0 ? val.toLocaleString() : '—'}
+                  </span>
+                </div>
+              );
+            })}
+            {drops.map((pid) => {
+              const p = getPlayer(pid);
+              const val = getPlayerValue(pid);
+              return (
+                <div key={pid} className="flex items-center gap-2.5 py-2">
+                  <img
+                    src={`https://sleepercdn.com/content/nfl/players/${pid}.jpg`}
+                    alt=""
+                    className="w-7 h-7 rounded-full object-cover bg-[#111111] shrink-0"
+                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-red-400 font-bold text-[11px]">−</span>
+                      <p className="text-[12px] font-semibold text-white truncate">{p?.full_name || pid}</p>
+                    </div>
+                    <div className="flex items-center gap-1 ml-4">
+                      {p?.position && <PositionBadge position={p.position} size="xs" />}
+                      {p?.team && <span className="text-[10px] text-[#444444]">{p.team}</span>}
+                    </div>
+                  </div>
+                  <span className="text-[12px] font-bold text-white tabular-nums shrink-0">
+                    {val > 0 ? val.toLocaleString() : '—'}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
     );
@@ -486,138 +449,95 @@ export default function Transactions() {
 
   // ─── Render ────────────────────────────────────────────────────────
 
+  // Group by date for date headers
+  let lastDateGroup = '';
+
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto">
-      <PageHeader sectionLabel="League" title="Transactions" subtitle="Latest completed trades with KTC value analysis" />
+      <PageHeader
+        sectionLabel="League"
+        title="Transactions"
+        subtitle="Trades, waivers, and roster moves with KTC analysis"
+        stats={
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-[11px] text-[#555555] bg-[#0a0a0a] px-2 py-1 rounded-md">
+              {typeCounts.trades} trades
+            </span>
+            <span className="text-[11px] text-[#555555] bg-[#0a0a0a] px-2 py-1 rounded-md">
+              {typeCounts.waivers} waivers
+            </span>
+            <span className="text-[11px] text-[#555555] bg-[#0a0a0a] px-2 py-1 rounded-md">
+              {typeCounts.freeAgent} free agent
+            </span>
+          </div>
+        }
+      />
 
-      <div className="flex flex-wrap items-center gap-3 mb-5 sm:mb-6">
-        <div className="flex items-center gap-1.5">
-          <Filter className="h-4 w-4 text-[#555555]" />
-          <select
-            value={typeFilter}
-            onChange={(e) => handleFilterChange(e.target.value)}
-            className="px-3 py-2 bg-[#0a0a0a] border border-[#151515] rounded-md text-xs font-medium focus:outline-none focus:ring-2 focus:ring-accent-500 text-white"
-          >
-            <option value="all">All Types</option>
-            <option value="trade">Trades</option>
-            <option value="waiver">Waivers</option>
-            <option value="free_agent">Free Agent</option>
-            <option value="commissioner">Commissioner</option>
-          </select>
-        </div>
+      <FilterBar sticky>
+        <FilterPills
+          options={[
+            { value: 'all', label: 'All' },
+            { value: 'trade', label: 'Trades' },
+            { value: 'waiver', label: 'Waivers' },
+            { value: 'free_agent', label: 'Free Agent' },
+            { value: 'commissioner', label: 'Commissioner' },
+          ]}
+          selected={typeFilter}
+          onChange={handleFilterChange}
+        />
+        <SortSelect
+          value={sortBy}
+          onChange={handleSortChange}
+          options={[
+            { value: 'recent', label: 'Most Recent' },
+            { value: 'value-high', label: 'Highest Value' },
+            { value: 'value-low', label: 'Lowest Value' },
+            { value: 'most-lopsided', label: 'Most Lopsided' },
+            { value: 'most-even', label: 'Most Even' },
+          ]}
+        />
+      </FilterBar>
 
-        <div className="flex items-center gap-1.5">
-          <ArrowUpDown className="h-4 w-4 text-[#555555]" />
-          <select
-            value={sortBy}
-            onChange={(e) => handleSortChange(e.target.value)}
-            className="px-3 py-2 bg-[#0a0a0a] border border-[#151515] rounded-md text-xs font-medium focus:outline-none focus:ring-2 focus:ring-accent-500 text-white"
-          >
-            <option value="recent">Most Recent</option>
-            <option value="value-high">Highest Value</option>
-            <option value="value-low">Lowest Value</option>
-            <option value="most-lopsided">Most Lopsided</option>
-            <option value="most-even">Most Even</option>
-          </select>
-        </div>
-      </div>
+      <div className="space-y-2">
+        {paginatedTransactions.map((tx) => {
+          const dateGroup = getDateGroup(tx);
+          const showDateHeader = sortBy === 'recent' && dateGroup !== lastDateGroup;
+          if (showDateHeader) lastDateGroup = dateGroup;
 
-      <div className="space-y-3">
-        {paginatedTransactions.map((tx) => (
-          tx.type === 'trade' ? (
-            <TradeCard key={tx.transaction_id} tx={tx} />
-          ) : (
-            <RosterMoveCard key={tx.transaction_id} tx={tx} />
-          )
-        ))}
+          return (
+            <div key={tx.transaction_id}>
+              {showDateHeader && (
+                <div className="sticky top-12 z-[5] py-2 -mx-1 px-1">
+                  <div className="flex items-center gap-3">
+                    <span className="text-[10px] font-bold text-[#444444] tracking-[2px] uppercase whitespace-nowrap">
+                      {dateGroup}
+                    </span>
+                    <div className="flex-1 h-px bg-[#1e1e1e]" />
+                  </div>
+                </div>
+              )}
+              {tx.type === 'trade' ? (
+                <TradeCard tx={tx} />
+              ) : (
+                <RosterMoveCard tx={tx} />
+              )}
+            </div>
+          );
+        })}
         {paginatedTransactions.length === 0 && (
           <div className="text-center py-12">
-            <p className="text-[#888888]">No transactions found for this filter.</p>
+            <p className="text-sm text-[#555555]">No transactions found for this filter.</p>
           </div>
         )}
       </div>
 
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p className="text-xs text-[#555555] order-2 sm:order-1">
-            Showing {((currentPage - 1) * ITEMS_PER_PAGE) + 1}–{Math.min(currentPage * ITEMS_PER_PAGE, filteredAndSortedTransactions.length)} of {filteredAndSortedTransactions.length}
-          </p>
-          <div className="flex items-center gap-1 order-1 sm:order-2">
-            <button
-              onClick={() => setCurrentPage(1)}
-              disabled={currentPage === 1}
-              className="p-2 rounded-md border border-[#151515] bg-[#0a0a0a] hover:bg-[#111111] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              <svg className="h-4 w-4 text-[#888888]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
-              </svg>
-            </button>
-            <button
-              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-              disabled={currentPage === 1}
-              className="p-2 rounded-md border border-[#151515] bg-[#0a0a0a] hover:bg-[#111111] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              <ChevronLeft className="h-4 w-4 text-[#888888]" />
-            </button>
-
-            <div className="flex items-center gap-1">
-              {(() => {
-                const pages: (number | string)[] = [];
-                if (totalPages <= 5) {
-                  for (let i = 1; i <= totalPages; i++) pages.push(i);
-                } else {
-                  pages.push(1);
-                  if (currentPage > 3) pages.push('...');
-                  const start = Math.max(2, currentPage - 1);
-                  const end = Math.min(totalPages - 1, currentPage + 1);
-                  for (let i = start; i <= end; i++) {
-                    if (!pages.includes(i)) pages.push(i);
-                  }
-                  if (currentPage < totalPages - 2) pages.push('...');
-                  if (!pages.includes(totalPages)) pages.push(totalPages);
-                }
-
-                return pages.map((page, idx) => {
-                  if (page === '...') {
-                    return <span key={`ellipsis-${idx}`} className="px-2 text-[#555555] text-xs">…</span>;
-                  }
-                  return (
-                    <button
-                      key={page}
-                      onClick={() => setCurrentPage(page as number)}
-                      className={`min-w-[36px] h-9 px-3 rounded-md text-sm font-medium transition-colors ${
-                        currentPage === page
-                          ? 'bg-accent-500 text-white'
-                          : 'bg-[#0a0a0a] border border-[#151515] text-[#888888] hover:bg-[#111111]'
-                      }`}
-                    >
-                      {page}
-                    </button>
-                  );
-                });
-              })()}
-            </div>
-
-            <button
-              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-              disabled={currentPage === totalPages}
-              className="p-2 rounded-md border border-[#151515] bg-[#0a0a0a] hover:bg-[#111111] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              <ChevronRight className="h-4 w-4 text-[#888888]" />
-            </button>
-            <button
-              onClick={() => setCurrentPage(totalPages)}
-              disabled={currentPage === totalPages}
-              className="p-2 rounded-md border border-[#151515] bg-[#0a0a0a] hover:bg-[#111111] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              <svg className="h-4 w-4 text-[#888888]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
-              </svg>
-            </button>
-          </div>
-        </div>
-      )}
+      <Pagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        totalItems={filteredAndSortedTransactions.length}
+        itemsPerPage={ITEMS_PER_PAGE}
+        onPageChange={(page) => { setCurrentPage(page); window.scrollTo({ top: 0 }); }}
+      />
     </div>
   );
 }

@@ -23,17 +23,8 @@
  * to make the trade even, which is why it updates dynamically as players are added.
  */
 
-export interface TradeAsset {
-  id: string;
-  type: 'player' | 'pick';
-  name: string;
-  value: number;
-  position?: string;
-  team?: string | null;
-  pickYear?: string;
-  pickRound?: number;
-  pickTier?: string;
-}
+export type { TradeAsset } from '../types/domain';
+import type { TradeAsset } from '../types/domain';
 
 export interface ValueAdjustmentResult {
   rawTotal: number;           // Simple sum of values

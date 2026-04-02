@@ -11,11 +11,13 @@ import {
   MinusCircle,
   TrendingUp,
   TrendingDown,
-  Minus
+  Minus,
+  Info,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useState, useMemo } from 'react';
 import { PageHeader } from '../components/PageHeader';
+import { PositionBadge } from '../components/PositionBadge';
 
 interface Player {
   player_id: string;
@@ -39,20 +41,11 @@ interface TradedPick {
   league_id: string;
 }
 
-const positionColors: Record<string, string> = {
-  QB: 'bg-red-500/20 text-red-400',
-  RB: 'bg-emerald-500/20 text-emerald-400',
-  WR: 'bg-blue-500/20 text-blue-400',
-  TE: 'bg-orange-500/20 text-orange-400',
-  K: 'bg-yellow-500/20 text-yellow-400',
-  DEF: 'bg-purple-500/20 text-purple-400',
-};
-
 const roundColors: Record<number, string> = {
-  1: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
-  2: 'bg-[#111111] text-[#333333] border-zinc-600',
-  3: 'bg-orange-500/20 text-orange-400 border-orange-500/30',
-  4: 'bg-stone-500/20 text-stone-400 border-stone-500/30',
+  1: 'bg-amber-500/15 text-amber-400 border-amber-500/25',
+  2: 'bg-[#161616] text-[#888888] border-[#2a2a2a]',
+  3: 'bg-orange-500/15 text-orange-400 border-orange-500/25',
+  4: 'bg-stone-500/15 text-stone-400 border-stone-500/25',
 };
 
 export default function Drafts() {
@@ -60,13 +53,14 @@ export default function Drafts() {
   const [selectedDraft, setSelectedDraft] = useState<string | null>(null);
   const [selectedSeason, setSelectedSeason] = useState<string>('2026');
   const [expandedRounds, setExpandedRounds] = useState<Set<number>>(new Set([1]));
+  const [showLegend, setShowLegend] = useState(false);
 
   const { data: players } = useQuery({
     queryKey: ['players'],
     queryFn: async () => {
       const { data } = await supabase.from('players').select('*');
       const playerMap = new Map<string, Player>();
-      (data as Player[] || []).forEach(p => playerMap.set(p.player_id, p));
+      (data || []).forEach(p => playerMap.set(p.player_id, p as Player));
       return playerMap;
     },
   });
@@ -74,73 +68,49 @@ export default function Drafts() {
   const { data, isLoading } = useQuery({
     queryKey: ['drafts-data'],
     queryFn: async () => {
-      const { data: drafts } = await supabase
-        .from('drafts')
-        .select('*')
-        .order('season', { ascending: false });
-
-      const { data: draftPicks } = await supabase
-        .from('draft_picks')
-        .select('*')
-        .order('pick_no', { ascending: true });
-
-      const { data: tradedPicks } = await supabase
-        .from('traded_picks')
-        .select('*')
-        .order('season', { ascending: false });
-
+      const { data: drafts } = await supabase.from('drafts').select('*').order('season', { ascending: false });
+      const { data: draftPicks } = await supabase.from('draft_picks').select('*').order('pick_no', { ascending: true });
+      const { data: tradedPicks } = await supabase.from('traded_picks').select('*').order('season', { ascending: false });
       const { data: users } = await supabase.from('users').select('*');
       const { data: rosters } = await supabase.from('rosters').select('*');
       const { data: leagueUsers } = await supabase.from('league_users').select('user_id, team_name, display_name');
       const { data: league } = await supabase.from('leagues').select('*').limit(1);
 
       return {
-        drafts: drafts || [],
-        draftPicks: draftPicks || [],
-        tradedPicks: tradedPicks || [],
-        users: users || [],
-        rosters: rosters || [],
-        leagueUsers: leagueUsers as LeagueUser[] || [],
+        drafts: drafts || [], draftPicks: draftPicks || [], tradedPicks: tradedPicks || [],
+        users: users || [], rosters: rosters || [], leagueUsers: leagueUsers || [],
         league: league?.[0]
       };
     },
   });
 
-  const getPlayer = (playerId: string): Player | undefined => {
-    return players?.get(playerId);
-  };
+  const getPlayer = (playerId: string): Player | undefined => players?.get(playerId);
 
   const getTeamName = (rosterId: number, leagueId?: string) => {
-    const roster = data?.rosters.find((r: any) =>
-      r.roster_id === rosterId && (!leagueId || r.league_id === leagueId)
-    );
+    const roster = data?.rosters.find((r: any) => r.roster_id === rosterId && (!leagueId || r.league_id === leagueId));
     const leagueUser = data?.leagueUsers?.find((lu: LeagueUser) => lu.user_id === roster?.owner_id);
     const user = data?.users.find((u: any) => u.user_id === roster?.owner_id);
     return leagueUser?.team_name || leagueUser?.display_name || user?.display_name || user?.username || `Team ${rosterId}`;
   };
 
-  // Get team name from picked_by user_id (works for all historical drafts)
   const getTeamNameByUserId = (userId: string | null) => {
     if (!userId) return 'Unknown';
     const user = data?.users.find((u: any) => u.user_id === userId);
     return user?.display_name || user?.username || 'Unknown';
   };
 
-  // Set initial selected draft when data loads
   useMemo(() => {
     if (data?.drafts?.length && !selectedDraft) {
       setSelectedDraft(data.drafts[0].draft_id);
     }
   }, [data?.drafts, selectedDraft]);
 
-  // Get available seasons from traded picks
   const availableSeasons = useMemo(() => {
     if (!data?.tradedPicks?.length) return ['2026', '2027', '2028'];
     const seasons = [...new Set(data.tradedPicks.map((tp: TradedPick) => tp.season))].sort();
     return seasons.length > 0 ? seasons : ['2026', '2027', '2028'];
   }, [data?.tradedPicks]);
 
-  // Group draft picks by draft and round
   const picksByDraftAndRound = useMemo(() => {
     if (!data?.draftPicks) return {};
     return data.draftPicks.reduce((acc: any, pick: any) => {
@@ -151,36 +121,29 @@ export default function Drafts() {
     }, {});
   }, [data?.draftPicks]);
 
-  // Build pick ownership for a season (Draft Capital logic)
   const buildPickOwnership = (season: string) => {
     const seasonPicks = (data?.tradedPicks || []).filter((tp: TradedPick) => tp.season === season);
     const rounds = [1, 2, 3, 4];
     const totalRosters = data?.league?.total_rosters || 12;
 
-    // Build a map of who owns what picks
     const picksByOwner: Record<number, { round: number; originalOwner: number }[]> = {};
     for (let rosterId = 1; rosterId <= totalRosters; rosterId++) {
       picksByOwner[rosterId] = [];
     }
 
-    // Add picks each team still owns (their own)
     for (let rosterId = 1; rosterId <= totalRosters; rosterId++) {
       for (const round of rounds) {
-        const traded = seasonPicks.find(
-          (tp: TradedPick) => tp.roster_id === rosterId && tp.round === round
-        );
+        const traded = seasonPicks.find((tp: TradedPick) => tp.roster_id === rosterId && tp.round === round);
         if (!traded) {
           picksByOwner[rosterId].push({ round, originalOwner: rosterId });
         }
       }
     }
 
-    // Add traded picks to their new owners
     for (const tp of seasonPicks) {
       picksByOwner[tp.owner_id]?.push({ round: tp.round, originalOwner: tp.roster_id });
     }
 
-    // Sort picks by round then by original owner
     for (const rosterId in picksByOwner) {
       picksByOwner[rosterId].sort((a, b) => a.round - b.round || a.originalOwner - b.originalOwner);
     }
@@ -190,18 +153,15 @@ export default function Drafts() {
 
   const picksByOwner = buildPickOwnership(selectedSeason);
 
-  // Calculate pick value (rough estimate based on round)
   const getPickValue = (round: number): number => {
     const values: Record<number, number> = { 1: 100, 2: 50, 3: 25, 4: 10 };
     return values[round] || 5;
   };
 
-  // Calculate total capital for each team
   const calculateCapital = (picks: { round: number; originalOwner: number }[]): number => {
     return picks.reduce((sum, pick) => sum + getPickValue(pick.round), 0);
   };
 
-  // Sort teams by total draft capital
   const sortedTeams = Object.entries(picksByOwner)
     .map(([rosterId, picks]) => ({
       rosterId: parseInt(rosterId),
@@ -224,11 +184,10 @@ export default function Drafts() {
   if (isLoading) {
     return (
       <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto">
-        <div className="flex items-center justify-center h-96">
-          <div className="text-center">
-            <Loader2 className="h-8 w-8 sm:h-10 sm:w-10 animate-spin text-accent-500 mx-auto" />
-            <p className="mt-4 text-[#888888] text-xs sm:text-sm">Loading drafts...</p>
-          </div>
+        <div className="space-y-4 mt-12">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="skeleton h-20 w-full" />
+          ))}
         </div>
       </div>
     );
@@ -237,17 +196,17 @@ export default function Drafts() {
   if (!data?.drafts?.length && !data?.tradedPicks?.length) {
     return (
       <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto">
-        <div className="flex flex-col items-center justify-center py-12 text-center">
-          <div className="w-12 h-12 sm:w-16 sm:h-16 bg-[#111111] rounded-2xl flex items-center justify-center mb-4">
-            <FileText className="h-6 w-6 sm:h-8 sm:w-8 text-[#888888]" />
+        <div className="flex flex-col items-center justify-center py-16 text-center">
+          <div className="w-14 h-14 bg-[#111111] rounded-2xl flex items-center justify-center mb-4">
+            <FileText className="h-7 w-7 text-[#555555]" />
           </div>
-          <h3 className="text-lg font-semibold text-white mb-2">No Draft Data</h3>
-          <p className="text-sm text-[#888888] max-w-sm mb-6">
+          <h3 className="text-lg font-bold text-white mb-2">No Draft Data</h3>
+          <p className="text-sm text-[#666666] max-w-sm mb-6">
             Connect and sync your league to see draft history and traded picks
           </p>
           <Link
             to="/settings"
-            className="inline-flex items-center gap-2 px-4 py-2.5 bg-accent-500 text-white text-sm font-medium rounded-md hover:bg-accent-400 transition-colors"
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-accent-500 text-white text-sm font-semibold rounded-xl hover:bg-accent-400 transition-all"
           >
             Connect League
           </Link>
@@ -262,63 +221,39 @@ export default function Drafts() {
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto">
-      {/* Header */}
       <PageHeader sectionLabel="League" title="Drafts" subtitle="View draft history and future pick ownership" />
 
-      {/* Tab Navigation */}
-      <div className="flex gap-1 mb-6">
-        <button
-          onClick={() => setActiveTab('history')}
-          className={`flex items-center gap-1.5 px-3 py-1.5 sm:py-2 rounded-md text-xs sm:text-sm font-medium transition-colors ${
-            activeTab === 'history'
-              ? 'bg-accent-500 text-white'
-              : 'bg-[#111111] text-[#888888] hover:bg-[#1a1a1a] hover:text-white'
-          }`}
-        >
-          <History className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-          <span className="hidden sm:inline">Draft </span>History
+      {/* Segmented Control */}
+      <div className="segmented-control mb-6">
+        <button onClick={() => setActiveTab('history')} className={`flex items-center gap-1.5 ${activeTab === 'history' ? 'active' : ''}`}>
+          <History className="h-3.5 w-3.5" />
+          History
         </button>
-        <button
-          onClick={() => setActiveTab('capital')}
-          className={`flex items-center gap-1.5 px-3 py-1.5 sm:py-2 rounded-md text-xs sm:text-sm font-medium transition-colors ${
-            activeTab === 'capital'
-              ? 'bg-accent-500 text-white'
-              : 'bg-[#111111] text-[#888888] hover:bg-[#1a1a1a] hover:text-white'
-          }`}
-        >
-          <Calendar className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-          <span className="hidden sm:inline">Future </span>Capital
+        <button onClick={() => setActiveTab('capital')} className={`flex items-center gap-1.5 ${activeTab === 'capital' ? 'active' : ''}`}>
+          <Calendar className="h-3.5 w-3.5" />
+          Capital
         </button>
       </div>
 
       {/* Draft History Tab */}
       {activeTab === 'history' && (
-        <div className="space-y-6">
-          {/* Draft Selector */}
+        <div className="space-y-4">
           {data.drafts.length > 0 && (
             <div className="flex flex-wrap items-center gap-3">
-              <div className="flex items-center gap-1.5">
-                <FileText className="h-4 w-4 text-[#555555]" />
-                <select
-                  value={selectedDraft || ''}
-                  onChange={(e) => {
-                    setSelectedDraft(e.target.value);
-                    setExpandedRounds(new Set([1]));
-                  }}
-                  className="px-3 py-2 bg-[#0a0a0a] border border-[#151515] rounded-md text-xs font-medium text-white focus:outline-none focus:ring-2 focus:ring-accent-500"
-                >
-                  {data.drafts.map((draft: any) => (
-                    <option key={draft.draft_id} value={draft.draft_id}>
-                      {draft.season} {draft.type} Draft
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <select
+                value={selectedDraft || ''}
+                onChange={(e) => { setSelectedDraft(e.target.value); setExpandedRounds(new Set([1])); }}
+                className="px-3 py-2 bg-[#0a0a0a] border border-[#1e1e1e] rounded-lg text-xs font-medium text-white focus:outline-none focus:ring-2 focus:ring-accent-500/50"
+              >
+                {data.drafts.map((draft: any) => (
+                  <option key={draft.draft_id} value={draft.draft_id}>
+                    {draft.season} {draft.type} Draft
+                  </option>
+                ))}
+              </select>
               {currentDraft && (
-                <span className={`px-2.5 py-1 rounded-md text-xs font-medium ${
-                  currentDraft.status === 'complete'
-                    ? 'bg-emerald-500/20 text-emerald-400'
-                    : 'bg-amber-500/20 text-amber-400'
+                <span className={`px-2.5 py-1 rounded-lg text-xs font-semibold ${
+                  currentDraft.status === 'complete' ? 'bg-emerald-500/15 text-emerald-400' : 'bg-amber-500/15 text-amber-400'
                 }`}>
                   {currentDraft.status}
                 </span>
@@ -326,83 +261,61 @@ export default function Drafts() {
             </div>
           )}
 
-          {/* Draft Rounds */}
           {rounds.length > 0 ? (
-            <div className="space-y-4">
+            <div className="space-y-2">
               {rounds.map((round) => {
                 const picks = currentDraftPicks[round] || [];
                 const isExpanded = expandedRounds.has(round);
 
                 return (
-                  <div
-                    key={round}
-                    className="bg-[#0a0a0a] rounded-md border border-[#151515] overflow-hidden"
-                  >
+                  <div key={round} className="bg-[#0a0a0a] rounded-xl overflow-hidden">
                     <button
                       onClick={() => toggleRound(round)}
-                      className="w-full px-3 sm:px-6 py-3 sm:py-4 flex items-center justify-between hover:bg-[#0a0a0a] transition-colors"
+                      className="w-full px-4 py-3 flex items-center justify-between hover:bg-[#0d0d0d] transition-colors"
                     >
-                      <div className="flex items-center gap-2 sm:gap-3">
-                        <div className="w-8 h-8 sm:w-10 sm:h-10 bg-indigo-500/20 rounded-md flex items-center justify-center">
-                          <span className="text-base sm:text-lg font-bold text-indigo-400">{round}</span>
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 bg-accent-500/15 rounded-lg flex items-center justify-center">
+                          <span className="text-sm font-bold text-accent-400">{round}</span>
                         </div>
                         <div className="text-left">
-                          <h3 className="font-semibold text-sm sm:text-base text-white">Round {round}</h3>
-                          <p className="text-[10px] sm:text-xs text-[#888888]">{picks.length} picks</p>
+                          <h3 className="font-semibold text-sm text-white">Round {round}</h3>
+                          <p className="text-[10px] text-[#555555]">{picks.length} picks</p>
                         </div>
                       </div>
-                      <ChevronRight className={`h-4 w-4 sm:h-5 sm:w-5 text-[#888888] transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
+                      <ChevronRight className={`h-4 w-4 text-[#555555] transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
                     </button>
 
                     {isExpanded && (
-                      <div className="border-t border-[#151515]">
-                        <div className="overflow-x-auto">
-                          <table className="w-full">
-                            <thead>
-                              <tr className="bg-[#0a0a0a]">
-                                <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-[10px] sm:text-xs font-semibold text-[#888888] uppercase tracking-wide">Pick</th>
-                                <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-[10px] sm:text-xs font-semibold text-[#888888] uppercase tracking-wide">Player</th>
-                                <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-[10px] sm:text-xs font-semibold text-[#888888] uppercase tracking-wide">Pos</th>
-                                <th className="hidden sm:table-cell px-4 py-3 text-left text-xs font-semibold text-[#888888] uppercase tracking-wide">NFL Team</th>
-                                <th className="hidden sm:table-cell px-4 py-3 text-left text-xs font-semibold text-[#888888] uppercase tracking-wide">Drafted By</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-[#111111]">
-                              {picks.map((pick: any) => {
-                                const player = getPlayer(pick.player_id);
-                                const posClass = player ? positionColors[player.position] : '';
-                                const pickDisplay = `${round}.${String(pick.pick_no - (round - 1) * 12).padStart(2, '0')}`;
+                      <div className="border-t border-[#111111]">
+                        <div className="divide-y divide-[#0d0d0d]">
+                          {picks.map((pick: any) => {
+                            const player = getPlayer(pick.player_id);
+                            const pickDisplay = `${round}.${String(pick.pick_no - (round - 1) * 12).padStart(2, '0')}`;
 
-                                return (
-                                  <tr key={pick.pick_no} className="hover:bg-zinc-800/30">
-                                    <td className="px-2 sm:px-4 py-2 sm:py-3">
-                                      <span className="font-mono text-xs sm:text-sm font-bold text-[#333333]">
-                                        {pickDisplay}
-                                      </span>
-                                    </td>
-                                    <td className="px-2 sm:px-4 py-2 sm:py-3">
-                                      <span className="font-medium text-xs sm:text-sm text-white">
-                                        {player?.full_name || 'Unknown'}
-                                      </span>
-                                    </td>
-                                    <td className="px-2 sm:px-4 py-2 sm:py-3">
-                                      {player?.position && (
-                                        <span className={`px-1.5 sm:px-2 py-0.5 rounded text-[10px] sm:text-xs font-bold ${posClass}`}>
-                                          {player.position}
-                                        </span>
-                                      )}
-                                    </td>
-                                    <td className="hidden sm:table-cell px-4 py-3 text-sm text-[#888888]">
-                                      {player?.team || '—'}
-                                    </td>
-                                    <td className="hidden sm:table-cell px-4 py-3 text-sm font-medium text-[#333333]">
-                                      {getTeamNameByUserId(pick.picked_by)}
-                                    </td>
-                                  </tr>
-                                );
-                              })}
-                            </tbody>
-                          </table>
+                            return (
+                              <div key={pick.pick_no} className="flex items-center gap-3 px-4 py-2.5 hover:bg-[#0d0d0d] transition-colors">
+                                <span className="font-mono text-xs font-bold text-[#444444] w-8 shrink-0">
+                                  {pickDisplay}
+                                </span>
+                                {player && (
+                                  <img
+                                    src={`https://sleepercdn.com/content/nfl/players/${pick.player_id}.jpg`}
+                                    alt=""
+                                    className="w-7 h-7 rounded-full object-cover bg-[#111111] shrink-0"
+                                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                  />
+                                )}
+                                <div className="flex-1 min-w-0">
+                                  <span className="text-sm font-medium text-white">{player?.full_name || 'Unknown'}</span>
+                                </div>
+                                {player?.position && <PositionBadge position={player.position} size="xs" />}
+                                <span className="text-xs text-[#555555] hidden sm:block">{player?.team || '—'}</span>
+                                <span className="text-xs text-[#444444] hidden sm:block w-24 text-right truncate">
+                                  {getTeamNameByUserId(pick.picked_by)}
+                                </span>
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
                     )}
@@ -411,14 +324,12 @@ export default function Drafts() {
               })}
             </div>
           ) : (
-            <div className="bg-[#0a0a0a] rounded-md border border-[#151515] p-12 text-center">
-              <div className="w-12 h-12 bg-[#111111] rounded-md flex items-center justify-center mx-auto mb-4">
-                <FileText className="h-6 w-6 text-[#888888]" />
+            <div className="bg-[#0a0a0a] rounded-xl p-12 text-center">
+              <div className="w-12 h-12 bg-[#111111] rounded-xl flex items-center justify-center mx-auto mb-3">
+                <FileText className="h-6 w-6 text-[#555555]" />
               </div>
-              <h3 className="text-lg font-semibold text-white mb-1">No Picks Yet</h3>
-              <p className="text-sm text-[#888888]">
-                This draft hasn't started or has no recorded picks
-              </p>
+              <h3 className="text-base font-bold text-white mb-1">No Picks Yet</h3>
+              <p className="text-sm text-[#555555]">This draft hasn't started or has no recorded picks</p>
             </div>
           )}
         </div>
@@ -426,191 +337,160 @@ export default function Drafts() {
 
       {/* Future Draft Capital Tab */}
       {activeTab === 'capital' && (
-        <div className="space-y-6">
+        <div className="space-y-4">
           {/* Season Selector */}
-          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
-            {availableSeasons.map((season: string) => (
-              <button
-                key={season}
-                onClick={() => setSelectedSeason(season)}
-                className={`px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-md text-xs sm:text-sm font-medium transition-all ${
-                  selectedSeason === season
-                    ? 'bg-purple-500/20 text-purple-400 ring-2 ring-purple-500/30'
-                    : 'bg-[#111111] text-[#888888] hover:bg-[#1a1a1a]'
-                }`}
-              >
-                {season}
-              </button>
-            ))}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {availableSeasons.map((season: string) => (
+                <button
+                  key={season}
+                  onClick={() => setSelectedSeason(season)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                    selectedSeason === season
+                      ? 'bg-purple-500/15 text-purple-400 ring-1 ring-purple-500/30'
+                      : 'bg-[#111111] text-[#888888] hover:bg-[#1a1a1a]'
+                  }`}
+                >
+                  {season}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => setShowLegend(!showLegend)}
+              className="flex items-center gap-1 text-[11px] text-[#555555] hover:text-[#888888] transition-colors"
+            >
+              <Info className="h-3.5 w-3.5" />
+              Legend
+            </button>
           </div>
 
-          {/* Legend */}
-          <div className="rounded-md border border-[#111111] p-4 sm:p-5">
-            <h3 className="text-sm font-semibold text-white mb-3 sm:mb-4">Legend</h3>
-            <div className="flex flex-wrap gap-4 sm:gap-6">
-              {/* Round Colors */}
-              <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-                <span className="text-xs font-medium text-[#888888] uppercase tracking-wide">Rounds:</span>
+          {/* Collapsible Legend */}
+          {showLegend && (
+            <div className="rounded-xl p-3 bg-[#0a0a0a] flex flex-wrap gap-4 text-xs">
+              <div className="flex items-center gap-2">
+                <span className="text-[#666666]">Rounds:</span>
                 {[1, 2, 3, 4].map(round => (
-                  <span key={round} className={`px-2 sm:px-2.5 py-1 rounded-md border text-xs font-medium ${roundColors[round]}`}>
+                  <span key={round} className={`px-2 py-0.5 rounded border text-[10px] font-medium ${roundColors[round]}`}>
                     {round === 1 ? '1st' : round === 2 ? '2nd' : round === 3 ? '3rd' : '4th'}
                   </span>
                 ))}
               </div>
-
-              {/* Status Indicators */}
-              <div className="flex items-center gap-1 h-5 sm:border-l border-[#151515] sm:pl-6">
-                <div className="flex flex-wrap items-center gap-3 sm:gap-4">
-                  <div className="flex items-center gap-1.5 text-xs">
-                    <CircleDot className="h-3.5 w-3.5 text-[#888888]" />
-                    <span className="text-[#888888]">Own Pick</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 text-xs">
-                    <ArrowRightLeft className="h-3.5 w-3.5 text-emerald-500" />
-                    <span className="text-[#888888]">Acquired</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 text-xs">
-                    <MinusCircle className="h-3.5 w-3.5 text-red-400" />
-                    <span className="text-[#888888]">Traded Away</span>
-                  </div>
-                </div>
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-1 text-[11px]"><CircleDot className="h-3 w-3 text-[#888888]" /><span className="text-[#888888]">Own</span></div>
+                <div className="flex items-center gap-1 text-[11px]"><ArrowRightLeft className="h-3 w-3 text-emerald-500" /><span className="text-[#888888]">Acquired</span></div>
+                <div className="flex items-center gap-1 text-[11px]"><MinusCircle className="h-3 w-3 text-red-400" /><span className="text-[#888888]">Traded</span></div>
               </div>
             </div>
-          </div>
+          )}
 
           {/* Teams Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {sortedTeams.map(({ rosterId, picks, totalValue, extraPicks }, index) => (
-              <div
-                key={rosterId}
-                className={`bg-[#0a0a0a] rounded-md border overflow-hidden ${
-                  index === 0 ? 'border-amber-500/50 ring-2 ring-amber-500/20' :
-                  index === sortedTeams.length - 1 ? 'border-red-500/30' :
-                  'border-[#151515]'
-                }`}
-              >
-                <div className="p-4 sm:p-5 border-b border-[#151515]">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-md flex items-center justify-center text-sm font-bold ${
-                        index === 0 ? 'bg-amber-500/20 text-amber-400' :
-                        index === 1 ? 'bg-[#111111] text-[#888888]' :
-                        index === 2 ? 'bg-orange-500/20 text-orange-400' :
-                        'bg-[#111111] text-[#888888]'
-                      }`}>
-                        #{index + 1}
-                      </div>
-                      <div>
-                        <h3 className="font-bold text-white text-sm sm:text-base">{getTeamName(rosterId)}</h3>
-                        <p className="text-xs text-[#888888]">
-                          {picks.length} picks total
-                          {extraPicks > 0 && (
-                            <span className="text-emerald-400 font-medium ml-1">(+{extraPicks} acquired)</span>
-                          )}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="flex items-center gap-1.5">
-                        {extraPicks > picks.filter(p => p.originalOwner === rosterId).length ? (
-                          <TrendingUp className="h-4 w-4 text-emerald-400" />
-                        ) : extraPicks < 4 - picks.filter(p => p.originalOwner === rosterId).length ? (
-                          <TrendingDown className="h-4 w-4 text-red-400" />
-                        ) : (
-                          <Minus className="h-4 w-4 text-slate-500" />
-                        )}
-                        <span className="text-lg sm:text-xl font-bold text-white">{totalValue}</span>
-                      </div>
-                      <span className="text-xs text-[#888888]">Capital Value</span>
-                    </div>
-                  </div>
-                </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+            {sortedTeams.map(({ rosterId, picks, totalValue, extraPicks }, index) => {
+              const countByRound = [1, 2, 3, 4].map(round => picks.filter(p => p.round === round).length);
 
-                <div className="p-4 sm:p-5 bg-[#0a0a0a]">
-                  <div className="flex flex-wrap gap-2">
-                    {picks.length > 0 ? (
-                      picks.map((pick, idx) => {
-                        const isAcquired = pick.originalOwner !== rosterId;
-                        return (
-                          <div
-                            key={idx}
-                            className={`px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-md border text-xs ${roundColors[pick.round]} ${
-                              isAcquired ? 'ring-2 ring-emerald-500 ring-offset-1 ring-offset-zinc-800' : ''
-                            }`}
-                          >
-                            <span className={isAcquired ? 'font-bold' : 'font-medium'}>
-                              {pick.round}.{String(pick.originalOwner).padStart(2, '0')}
-                            </span>
-                            {isAcquired && (
-                              <span className="block mt-0.5 text-[10px] opacity-70">
-                                from {getTeamName(pick.originalOwner).slice(0, 12)}
+              return (
+                <div
+                  key={rosterId}
+                  className={`bg-[#0a0a0a] rounded-xl border overflow-hidden animate-smooth hover:border-[#2a2a2a] ${
+                    index === 0 ? 'border-amber-500/40 card-glow-gold' :
+                    index === sortedTeams.length - 1 ? 'border-red-500/20' :
+                    'border-[#1e1e1e]'
+                  }`}
+                >
+                  <div className="p-4 border-b border-[#111111]">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold ${
+                          index === 0 ? 'bg-amber-500/20 text-amber-400' :
+                          index === 1 ? 'bg-zinc-500/20 text-zinc-300' :
+                          index === 2 ? 'bg-orange-500/20 text-orange-400' :
+                          'bg-[#111111] text-[#555555]'
+                        }`}>
+                          #{index + 1}
+                        </div>
+                        <div>
+                          <h3 className="font-bold text-white text-sm">{getTeamName(rosterId)}</h3>
+                          {/* Inline round counts */}
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            {countByRound.map((count, rIdx) => (
+                              <span key={rIdx} className={`text-[9px] font-bold ${
+                                count === 0 ? 'text-red-400/60' : count >= 2 ? 'text-emerald-400' : 'text-[#555555]'
+                              }`}>
+                                {rIdx + 1}st:{count}
                               </span>
+                            ))}
+                            {extraPicks > 0 && (
+                              <span className="text-[9px] text-emerald-400 font-medium">+{extraPicks} acq</span>
                             )}
                           </div>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="flex items-center gap-1.5">
+                          {extraPicks > picks.filter(p => p.originalOwner === rosterId).length ? (
+                            <TrendingUp className="h-3.5 w-3.5 text-emerald-400" />
+                          ) : extraPicks < 4 - picks.filter(p => p.originalOwner === rosterId).length ? (
+                            <TrendingDown className="h-3.5 w-3.5 text-red-400" />
+                          ) : (
+                            <Minus className="h-3.5 w-3.5 text-[#555555]" />
+                          )}
+                          <span className="text-lg font-bold text-white">{totalValue}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Stacked bar chart */}
+                    <div className="mt-2 h-1.5 bg-[#111111] rounded-full overflow-hidden flex">
+                      {[1, 2, 3, 4].map(round => {
+                        const count = countByRound[round - 1];
+                        if (count === 0) return null;
+                        const colors = { 1: '#f59e0b', 2: '#888888', 3: '#f97316', 4: '#78716c' };
+                        return (
+                          <div
+                            key={round}
+                            className="h-full"
+                            style={{
+                              width: `${(count / picks.length) * 100}%`,
+                              backgroundColor: colors[round as keyof typeof colors],
+                              opacity: 0.6,
+                            }}
+                          />
                         );
-                      })
-                    ) : (
-                      <span className="text-sm text-slate-500 italic">No picks</span>
-                    )}
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="p-3 bg-[#070707]">
+                    <div className="flex flex-wrap gap-1.5">
+                      {picks.length > 0 ? (
+                        picks.map((pick, idx) => {
+                          const isAcquired = pick.originalOwner !== rosterId;
+                          return (
+                            <div
+                              key={idx}
+                              className={`px-2 py-1 rounded-lg border text-[11px] ${roundColors[pick.round]} ${
+                                isAcquired ? 'ring-1 ring-emerald-500/40' : ''
+                              }`}
+                            >
+                              <span className={isAcquired ? 'font-bold' : 'font-medium'}>
+                                {pick.round}.{String(pick.originalOwner).padStart(2, '0')}
+                              </span>
+                              {isAcquired && (
+                                <span className="block text-[9px] opacity-60 mt-0.5">
+                                  via {getTeamName(pick.originalOwner).slice(0, 10)}
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })
+                      ) : (
+                        <span className="text-xs text-[#555555] italic">No picks</span>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Summary Table */}
-          <div className="overflow-hidden">
-            <div className="px-4 sm:px-6 py-4 border-b border-[#151515]">
-              <h3 className="font-semibold text-white">Draft Capital Summary</h3>
-              <p className="text-sm text-[#888888] mt-1">Picks by round for all teams</p>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-[#151515]">
-                    <th className="text-left py-3 px-4 font-semibold text-[#333333] sticky left-0">Team</th>
-                    <th className="text-center py-3 px-4 font-semibold text-amber-400">1st</th>
-                    <th className="text-center py-3 px-4 font-semibold text-[#888888]">2nd</th>
-                    <th className="text-center py-3 px-4 font-semibold text-orange-400">3rd</th>
-                    <th className="text-center py-3 px-4 font-semibold text-stone-400">4th</th>
-                    <th className="text-center py-3 px-4 font-semibold text-[#333333]">Total</th>
-                    <th className="text-center py-3 px-4 font-semibold text-[#333333]">Value</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {sortedTeams.map(({ rosterId, picks, totalValue }, index) => {
-                    const countByRound = [1, 2, 3, 4].map(round =>
-                      picks.filter(p => p.round === round).length
-                    );
-                    return (
-                      <tr key={rosterId} className={`border-b border-[#151515] hover:bg-[#0a0a0a] ${
-                        index === 0 ? 'bg-amber-500/5' : ''
-                      }`}>
-                        <td className="py-3 px-4 font-medium text-white sticky left-0 bg-inherit">
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs text-slate-500 w-5">#{index + 1}</span>
-                            {getTeamName(rosterId)}
-                          </div>
-                        </td>
-                        {countByRound.map((count, idx) => (
-                          <td key={idx} className="text-center py-3 px-4">
-                            <span className={`inline-flex items-center justify-center w-7 h-7 rounded-md text-xs font-bold ${
-                              count === 0 ? 'bg-red-500/20 text-red-400' :
-                              count === 1 ? 'bg-zinc-700 text-[#333333]' :
-                              count >= 2 ? 'bg-emerald-500/20 text-emerald-400' : ''
-                            }`}>
-                              {count}
-                            </span>
-                          </td>
-                        ))}
-                        <td className="text-center py-3 px-4 font-bold text-white">{picks.length}</td>
-                        <td className="text-center py-3 px-4 font-bold text-accent-400">{totalValue}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+              );
+            })}
           </div>
         </div>
       )}

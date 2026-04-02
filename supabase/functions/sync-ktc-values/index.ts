@@ -1,24 +1,22 @@
 /**
  * Edge Function: sync-ktc-values
- * 
+ *
  * Fetches dynasty player values from KeepTradeCut and syncs them to the database.
  * Includes both player values and draft pick values.
- * 
+ *
  * Uses: Superflex + Half PPR + Tight End Premium (TEP) settings
  * - Superflex: QBs valued for 2QB/SF leagues
  * - Half PPR: 0.5 points per reception
  * - TEP: TEs get 1.0 PPR (0.5 base + 0.5 premium)
- * 
+ *
  * Scheduled to run daily at 6 AM ET (10:00 UTC)
  */
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "jsr:@supabase/supabase-js@2";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { createServiceClient } from "../_shared/supabase-client.ts";
+import { handleCors, jsonResponse, errorResponse } from "../_shared/cors.ts";
+import { fetchWithRetry } from "../_shared/fetch-with-retry.ts";
+import { startSyncLog } from "../_shared/sync-logger.ts";
 
 interface TEPValues {
   value: number;
@@ -42,39 +40,10 @@ interface KTCPlayer {
     overallTier: number;
     positionalTier?: number;
     overallTrend?: number;
-    // TEP (Tight End Premium) values - TEs get 1.0 PPR instead of 0.5 PPR
     tep?: TEPValues;
-    // TEPP (1.5 PPR for TEs)
     tepp?: TEPValues;
-    // TEPPP (2.0 PPR for TEs)
     teppp?: TEPValues;
   };
-}
-
-interface PickValue {
-  pick_type: string;
-  pick_year: string;
-  pick_round: number;
-  pick_tier: string | null;
-  value: number;
-  rank: number | null;
-  superflex: boolean;
-}
-
-// Parse pick name from KTC to extract year, round, and tier
-function parsePickName(name: string): { year: string; round: number; tier: string | null } | null {
-  // Examples: "2025 1st", "2025 Early 1st", "2025 Mid 2nd", "2025 Late 3rd", "2026 1st"
-  const match = name.match(/(\d{4})\s+(Early|Mid|Late)?\s*(1st|2nd|3rd|4th)/i);
-  if (!match) return null;
-  
-  const year = match[1];
-  const tier = match[2] || null;
-  const roundStr = match[3].toLowerCase();
-  
-  const roundMap: Record<string, number> = { '1st': 1, '2nd': 2, '3rd': 3, '4th': 4 };
-  const round = roundMap[roundStr] || 1;
-  
-  return { year, round, tier };
 }
 
 interface SleeperPlayer {
@@ -82,6 +51,23 @@ interface SleeperPlayer {
   full_name: string;
   position: string;
   team: string;
+}
+
+const BATCH_SIZE = 100;
+const MIN_EXPECTED_PLAYERS = 100;
+const MAX_EXPECTED_PLAYERS = 800;
+
+// Parse pick name from KTC to extract year, round, and tier
+function parsePickName(name: string): { year: string; round: number; tier: string | null } | null {
+  const match = name.match(/(\d{4})\s+(Early|Mid|Late)?\s*(1st|2nd|3rd|4th)/i);
+  if (!match) return null;
+
+  const year = match[1];
+  const tier = match[2] || null;
+  const roundStr = match[3].toLowerCase();
+  const roundMap: Record<string, number> = { "1st": 1, "2nd": 2, "3rd": 3, "4th": 4 };
+
+  return { year, round: roundMap[roundStr] || 1, tier };
 }
 
 // Normalize name for matching
@@ -132,10 +118,23 @@ function findMatch(ktcPlayer: KTCPlayer, sleeperPlayers: SleeperPlayer[]): Sleep
 }
 
 async function fetchKTCData(): Promise<KTCPlayer[]> {
-  const response = await fetch("https://keeptradecut.com/dynasty-rankings");
-  const html = await response.text();
+  const response = await fetchWithRetry("https://keeptradecut.com/dynasty-rankings");
+  // fetchWithRetry returns parsed JSON, but KTC returns HTML
+  // We need raw HTML, so fetch directly with retry logic
+  let html: string;
+  for (let i = 0; i < 3; i++) {
+    try {
+      const resp = await fetch("https://keeptradecut.com/dynasty-rankings");
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      html = await resp.text();
+      break;
+    } catch (error) {
+      if (i === 2) throw error;
+      await new Promise((r) => setTimeout(r, 1000 * (i + 1)));
+    }
+  }
 
-  const match = html.match(/var\s+playersArray\s*=\s*(\[[\s\S]*?\]);/);
+  const match = html!.match(/var\s+playersArray\s*=\s*(\[[\s\S]*?\]);/);
   if (!match) {
     throw new Error("Could not find playersArray in KTC page");
   }
@@ -144,29 +143,13 @@ async function fetchKTCData(): Promise<KTCPlayer[]> {
 }
 
 Deno.serve(async (req) => {
-  // Handle CORS preflight
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
 
   try {
     const startTime = Date.now();
-
-    // Initialize Supabase client
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-    // Log sync start
-    const { data: syncLog } = await supabase
-      .from("sync_log")
-      .insert({
-        sync_type: "ktc_values",
-        status: "running",
-        started_at: new Date().toISOString(),
-      })
-      .select()
-      .single();
+    const supabase = createServiceClient();
+    const syncLog = await startSyncLog(supabase, "ktc_values");
 
     // Fetch data from both sources
     const [ktcPlayers, { data: sleeperPlayers, error: playersError }] = await Promise.all([
@@ -176,20 +159,31 @@ Deno.serve(async (req) => {
 
     if (playersError) throw playersError;
 
-    // Clear existing player values and pick values
-    await Promise.all([
-      supabase.from("player_values").delete().neq("player_id", ""),
-      supabase.from("pick_values").delete().neq("pick_type", ""),
-    ]);
+    // Validate parsed data before deleting existing values
+    const playerCount = ktcPlayers.filter(
+      (p) => p.position !== "PICK" && p.position !== "RDP"
+    ).length;
+
+    if (playerCount < MIN_EXPECTED_PLAYERS) {
+      const msg = `KTC parse returned only ${playerCount} players (expected ${MIN_EXPECTED_PLAYERS}-${MAX_EXPECTED_PLAYERS}). Aborting to preserve existing data.`;
+      console.error(msg);
+      await syncLog.fail(msg);
+      return jsonResponse({ success: false, error: msg }, 500);
+    }
+
+    if (playerCount > MAX_EXPECTED_PLAYERS) {
+      console.warn(
+        `KTC returned ${playerCount} players, above expected max of ${MAX_EXPECTED_PLAYERS}. Proceeding but this may indicate a parsing issue.`
+      );
+    }
 
     // Match and prepare values
     const playerValues: any[] = [];
-    const pickValues: PickValue[] = [];
+    const pickValues: any[] = [];
     let unmatched = 0;
 
     for (const ktcPlayer of ktcPlayers) {
       if (ktcPlayer.position === "PICK" || ktcPlayer.position === "RDP") {
-        // Process draft picks - also use TEP values for consistency
         const parsed = parsePickName(ktcPlayer.playerName);
         if (parsed) {
           const tepValues = ktcPlayer.superflexValues?.tep;
@@ -206,18 +200,16 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      const match = findMatch(ktcPlayer, sleeperPlayers || []);
+      const matched = findMatch(ktcPlayer, sleeperPlayers || []);
 
-      if (match) {
-        // Use TEP (Tight End Premium) values for Superflex + Half PPR leagues
-        // TEP = TEs get 1.0 PPR instead of 0.5 PPR (standard TE Premium setting)
+      if (matched) {
         const tepValues = ktcPlayer.superflexValues?.tep;
-        
         playerValues.push({
-          player_id: match.player_id,
+          player_id: matched.player_id,
           value: tepValues?.value || ktcPlayer.superflexValues?.value || 0,
           rank: tepValues?.rank || ktcPlayer.superflexValues?.rank || null,
-          position_rank: tepValues?.positionalRank || ktcPlayer.superflexValues?.positionalRank || null,
+          position_rank:
+            tepValues?.positionalRank || ktcPlayer.superflexValues?.positionalRank || null,
           tier: tepValues?.overallTier || ktcPlayer.superflexValues?.overallTier || null,
           trend: ktcPlayer.superflexValues?.overallTrend || 0,
           superflex: true,
@@ -229,66 +221,46 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Only delete existing values after we've confirmed we have good replacement data
+    await Promise.all([
+      supabase.from("player_values").delete().neq("player_id", ""),
+      supabase.from("pick_values").delete().neq("pick_type", ""),
+    ]);
+
     // Insert player values in batches
-    const batchSize = 100;
     let insertedPlayers = 0;
-
-    for (let i = 0; i < playerValues.length; i += batchSize) {
-      const batch = playerValues.slice(i, i + batchSize);
-      const { error: insertError } = await supabase.from("player_values").insert(batch);
-      if (!insertError) {
-        insertedPlayers += batch.length;
-      }
+    for (let i = 0; i < playerValues.length; i += BATCH_SIZE) {
+      const batch = playerValues.slice(i, i + BATCH_SIZE);
+      const { error } = await supabase.from("player_values").insert(batch);
+      if (!error) insertedPlayers += batch.length;
+      else console.error(`Player values batch error at ${i}:`, error.message);
     }
 
-    // Insert pick values
+    // Insert pick values in batches
     let insertedPicks = 0;
-    if (pickValues.length > 0) {
-      const { error: pickError } = await supabase.from("pick_values").insert(pickValues);
-      if (!pickError) {
-        insertedPicks = pickValues.length;
-      }
+    for (let i = 0; i < pickValues.length; i += BATCH_SIZE) {
+      const batch = pickValues.slice(i, i + BATCH_SIZE);
+      const { error } = await supabase.from("pick_values").insert(batch);
+      if (!error) insertedPicks += batch.length;
+      else console.error(`Pick values batch error at ${i}:`, error.message);
     }
 
-    const duration = Date.now() - startTime;
-
-    // Update sync log
-    if (syncLog) {
-      await supabase
-        .from("sync_log")
-        .update({
-          status: "completed",
-          records_processed: insertedPlayers + insertedPicks,
-          completed_at: new Date().toISOString(),
-        })
-        .eq("id", syncLog.id);
-    }
-
-    return new Response(
-      JSON.stringify({
-        success: true,
-        matchedPlayers: insertedPlayers,
-        insertedPicks,
-        unmatched,
-        ktcTotal: ktcPlayers.length,
-        durationMs: duration,
-      }),
-      {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
+    console.log(
+      `KTC sync: ${insertedPlayers} players, ${insertedPicks} picks, ${unmatched} unmatched`
     );
+
+    await syncLog.complete(insertedPlayers + insertedPicks);
+
+    return jsonResponse({
+      success: true,
+      matchedPlayers: insertedPlayers,
+      insertedPicks,
+      unmatched,
+      ktcTotal: ktcPlayers.length,
+      durationMs: Date.now() - startTime,
+    });
   } catch (error) {
     console.error("Error syncing KTC values:", error);
-
-    return new Response(
-      JSON.stringify({
-        success: false,
-        error: error instanceof Error ? error.message : "Unknown error",
-      }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
-    );
+    return errorResponse(error);
   }
 });

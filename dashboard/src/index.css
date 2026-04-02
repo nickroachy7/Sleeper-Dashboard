@@ -39,6 +39,7 @@
 
 html {
   color-scheme: dark;
+  scroll-behavior: smooth;
 }
 
 body {
@@ -49,16 +50,29 @@ body {
   color: #ffffff;
 }
 
-/* Dark-only theme tokens */
+/* Dark-only theme tokens — 5-tier background scale for visual layering */
 :root {
+  --bg-base: #000000;
+  --bg-surface: #0a0a0a;
+  --bg-elevated: #111111;
+  --bg-overlay: #161616;
+  --bg-interactive: #1a1a1a;
+
+  /* Legacy aliases (keep for existing code) */
   --bg-primary: #000000;
   --bg-secondary: #0a0a0a;
   --bg-tertiary: #111111;
   --bg-card: #0a0a0a;
   --bg-card-hover: #111111;
-  --border-primary: #151515;
+
+  /* Borders — strengthened for visibility */
+  --border-default: #1e1e1e;
+  --border-subtle: #151515;
+  --border-emphasis: #2a2a2a;
+  --border-primary: #1e1e1e;
   --border-secondary: #151515;
-  --border-subtle: #111111;
+
+  /* Text */
   --text-primary: #ffffff;
   --text-secondary: #cccccc;
   --text-tertiary: #888888;
@@ -105,7 +119,7 @@ body {
 
 /* Card styling utilities */
 .card {
-  @apply bg-transparent border border-[#151515] rounded-md shadow-none;
+  @apply bg-transparent rounded-md shadow-none;
 }
 
 .card-header {
@@ -160,6 +174,71 @@ body {
   @apply bg-gradient-to-br from-accent-500 to-accent-600;
 }
 
+/* Premium card glow effects */
+.card-glow-green {
+  box-shadow: 0 0 24px rgba(34, 197, 94, 0.08), 0 0 0 1px rgba(34, 197, 94, 0.12);
+}
+
+.card-glow-gold {
+  box-shadow: 0 0 24px rgba(255, 215, 0, 0.08), 0 0 0 1px rgba(255, 215, 0, 0.12);
+}
+
+.card-glow-red {
+  box-shadow: 0 0 24px rgba(239, 68, 68, 0.08), 0 0 0 1px rgba(239, 68, 68, 0.12);
+}
+
+/* Smooth transition utility */
+.animate-smooth {
+  transition: all 200ms ease-out;
+}
+
+/* Skeleton loading animation */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, #111111 25%, #1a1a1a 50%, #111111 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+  border-radius: 6px;
+}
+
+/* Segmented control base */
+.segmented-control {
+  display: inline-flex;
+  background: #0a0a0a;
+  border: none;
+  border-radius: 10px;
+  padding: 3px;
+  gap: 2px;
+}
+
+.segmented-control button {
+  padding: 6px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #888888;
+  transition: all 200ms ease-out;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.segmented-control button:hover {
+  color: #cccccc;
+  background: #111111;
+}
+
+.segmented-control button.active {
+  background: #22c55e;
+  color: #ffffff;
+  font-weight: 600;
+  box-shadow: 0 0 12px rgba(34, 197, 94, 0.2);
+}
+
 /* Hide scrollbar utility */
 .scrollbar-hide {
   -ms-overflow-style: none;
@@ -189,6 +268,23 @@ body {
   font-size: 13px;
   font-weight: 400;
   color: #666666;
+}
+
+/* Card hover lift */
+.card-hover {
+  transition: transform 200ms ease-out, border-color 200ms ease-out;
+}
+
+.card-hover:hover {
+  transform: scale(1.005);
+}
+
+/* Ensure minimum touch targets on mobile */
+@media (max-width: 640px) {
+  .touch-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
 }
 
 /* Mobile-first compact utilities */
