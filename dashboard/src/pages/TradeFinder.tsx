@@ -285,7 +285,9 @@ export function TradeFinder() {
         const newScenarios: TradeScenario[] = [];
 
         const teamsToSearch = tradeMode === 'dump'
-          ? rosters.filter(r => r.roster_id !== myRoster?.roster_id)
+          ? targetRoster
+            ? rosters.filter(r => r.roster_id === targetRoster.roster_id)
+            : rosters.filter(r => r.roster_id !== myRoster?.roster_id)
           : myRoster ? [myRoster] : [];
 
         teamsToSearch.forEach(searchRoster => {
@@ -574,7 +576,37 @@ export function TradeFinder() {
             </>
           )}
 
-          {/* Step 3 (acquire only): Your team */}
+          {/* Optional: Trade partner (dump mode) or Your Team (acquire mode) */}
+          {tradeMode === 'dump' && myRoster && (
+            <button
+              onClick={() => setDropdownOpen('targetTeam')}
+              className="w-full p-3 rounded-lg border border-[#1a1a1a] hover:border-[#333333] transition-colors flex items-center justify-between"
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-8 h-8 rounded-lg bg-[#111111] flex items-center justify-center shrink-0">
+                  <User className="h-4 w-4 text-[#555555]" />
+                </div>
+                <div className="text-left min-w-0">
+                  <span className="text-[10px] text-[#555555] block leading-tight">Trade With</span>
+                  <span className={`text-sm font-medium ${targetRoster ? 'text-white' : 'text-[#444444]'}`}>
+                    {targetRoster ? getTeamDisplayName(targetRoster) : 'Any team'}
+                  </span>
+                </div>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                {targetRoster && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setTargetRoster(null); setScenarios([]); }}
+                    className="p-1 rounded hover:bg-red-500/10 transition-colors"
+                  >
+                    <X className="h-3.5 w-3.5 text-[#555555] hover:text-red-400" />
+                  </button>
+                )}
+                <ChevronDown className="h-4 w-4 text-[#444444]" />
+              </div>
+            </button>
+          )}
+
           {tradeMode === 'acquire' && targetRoster && (
             <button
               onClick={() => setDropdownOpen('myTeam')}
