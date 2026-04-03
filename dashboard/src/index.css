@@ -272,11 +272,12 @@ body {
 
 /* Card hover lift */
 .card-hover {
-  transition: transform 200ms ease-out, border-color 200ms ease-out;
+  border: 1px solid #161616;
+  transition: border-color 200ms ease-out;
 }
 
 .card-hover:hover {
-  transform: scale(1.005);
+  border-color: #222222;
 }
 
 /* Ensure minimum touch targets on mobile */

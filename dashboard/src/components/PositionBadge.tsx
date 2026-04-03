@@ -1,14 +1,14 @@
 const positionStyles: Record<string, string> = {
-  QB: 'bg-red-500/20 text-red-400',
-  RB: 'bg-emerald-500/20 text-emerald-400',
-  WR: 'bg-blue-500/20 text-blue-400',
-  TE: 'bg-orange-500/20 text-orange-400',
-  K: 'bg-yellow-500/20 text-yellow-400',
-  DEF: 'bg-purple-500/20 text-purple-400',
-  PICK: 'bg-cyan-500/20 text-cyan-400',
-  FLEX: 'bg-purple-500/20 text-purple-400',
-  SUPER_FLEX: 'bg-pink-500/20 text-pink-400',
-  BN: 'bg-zinc-500/20 text-zinc-400',
+  QB: 'bg-red-500/90 text-white',
+  RB: 'bg-blue-600/90 text-white',
+  WR: 'bg-amber-500/90 text-white',
+  TE: 'bg-teal-500/90 text-white',
+  K: 'bg-yellow-500/90 text-white',
+  DEF: 'bg-purple-500/90 text-white',
+  PICK: 'bg-cyan-500/90 text-white',
+  FLEX: 'bg-purple-500/90 text-white',
+  SUPER_FLEX: 'bg-pink-500/90 text-white',
+  BN: 'bg-zinc-500/90 text-white',
 };
 
 interface PositionBadgeProps {

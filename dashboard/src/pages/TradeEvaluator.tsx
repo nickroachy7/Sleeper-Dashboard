@@ -26,8 +26,7 @@ import {
 } from '../lib/trade-shared';
 import { AssetDropdown } from '../components/AssetDropdown';
 import { TeamDropdown } from '../components/TeamDropdown';
-import { PositionBadge } from '../components/PositionBadge';
-import { PickChip } from '../components/PickChip';
+import { AssetRow } from '../components/AssetRow';
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -170,41 +169,40 @@ export function TradeEvaluator() {
               <div className="divide-y divide-[#111111]">
                 {side.assets.map((asset) => {
                   const playerId = asset.type === 'player' ? asset.id.replace('player-', '') : null;
-                  return (
-                    <div
+                  return asset.type === 'player' ? (
+                    <AssetRow
                       key={asset.id}
-                      className="flex items-center gap-2.5 py-2 group/row"
-                    >
-                      {asset.type === 'player' ? (
-                        <img
-                          src={getPlayerImageUrl(playerId!)}
-                          alt=""
-                          className="w-7 h-7 rounded-full object-cover bg-[#111111] shrink-0"
-                          onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                        />
-                      ) : (
-                        <PickChip season={asset.name.split(' ')[0] || ''} round={parseInt(asset.name.match(/Round (\d)/)?.[1] || '1')} size="sm" />
-                      )}
-                      {asset.type === 'player' && (
-                        <div className="flex-1 min-w-0">
-                          <p className="text-[12px] font-semibold text-white truncate">{asset.name}</p>
-                          <div className="flex items-center gap-1">
-                            {asset.position && <PositionBadge position={asset.position} size="xs" />}
-                            {asset.team && <span className="text-[10px] text-[#444444]">{asset.team}</span>}
-                          </div>
-                        </div>
-                      )}
-                      {asset.type === 'pick' && <div className="flex-1" />}
-                      <span className="text-[12px] font-bold text-white tabular-nums shrink-0">
-                        {asset.value > 0 ? asset.value.toLocaleString() : '—'}
-                      </span>
-                      <button
-                        onClick={() => removeAsset(sideIndex, asset.id)}
-                        className="p-1 rounded opacity-0 group-hover/row:opacity-100 hover:bg-red-500/10 transition-all shrink-0"
-                      >
-                        <X className="h-3 w-3 text-[#555555] hover:text-red-400" />
-                      </button>
-                    </div>
+                      playerId={playerId}
+                      name={asset.name}
+                      position={asset.position}
+                      team={asset.team}
+                      value={asset.value}
+                      className="group/row"
+                      suffix={
+                        <button
+                          onClick={() => removeAsset(sideIndex, asset.id)}
+                          className="p-1 rounded opacity-0 group-hover/row:opacity-100 hover:bg-red-500/10 transition-all shrink-0"
+                        >
+                          <X className="h-3 w-3 text-[#555555] hover:text-red-400" />
+                        </button>
+                      }
+                    />
+                  ) : (
+                    <AssetRow
+                      key={asset.id}
+                      name={asset.name}
+                      position="PICK"
+                      value={asset.value}
+                      className="group/row"
+                      suffix={
+                        <button
+                          onClick={() => removeAsset(sideIndex, asset.id)}
+                          className="p-1 rounded opacity-0 group-hover/row:opacity-100 hover:bg-red-500/10 transition-all shrink-0"
+                        >
+                          <X className="h-3 w-3 text-[#555555] hover:text-red-400" />
+                        </button>
+                      }
+                    />
                   );
                 })}
               </div>

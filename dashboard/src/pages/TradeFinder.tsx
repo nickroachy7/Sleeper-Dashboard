@@ -30,6 +30,7 @@ import {
 import { TeamDropdown } from '../components/TeamDropdown';
 import { TradeCard, type TradeSide as TradeCardSide } from '../components/TradeCard';
 import { PositionBadge } from '../components/PositionBadge';
+import { AssetRow } from '../components/AssetRow';
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -596,36 +597,23 @@ export function TradeFinder() {
                   {selectedAssets.map(asset => {
                     const playerId = asset.type === 'player' ? asset.id.replace('player-', '') : null;
                     return (
-                      <div key={asset.id} className="flex items-center gap-2.5 py-2 group/row">
-                        {asset.type === 'player' ? (
-                          <img
-                            src={getPlayerImageUrl(playerId!)}
-                            alt=""
-                            className="w-7 h-7 rounded-full object-cover bg-[#111111] shrink-0"
-                            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                          />
-                        ) : (
-                          <div className="w-7 h-7 rounded-full bg-[#111111] flex items-center justify-center shrink-0">
-                            <span className="text-[8px] font-bold text-[#555555]">PK</span>
-                          </div>
-                        )}
-                        <div className="flex-1 min-w-0">
-                          <p className="text-[12px] font-semibold text-white truncate">{asset.name}</p>
-                          <div className="flex items-center gap-1">
-                            <PositionBadge position={asset.type === 'player' ? (asset.position || '?') : 'PICK'} size="xs" />
-                            {asset.team && <span className="text-[10px] text-[#444444]">{asset.team}</span>}
-                          </div>
-                        </div>
-                        <span className="text-[12px] font-bold text-white tabular-nums shrink-0">
-                          {asset.value > 0 ? asset.value.toLocaleString() : '—'}
-                        </span>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); removeAsset(asset.id); }}
-                          className="p-1 rounded opacity-0 group-hover/row:opacity-100 hover:bg-red-500/10 transition-all shrink-0"
-                        >
-                          <X className="h-3 w-3 text-[#555555] hover:text-red-400" />
-                        </button>
-                      </div>
+                      <AssetRow
+                        key={asset.id}
+                        playerId={playerId}
+                        name={asset.name}
+                        position={asset.type === 'player' ? (asset.position || '?') : 'PICK'}
+                        team={asset.team}
+                        value={asset.value}
+                        className="group/row"
+                        suffix={
+                          <button
+                            onClick={(e) => { e.stopPropagation(); removeAsset(asset.id); }}
+                            className="p-1 rounded opacity-0 group-hover/row:opacity-100 hover:bg-red-500/10 transition-all shrink-0"
+                          >
+                            <X className="h-3 w-3 text-[#555555] hover:text-red-400" />
+                          </button>
+                        }
+                      />
                     );
                   })}
                 </div>

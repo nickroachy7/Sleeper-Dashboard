@@ -1,6 +1,5 @@
 import { Clock } from 'lucide-react';
-import { PositionBadge } from './PositionBadge';
-import { PickChip } from './PickChip';
+import { AssetRow } from './AssetRow';
 
 interface TradePlayer {
   id: string;
@@ -54,10 +53,10 @@ export function TradeCard({
   const isCompact = variant === 'compact';
 
   return (
-    <div className={`bg-[#0a0a0a] rounded-xl overflow-hidden card-hover ${isCompact ? 'p-3' : 'p-4 sm:p-5'}`}>
+    <div className="bg-[#0a0a0a] rounded-xl overflow-hidden card-hover">
       {/* Header */}
       {showHeader && (
-        <div className="flex items-center justify-between mb-3 sm:mb-4">
+        <div className={`flex items-center justify-between bg-white/[0.05] ${isCompact ? 'px-3 py-3' : 'px-4 sm:px-5 py-3 sm:py-4'}`}>
           <div className="flex items-center gap-2">
             <span className="px-2 py-0.5 bg-white text-black text-[10px] font-extrabold tracking-[1px] rounded-sm">
               TRADE
@@ -68,7 +67,7 @@ export function TradeCard({
               </span>
             )}
             {date && (
-              <span className="text-[11px] text-[#444444] flex items-center gap-1">
+              <span className="text-[11px] text-[#555555] flex items-center gap-1">
                 <Clock className="h-3 w-3" />
                 {date}
               </span>
@@ -85,16 +84,14 @@ export function TradeCard({
       )}
 
       {/* Trade sides */}
-      <div className={`grid grid-cols-1 md:grid-cols-2 ${isCompact ? 'gap-3' : 'gap-4 sm:gap-5'}`}>
+      <div>
         {sides.map((side, idx) => {
           const isWinner = actualWinnerIdx === idx && !isActuallyEven;
+          const assetCount = side.players.length + side.picks.length;
           return (
-            <div
-              key={idx}
-              className={`pl-3 border-l-2 ${isWinner ? 'border-l-emerald-500' : 'border-l-[#2a2a2a]'}`}
-            >
-              {/* Team name + total */}
-              <div className="flex items-center justify-between mb-2">
+            <div key={idx}>
+              {/* Team header */}
+              <div className={`flex items-center justify-between border-t border-[#1a1a1a] bg-[#111111] ${isCompact ? 'px-3 py-2.5' : 'px-4 sm:px-5 py-2.5'}`}>
                 <div className="flex items-center gap-2">
                   <span className={`font-bold text-white ${isCompact ? 'text-[13px]' : 'text-sm'}`}>
                     {side.teamName}
@@ -104,46 +101,49 @@ export function TradeCard({
                       W
                     </span>
                   )}
+                  <span className="text-[10px] text-[#555555]">
+                    {assetCount} asset{assetCount !== 1 ? 's' : ''}
+                  </span>
                 </div>
-                <span className="text-[10px] text-[#444444] tabular-nums">
-                  {side.totalValue.toLocaleString()} KTC
-                </span>
+                {(() => {
+                  const otherTotal = sides.filter((_, i) => i !== idx).reduce((sum, s) => sum + s.totalValue, 0) / Math.max(sides.length - 1, 1);
+                  const net = side.totalValue - otherTotal;
+                  if (net === 0 || isActuallyEven) {
+                    return (
+                      <span className="text-[11px] text-[#555555] font-medium tabular-nums">
+                        {side.totalValue.toLocaleString()} KTC
+                      </span>
+                    );
+                  }
+                  return (
+                    <span className={`text-[11px] font-semibold tabular-nums ${net > 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                      {net > 0 ? '+' : ''}{net.toLocaleString()} KTC
+                    </span>
+                  );
+                })()}
               </div>
 
-              {/* Assets — ValueWatch-style rows */}
-              <div className="divide-y divide-[#111111]">
+              {/* Assets */}
+              <div style={{ borderLeft: `3px solid ${isWinner ? '#10b981' : '#222222'}` }}>
                 {side.players.map((p) => (
-                  <div key={p.id} className="flex items-center gap-2.5 py-2">
-                    <img
-                      src={`https://sleepercdn.com/content/nfl/players/${p.id}.jpg`}
-                      alt=""
-                      className="w-7 h-7 rounded-full object-cover bg-[#111111] shrink-0"
-                      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                    />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[12px] font-semibold text-white truncate">{p.name}</p>
-                      <div className="flex items-center gap-1">
-                        <PositionBadge position={p.position} size="xs" />
-                        {p.team && <span className="text-[10px] text-[#444444]">{p.team}</span>}
-                      </div>
-                    </div>
-                    <span className="text-[12px] font-bold text-white tabular-nums shrink-0">
-                      {p.value > 0 ? p.value.toLocaleString() : '—'}
-                    </span>
-                  </div>
+                  <AssetRow
+                    key={p.id}
+                    playerId={p.id}
+                    name={p.name}
+                    position={p.position}
+                    team={p.team}
+                    value={p.value}
+                    className={`border-t border-[#111111] ${isCompact ? 'px-3' : 'px-4 sm:px-5'}`}
+                  />
                 ))}
                 {side.picks.map((pick, pickIdx) => (
-                  <div key={pickIdx} className="flex items-center gap-2.5 py-2">
-                    <PickChip
-                      season={pick.season}
-                      round={pick.round}
-                      size="sm"
-                    />
-                    <div className="flex-1" />
-                    <span className="text-[12px] font-bold text-white tabular-nums shrink-0">
-                      {pick.value !== undefined && pick.value > 0 ? pick.value.toLocaleString() : '—'}
-                    </span>
-                  </div>
+                  <AssetRow
+                    key={pickIdx}
+                    name={`${pick.season} Round ${pick.round}`}
+                    position="PICK"
+                    value={pick.value}
+                    className={`border-t border-[#111111] ${isCompact ? 'px-3' : 'px-4 sm:px-5'}`}
+                  />
                 ))}
               </div>
             </div>

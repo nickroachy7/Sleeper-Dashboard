@@ -13,7 +13,7 @@ import { FilterBar, FilterPills, SortSelect } from '../components/FilterBar';
 import { usePlayerMap } from '../hooks/useLeagueData';
 import { usePlayerValuesList } from '../hooks/queries';
 import { TradeCard as SharedTradeCard, type TradeSide } from '../components/TradeCard';
-import { PositionBadge } from '../components/PositionBadge';
+import { AssetRow } from '../components/AssetRow';
 
 interface LeagueUser {
   user_id: string;
@@ -356,16 +356,20 @@ export default function Transactions() {
       : tx.type === 'free_agent'
       ? 'bg-emerald-500 text-black'
       : 'bg-[#555555] text-black';
-
+    const headerBg = tx.type === 'waiver'
+      ? 'bg-amber-500/[0.07]'
+      : tx.type === 'free_agent'
+      ? 'bg-emerald-500/[0.07]'
+      : 'bg-white/[0.03]';
     return (
-      <div className="bg-[#0a0a0a] rounded-xl p-4 sm:p-5 animate-smooth">
+      <div className="bg-[#0a0a0a] rounded-xl overflow-hidden animate-smooth border border-[#161616] hover:border-[#222222]">
         {/* Header */}
-        <div className="flex items-center justify-between mb-3 sm:mb-4">
+        <div className={`flex items-center justify-between px-4 sm:px-5 py-3 sm:py-4 ${headerBg}`}>
           <div className="flex items-center gap-2">
             <span className={`px-2 py-0.5 text-[10px] font-extrabold tracking-[1px] rounded-sm ${typeBadgeClass}`}>
               {typeLabel}
             </span>
-            <span className="text-[11px] text-[#444444] flex items-center gap-1">
+            <span className="text-[11px] text-[#555555] flex items-center gap-1">
               <Clock className="h-3 w-3" />
               {formatDate(tx)}
             </span>
@@ -379,65 +383,48 @@ export default function Transactions() {
           )}
         </div>
 
-        {/* Team + Assets — ValueWatch-style rows */}
-        <div className="pl-3 border-l-2 border-l-[#2a2a2a]">
-          <div className="flex items-center gap-2 mb-2">
-            <span className="text-sm font-bold text-white">{team?.teamName || 'Unknown'}</span>
+        {/* Team + Assets */}
+        <div>
+          <div className="flex items-center justify-between border-t border-[#1a1a1a] bg-[#111111] px-4 sm:px-5 py-2.5">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-bold text-white">{team?.teamName || 'Unknown'}</span>
+              <span className="text-[10px] text-[#555555]">
+                {adds.length + drops.length} move{adds.length + drops.length !== 1 ? 's' : ''}
+              </span>
+            </div>
           </div>
 
-          <div className="divide-y divide-[#111111]">
+          <div style={{ borderLeft: '3px solid #222222' }}>
             {adds.map((pid) => {
               const p = getPlayer(pid);
               const val = getPlayerValue(pid);
               return (
-                <div key={pid} className="flex items-center gap-2.5 py-2">
-                  <img
-                    src={`https://sleepercdn.com/content/nfl/players/${pid}.jpg`}
-                    alt=""
-                    className="w-7 h-7 rounded-full object-cover bg-[#111111] shrink-0"
-                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                  />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-emerald-400 font-bold text-[11px]">+</span>
-                      <p className="text-[12px] font-semibold text-white truncate">{p?.full_name || pid}</p>
-                    </div>
-                    <div className="flex items-center gap-1 ml-4">
-                      {p?.position && <PositionBadge position={p.position} size="xs" />}
-                      {p?.team && <span className="text-[10px] text-[#444444]">{p.team}</span>}
-                    </div>
-                  </div>
-                  <span className="text-[12px] font-bold text-white tabular-nums shrink-0">
-                    {val > 0 ? val.toLocaleString() : '—'}
-                  </span>
-                </div>
+                <AssetRow
+                  key={pid}
+                  playerId={pid}
+                  name={p?.full_name || pid}
+                  position={p?.position}
+                  team={p?.team}
+                  value={val}
+                  prefix={<span className="text-emerald-400 font-bold text-[11px]">+</span>}
+                  className="px-4 sm:px-5 border-t border-[#111111]"
+                />
               );
             })}
             {drops.map((pid) => {
               const p = getPlayer(pid);
               const val = getPlayerValue(pid);
               return (
-                <div key={pid} className="flex items-center gap-2.5 py-2">
-                  <img
-                    src={`https://sleepercdn.com/content/nfl/players/${pid}.jpg`}
-                    alt=""
-                    className="w-7 h-7 rounded-full object-cover bg-[#111111] shrink-0"
-                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                  />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-red-400 font-bold text-[11px]">−</span>
-                      <p className="text-[12px] font-semibold text-white truncate">{p?.full_name || pid}</p>
-                    </div>
-                    <div className="flex items-center gap-1 ml-4">
-                      {p?.position && <PositionBadge position={p.position} size="xs" />}
-                      {p?.team && <span className="text-[10px] text-[#444444]">{p.team}</span>}
-                    </div>
-                  </div>
-                  <span className="text-[12px] font-bold text-white tabular-nums shrink-0">
-                    {val > 0 ? val.toLocaleString() : '—'}
-                  </span>
-                </div>
+                <AssetRow
+                  key={pid}
+                  playerId={pid}
+                  name={p?.full_name || pid}
+                  position={p?.position}
+                  team={p?.team}
+                  value={val}
+                  prefix={<span className="text-red-400 font-bold text-[11px]">−</span>}
+                  className="px-4 sm:px-5 border-t border-[#111111]"
+                />
               );
             })}
           </div>
@@ -497,7 +484,7 @@ export default function Transactions() {
         />
       </FilterBar>
 
-      <div className="space-y-2">
+      <div className="space-y-3">
         {paginatedTransactions.map((tx) => {
           const dateGroup = getDateGroup(tx);
           const showDateHeader = sortBy === 'recent' && dateGroup !== lastDateGroup;
@@ -508,7 +495,7 @@ export default function Transactions() {
               {showDateHeader && (
                 <div className="sticky top-12 z-[5] py-2 -mx-1 px-1">
                   <div className="flex items-center gap-3">
-                    <span className="text-[10px] font-bold text-[#444444] tracking-[2px] uppercase whitespace-nowrap">
+                    <span className="text-[10px] font-bold text-[#555555] tracking-[2px] uppercase whitespace-nowrap">
                       {dateGroup}
                     </span>
                     <div className="flex-1 h-px bg-[#1e1e1e]" />

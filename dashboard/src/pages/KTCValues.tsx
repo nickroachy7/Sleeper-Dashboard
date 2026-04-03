@@ -1,11 +1,6 @@
 import { useState, useMemo, Fragment } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
-import {
-  TrendingUp,
-  TrendingDown,
-  Minus,
-} from 'lucide-react';
 import { PageHeader } from '../components/PageHeader';
 import { Pagination } from '../components/Pagination';
 import { FilterBar, SearchInput, FilterPills, SortSelect } from '../components/FilterBar';
@@ -108,11 +103,6 @@ const tierAccents: Record<number, string> = {
   5: '#333333',
 };
 
-const rankAccentColors: Record<number, string> = {
-  1: '#ffd700',
-  2: '#c0c0c0',
-  3: '#cd7f32',
-};
 
 export function KTCValues() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -215,26 +205,6 @@ export function KTCValues() {
     return { totalPlayers: players.length, totalPicks: picks.length, total: unifiedValues.length, lastUpdated };
   }, [unifiedValues]);
 
-  const TrendIndicator = ({ trend }: { trend: number | null }) => {
-    if (trend === null || trend === 0) {
-      return <Minus className="w-3.5 h-3.5 text-[#444444]" />;
-    }
-    if (trend > 0) {
-      return (
-        <div className="flex items-center gap-0.5 text-emerald-400">
-          <TrendingUp className="w-3.5 h-3.5" />
-          <span className="text-[10px] font-semibold">+{trend}</span>
-        </div>
-      );
-    }
-    return (
-      <div className="flex items-center gap-0.5 text-red-400">
-        <TrendingDown className="w-3.5 h-3.5" />
-        <span className="text-[10px] font-semibold">{trend}</span>
-      </div>
-    );
-  };
-
   if (isLoading) {
     return (
       <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto">
@@ -333,8 +303,7 @@ export function KTCValues() {
             item.tier &&
             (!prevItem || prevItem.tier !== item.tier);
 
-          const isTop10 = (item.rank || 999) <= 10;
-          const accentColor = rankAccentColors[item.rank || 0];
+          const globalRank = (currentPage - 1) * ITEMS_PER_PAGE + idx + 1;
 
           return (
             <Fragment key={`${item.type}-${item.id}`}>
@@ -354,14 +323,11 @@ export function KTCValues() {
                 </div>
               )}
               <div
-                className={`flex items-center gap-2.5 sm:gap-3 px-3 sm:px-4 ${isTop10 ? 'py-3 sm:py-3.5' : 'py-2.5 sm:py-3'} hover:bg-[#0d0d0d] transition-colors border-b border-[#111111] last:border-b-0`}
+                className="flex items-center gap-2.5 px-3 sm:px-4 py-2 sm:py-2.5 hover:bg-[#111111]/50 transition-colors border-b border-[#111111] last:border-b-0"
               >
                 {/* Rank */}
-                <span
-                  className="text-[11px] font-bold w-7 sm:w-8 text-right shrink-0 tabular-nums"
-                  style={{ color: accentColor || '#555555' }}
-                >
-                  #{item.rank || '-'}
+                <span className="text-xs font-medium text-[#666666] w-5 sm:w-6 text-right shrink-0 tabular-nums">
+                  {globalRank}
                 </span>
 
                 {/* Avatar */}
@@ -369,24 +335,25 @@ export function KTCValues() {
                   <img
                     src={`https://sleepercdn.com/content/nfl/players/${item.playerId}.jpg`}
                     alt=""
-                    className={`${isTop10 ? 'w-9 h-9' : 'w-7 h-7 sm:w-8 sm:h-8'} rounded-full object-cover bg-[#111111] shrink-0`}
+                    className="w-8 h-8 rounded-full object-cover bg-[#111111] shrink-0"
                     onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                   />
                 ) : (
-                  <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-[#111111] flex items-center justify-center shrink-0">
+                  <div className="w-8 h-8 rounded-full bg-[#111111] flex items-center justify-center shrink-0">
                     <span className="text-[8px] font-bold text-[#555555]">PK</span>
                   </div>
                 )}
 
-                {/* Name + meta */}
+                {/* Name + Position/Team */}
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className={`${isTop10 ? 'text-sm font-bold' : 'text-[13px] font-medium'} text-white truncate`}>
-                      {item.name}
-                    </span>
-                    {item.injuryStatus && (
-                      <span className="px-1 py-0.5 text-[9px] bg-red-500/20 text-red-400 rounded font-bold leading-none">
-                        {item.injuryStatus}
+                  <span className="text-[13px] font-semibold text-white truncate block">
+                    {item.name}
+                  </span>
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    {item.position && <PositionBadge position={item.position} size="xs" />}
+                    {item.team && (
+                      <span className="text-[11px] text-[#666666]">
+                        {item.team}
                       </span>
                     )}
                     {item.pickTier && (
@@ -399,21 +366,10 @@ export function KTCValues() {
                       </span>
                     )}
                   </div>
-                  <div className="flex items-center gap-1.5 mt-0.5">
-                    {item.position && <PositionBadge position={item.position} size="xs" />}
-                    <span className="text-[11px] text-[#444444]">
-                      {item.team ? `${item.team}` : ''}{item.positionRank ? ` · ${item.position}${item.positionRank}` : ''}{item.age ? ` · ${item.age}yr` : ''}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Trend */}
-                <div className="shrink-0">
-                  <TrendIndicator trend={item.trend} />
                 </div>
 
                 {/* Value */}
-                <span className={`${isTop10 ? 'text-base' : 'text-sm'} font-bold text-white tabular-nums shrink-0`}>
+                <span className="text-sm font-bold text-white tabular-nums shrink-0">
                   {item.value.toLocaleString()}
                 </span>
               </div>
