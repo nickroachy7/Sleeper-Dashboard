@@ -15,7 +15,7 @@ export default function TradeTools() {
   const [activeTab, setActiveTab] = useState<TabId>('evaluate');
 
   return (
-    <div className="min-h-screen bg-black">
+    <div className="min-h-screen">
       <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto">
         <PageHeader
           sectionLabel="Tools"

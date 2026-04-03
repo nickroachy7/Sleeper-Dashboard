@@ -235,7 +235,7 @@ export default function Settings() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-black">
+      <div className="min-h-screen">
         <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto">
           <div className="flex items-center justify-center h-64">
             <div className="flex items-center gap-3 text-[#888888]">
@@ -249,7 +249,7 @@ export default function Settings() {
   }
 
   return (
-    <div className="min-h-screen bg-black">
+    <div className="min-h-screen">
       <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto">
         <PageHeader
           sectionLabel="System"

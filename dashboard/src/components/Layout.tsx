@@ -106,7 +106,7 @@ export default function Layout() {
   );
 
   return (
-    <div className="min-h-screen bg-black">
+    <div className="min-h-screen">
       {/* ── Mobile Header + Nav ── */}
       <header className="lg:hidden fixed top-0 left-0 right-0 z-40 bg-black/90 backdrop-blur-xl border-b border-[#1e1e1e]">
         <div className="flex items-center justify-center h-12 px-4">

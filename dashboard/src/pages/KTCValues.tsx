@@ -122,7 +122,7 @@ export function KTCValues() {
   const [currentPage, setCurrentPage] = useState(1);
 
   const { data: playerValues, isLoading: playersLoading, error: playersError } = useQuery({
-    queryKey: ['playerValues'],
+    queryKey: ['playerValues', 'detailed'],
     queryFn: fetchPlayerValues
   });
 
@@ -355,7 +355,6 @@ export function KTCValues() {
               )}
               <div
                 className={`flex items-center gap-2.5 sm:gap-3 px-3 sm:px-4 ${isTop10 ? 'py-3 sm:py-3.5' : 'py-2.5 sm:py-3'} hover:bg-[#0d0d0d] transition-colors border-b border-[#111111] last:border-b-0`}
-                style={accentColor ? { borderLeft: `3px solid ${accentColor}` } : undefined}
               >
                 {/* Rank */}
                 <span

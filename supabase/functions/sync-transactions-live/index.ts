@@ -40,13 +40,37 @@ Deno.serve(async (req) => {
     const leagueId = league.league_id;
     const syncLog = await startSyncLog(supabase, "transactions_live", leagueId);
 
-    // 2. Get current NFL week
+    // 2. Sync league users first (transactions have FK to users table)
+    try {
+      const leagueUsers = await fetchWithRetry(`${SLEEPER_API}/league/${leagueId}/users`);
+      if (leagueUsers?.length) {
+        const userRows = leagueUsers.map((u: any) => ({
+          user_id: u.user_id,
+          username: u.display_name || u.user_id,
+          display_name: u.display_name || u.user_id,
+          avatar: u.avatar || null,
+          metadata: u.metadata || null,
+          updated_at: new Date().toISOString(),
+        }));
+        await supabase.from("users").upsert(userRows, {
+          onConflict: "user_id",
+          ignoreDuplicates: false,
+        });
+      }
+    } catch (e) {
+      console.error("Error syncing users:", e);
+    }
+
+    // 3. Get current NFL week
     const nflState = await fetchWithRetry(`${SLEEPER_API}/state/nfl`);
     const currentWeek = nflState?.week || 1;
 
-    // 3. Fetch transactions for current week and the week before (catches stragglers)
+    // 4. Fetch transactions for current week, previous week, and week 1
+    //    Sleeper stores offseason transactions under week/leg 1 even when
+    //    the NFL state reports week 0, so always include week 1.
     let totalUpserted = 0;
-    const weeksToCheck = [currentWeek, Math.max(0, currentWeek - 1)];
+    const weeksSet = new Set([currentWeek, Math.max(0, currentWeek - 1), 1]);
+    const weeksToCheck = [...weeksSet];
 
     for (const week of weeksToCheck) {
       const transactions = await fetchWithRetry(
@@ -79,11 +103,13 @@ Deno.serve(async (req) => {
         });
 
         if (!error) totalUpserted += txRows.length;
-        else console.error(`Transaction upsert error (week ${week}):`, error);
+        else {
+          console.error(`Transaction upsert error (week ${week}):`, JSON.stringify(error));
+        }
       }
     }
 
-    // 4. Also refresh rosters (lightweight — single API call) so trade impacts show immediately
+    // 5. Also refresh rosters (lightweight — single API call) so trade impacts show immediately
     try {
       const rosters = await fetchWithRetry(`${SLEEPER_API}/league/${leagueId}/rosters`);
       if (rosters?.length) {
@@ -117,7 +143,7 @@ Deno.serve(async (req) => {
       console.error("Error refreshing rosters:", e);
     }
 
-    // 5. Also refresh traded picks so trade finder stays current
+    // 6. Also refresh traded picks so trade finder stays current
     try {
       const tradedPicks = await fetchWithRetry(`${SLEEPER_API}/league/${leagueId}/traded_picks`);
       if (tradedPicks?.length) {
