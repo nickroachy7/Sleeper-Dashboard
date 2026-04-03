@@ -23,13 +23,11 @@ import {
   useClickOutside,
   buildPicksForRoster,
   getTeamDisplayName,
-  getPlayerImageUrl,
   FAIRNESS_CONFIG,
 } from '../lib/trade-shared';
 // Note: getPositionBadgeClass still used in AssetDropdown modal
 import { TeamDropdown } from '../components/TeamDropdown';
 import { TradeCard, type TradeSide as TradeCardSide } from '../components/TradeCard';
-import { PositionBadge } from '../components/PositionBadge';
 import { AssetRow } from '../components/AssetRow';
 
 // ── Types ──────────────────────────────────────────────────────────

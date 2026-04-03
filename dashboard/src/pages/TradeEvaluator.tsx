@@ -21,7 +21,6 @@ import {
   buildPicksForRoster,
   buildPlayersForRoster,
   getTeamDisplayName,
-  getPlayerImageUrl,
   FAIRNESS_CONFIG,
 } from '../lib/trade-shared';
 import { AssetDropdown } from '../components/AssetDropdown';
