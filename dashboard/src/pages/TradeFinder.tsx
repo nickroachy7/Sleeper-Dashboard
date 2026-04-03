@@ -445,8 +445,37 @@ export function TradeFinder() {
           return (fairnessScore * 0.40) + (qualityScore * 0.35) + (concenScore * 0.25);
         };
 
-        newScenarios.sort((a, b) => scoreScenario(b) - scoreScenario(a));
-        setScenarios(newScenarios.slice(0, 50));
+        // Split into exact trades (just selected assets) vs expanded (with extras)
+        const selectedIdSet = new Set(selectedAssets.map(a => a.id));
+        const giveSide = tradeMode === 'dump' ? 'give' : 'get';
+        const exactTrades = newScenarios.filter(s => {
+          const pkg = s[giveSide] as TradeAsset[];
+          return pkg.length === selectedAssets.length && pkg.every(a => selectedIdSet.has(a.id));
+        });
+        const expandedTrades = newScenarios.filter(s => {
+          const pkg = s[giveSide] as TradeAsset[];
+          return pkg.length !== selectedAssets.length || !pkg.every(a => selectedIdSet.has(a.id));
+        });
+
+        exactTrades.sort((a, b) => scoreScenario(b) - scoreScenario(a));
+        expandedTrades.sort((a, b) => scoreScenario(b) - scoreScenario(a));
+
+        // Interleave: show exact trades first, then mix in expanded
+        const topExact = exactTrades.slice(0, 25);
+        const topExpanded = expandedTrades.slice(0, 25);
+        const merged: TradeScenario[] = [];
+        let ei = 0, xi = 0;
+        // First batch: up to 10 exact trades
+        while (ei < topExact.length && ei < 10) merged.push(topExact[ei++]);
+        // Then alternate: 1 expanded, 1 exact
+        while (merged.length < 50 && (ei < topExact.length || xi < topExpanded.length)) {
+          if (xi < topExpanded.length) merged.push(topExpanded[xi++]);
+          if (ei < topExact.length) merged.push(topExact[ei++]);
+        }
+        // Fill remaining with whatever's left
+        while (merged.length < 50 && xi < topExpanded.length) merged.push(topExpanded[xi++]);
+
+        setScenarios(merged);
       } finally {
         setIsSearching(false);
       }
