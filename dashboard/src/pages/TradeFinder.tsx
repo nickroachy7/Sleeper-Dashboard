@@ -279,10 +279,24 @@ export function TradeFinder() {
 
     setTimeout(() => {
       try {
-        const adjustedValue = selectedValueInfo.adjusted;
-        const minValue = adjustedValue * (1 - tolerance / 100);
-        const maxValue = adjustedValue * (1 + tolerance / 100);
         const newScenarios: TradeScenario[] = [];
+        const selectedIds = new Set(selectedAssets.map(a => a.id));
+
+        // Build "give" packages: the selected assets + optionally 1-2 extras from my roster
+        // This lets users find trades where they add sweeteners to unlock bigger targets
+        const givePackages: TradeAsset[][] = [selectedAssets];
+
+        if (tradeMode === 'dump' && myRoster) {
+          const myExtras = [
+            ...getPlayersOwnedByRoster(myRoster),
+            ...getPicksOwnedByRoster(myRoster.roster_id),
+          ].filter(a => !selectedIds.has(a.id)).slice(0, 8); // top 8 extras by value
+
+          // selected + 1 extra
+          myExtras.forEach(extra => {
+            givePackages.push([...selectedAssets, extra]);
+          });
+        }
 
         const teamsToSearch = tradeMode === 'dump'
           ? targetRoster
@@ -290,13 +304,16 @@ export function TradeFinder() {
             : rosters.filter(r => r.roster_id !== myRoster?.roster_id)
           : myRoster ? [myRoster] : [];
 
+        // Pre-compute return combos per team (expensive, only do once)
+        const seenTradeKeys = new Set<string>();
+        const teamCombos = new Map<number, { combo: TradeAsset[]; value: ReturnType<typeof calculateSideValue> }[]>();
+
         teamsToSearch.forEach(searchRoster => {
           const searchAssets = [
             ...getPlayersOwnedByRoster(searchRoster),
             ...getPicksOwnedByRoster(searchRoster.roster_id),
           ];
 
-          // Filter search assets by position if filters are active
           const filteredAssets = positionFilters.size > 0
             ? searchAssets.filter(a => {
                 if (a.type === 'pick') return positionFilters.has('PICK');
@@ -304,15 +321,19 @@ export function TradeFinder() {
               })
             : searchAssets;
 
-          // Generate combinations respecting maxPieces
-          const combinations: TradeAsset[][] = [];
+          const combinations: { combo: TradeAsset[]; value: ReturnType<typeof calculateSideValue> }[] = [];
+          const addCombo = (c: TradeAsset[]) => {
+            const v = calculateSideValue(c as ValueAdjustmentAsset[]);
+            combinations.push({ combo: c, value: v });
+          };
+
           if (maxPieces === 0 || maxPieces >= 1) {
-            filteredAssets.forEach(a => combinations.push([a]));
+            filteredAssets.forEach(a => addCombo([a]));
           }
           if (maxPieces === 0 || maxPieces >= 2) {
             for (let i = 0; i < filteredAssets.length; i++) {
               for (let j = i + 1; j < filteredAssets.length; j++) {
-                combinations.push([filteredAssets[i], filteredAssets[j]]);
+                addCombo([filteredAssets[i], filteredAssets[j]]);
               }
             }
           }
@@ -321,79 +342,101 @@ export function TradeFinder() {
             for (let i = 0; i < topAssets.length; i++) {
               for (let j = i + 1; j < topAssets.length; j++) {
                 for (let k = j + 1; k < topAssets.length; k++) {
-                  combinations.push([topAssets[i], topAssets[j], topAssets[k]]);
+                  addCombo([topAssets[i], topAssets[j], topAssets[k]]);
                 }
               }
             }
           }
 
-          combinations.forEach(combo => {
-            const comboValue = calculateSideValue(combo as ValueAdjustmentAsset[]);
-            const comboAdjusted = comboValue.adjustedTotal;
+          teamCombos.set(searchRoster.roster_id, combinations);
+        });
 
-            if (comboAdjusted >= minValue && comboAdjusted <= maxValue) {
-              const analysis = tradeMode === 'dump'
-                ? analyzeTrade(selectedAssets as ValueAdjustmentAsset[], combo as ValueAdjustmentAsset[])
-                : analyzeTrade(combo as ValueAdjustmentAsset[], selectedAssets as ValueAdjustmentAsset[]);
+        // Match each give package against pre-computed return combos
+        givePackages.forEach(givePkg => {
+          const giveValue = calculateSideValue(givePkg as ValueAdjustmentAsset[]);
+          const giveAdjusted = giveValue.adjustedTotal;
+          const minValue = giveAdjusted * (1 - tolerance / 100);
+          const maxValue = giveAdjusted * (1 + tolerance / 100);
 
-              const giveAdjusted = analysis.side1.adjustedTotal;
-              const getAdjusted = analysis.side2.adjustedTotal;
-              const rawDiff = comboValue.rawTotal - selectedValueInfo.raw;
-              const adjustedDiff = getAdjusted - giveAdjusted;
-              const diffPercent = giveAdjusted > 0 ? (adjustedDiff / giveAdjusted) * 100 : 0;
+          teamsToSearch.forEach(searchRoster => {
+            const combinations = teamCombos.get(searchRoster.roster_id) || [];
 
-              if (tradeMode === 'dump') {
-                newScenarios.push({
-                  give: selectedAssets,
-                  get: combo,
-                  giveTotal: selectedValueInfo.raw,
-                  getTotal: comboValue.rawTotal,
-                  giveAdjusted,
-                  getAdjusted,
-                  difference: rawDiff,
-                  adjustedDifference: adjustedDiff,
-                  differencePercent: diffPercent,
-                  fairness: analysis.fairness,
-                  partnerRoster: searchRoster,
-                });
-              } else {
-                newScenarios.push({
-                  give: combo,
-                  get: selectedAssets,
-                  giveTotal: comboValue.rawTotal,
-                  getTotal: selectedValueInfo.raw,
-                  giveAdjusted,
-                  getAdjusted,
-                  difference: -rawDiff,
-                  adjustedDifference: -adjustedDiff,
-                  differencePercent: -diffPercent,
-                  fairness: analysis.fairness,
-                  partnerRoster: targetRoster!,
-                });
+            combinations.forEach(({ combo, value: comboValue }) => {
+              const comboAdjusted = comboValue.adjustedTotal;
+
+              if (comboAdjusted >= minValue && comboAdjusted <= maxValue) {
+                // Deduplicate: same give+get asset IDs = same trade
+                const giveIds = givePkg.map(a => a.id).sort().join(',');
+                const getIds = combo.map(a => a.id).sort().join(',');
+                const tradeKey = `${giveIds}|${getIds}|${searchRoster.roster_id}`;
+                if (seenTradeKeys.has(tradeKey)) return;
+                seenTradeKeys.add(tradeKey);
+
+                const analysis = tradeMode === 'dump'
+                  ? analyzeTrade(givePkg as ValueAdjustmentAsset[], combo as ValueAdjustmentAsset[])
+                  : analyzeTrade(combo as ValueAdjustmentAsset[], selectedAssets as ValueAdjustmentAsset[]);
+
+                const side1Adjusted = analysis.side1.adjustedTotal;
+                const side2Adjusted = analysis.side2.adjustedTotal;
+                const rawDiff = comboValue.rawTotal - giveValue.rawTotal;
+                const adjustedDiff = side2Adjusted - side1Adjusted;
+                const diffPercent = side1Adjusted > 0 ? (adjustedDiff / side1Adjusted) * 100 : 0;
+
+                if (tradeMode === 'dump') {
+                  newScenarios.push({
+                    give: givePkg,
+                    get: combo,
+                    giveTotal: giveValue.rawTotal,
+                    getTotal: comboValue.rawTotal,
+                    giveAdjusted: side1Adjusted,
+                    getAdjusted: side2Adjusted,
+                    difference: rawDiff,
+                    adjustedDifference: adjustedDiff,
+                    differencePercent: diffPercent,
+                    fairness: analysis.fairness,
+                    partnerRoster: searchRoster,
+                  });
+                } else {
+                  newScenarios.push({
+                    give: combo,
+                    get: selectedAssets,
+                    giveTotal: comboValue.rawTotal,
+                    getTotal: selectedValueInfo.raw,
+                    giveAdjusted: side1Adjusted,
+                    getAdjusted: side2Adjusted,
+                    difference: -rawDiff,
+                    adjustedDifference: -adjustedDiff,
+                    differencePercent: -diffPercent,
+                    fairness: analysis.fairness,
+                    partnerRoster: targetRoster!,
+                  });
+                }
               }
-            }
+            });
           });
         });
 
-        // Sort: best value match first, with quality tiebreakers
-        const maxDiff = Math.max(...newScenarios.map(s => Math.abs(s.adjustedDifference)), 1);
+        // Pre-compute sort metrics (avoid spreading 50K+ items)
+        let maxDiff = 1;
+        let maxPossibleAssetValue = 1;
+        for (const s of newScenarios) {
+          const d = Math.abs(s.adjustedDifference);
+          if (d > maxDiff) maxDiff = d;
+          const returnCombo = tradeMode === 'dump' ? s.get : s.give;
+          for (const a of returnCombo) {
+            if (a.value > maxPossibleAssetValue) maxPossibleAssetValue = a.value;
+          }
+        }
 
         const scoreScenario = (s: TradeScenario) => {
           const returnCombo = tradeMode === 'dump' ? s.get : s.give;
-
-          // Fairness: how close to even (0 diff = best)
           const fairnessScore = 100 - (Math.abs(s.adjustedDifference) / maxDiff) * 100;
 
-          // Quality: highest single asset value in the return
-          const maxAssetValue = Math.max(...returnCombo.map(a => a.value), 0);
-          const allMaxValues = newScenarios.flatMap(sc => (tradeMode === 'dump' ? sc.get : sc.give).map(a => a.value));
-          const maxPossible = Math.max(...allMaxValues, 1);
-          const qualityScore = (maxAssetValue / maxPossible) * 100;
+          let maxAssetValue = 0;
+          for (const a of returnCombo) { if (a.value > maxAssetValue) maxAssetValue = a.value; }
+          const qualityScore = (maxAssetValue / maxPossibleAssetValue) * 100;
 
-          // Fewer assets = slight bonus (1 = 100, 2 = 66, 3 = 50)
           const concenScore = (1 / returnCombo.length) * 100;
-
-          // Asset preference bonus
           const prefScore = getPreferenceScore(returnCombo, assetPreference);
 
           if (assetPreference !== 'all') {
@@ -578,9 +621,11 @@ export function TradeFinder() {
 
           {/* Optional: Trade partner (dump mode) or Your Team (acquire mode) */}
           {tradeMode === 'dump' && myRoster && (
-            <button
+            <div
               onClick={() => setDropdownOpen('targetTeam')}
-              className="w-full p-3 rounded-lg border border-[#1a1a1a] hover:border-[#333333] transition-colors flex items-center justify-between"
+              role="button"
+              tabIndex={0}
+              className="w-full p-3 rounded-lg border border-[#1a1a1a] hover:border-[#333333] transition-colors flex items-center justify-between cursor-pointer"
             >
               <div className="flex items-center gap-2.5 min-w-0">
                 <div className="w-8 h-8 rounded-lg bg-[#111111] flex items-center justify-center shrink-0">
@@ -604,7 +649,7 @@ export function TradeFinder() {
                 )}
                 <ChevronDown className="h-4 w-4 text-[#444444]" />
               </div>
-            </button>
+            </div>
           )}
 
           {tradeMode === 'acquire' && targetRoster && (
