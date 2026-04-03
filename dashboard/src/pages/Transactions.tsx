@@ -294,17 +294,6 @@ export default function Transactions() {
     const teams = tx.teams || [];
     if (teams.length < 2) return null;
 
-    const isLopsided = (() => {
-      const values = teams.map((t: any) => teamAssets[t.rosterId]?.value || 0);
-      return Math.abs(values[0] - values[1]) >= 2000;
-    })();
-    const hasDraftCapital = tx.draft_picks?.some((p: any) => p.round === 1);
-
-    // Build fairness badges
-    const badges: { label: string; badge: string }[] = [];
-    if (isLopsided) badges.push({ label: 'Lopsided', badge: 'bg-amber-500/15 text-amber-400' });
-    if (hasDraftCapital) badges.push({ label: 'Draft Capital', badge: 'bg-purple-500/15 text-purple-400' });
-
     // Convert to shared TradeSide format
     const sides: TradeSide[] = teams.map((team: any) => {
       const assets = teamAssets[team.rosterId] || { players: [], picks: [], value: 0 };
@@ -333,8 +322,6 @@ export default function Transactions() {
       <SharedTradeCard
         sides={sides}
         date={formatDate(tx)}
-        fairnessLabel={badges[0]?.label}
-        fairnessBadge={badges[0]?.badge}
       />
     );
   };

@@ -906,8 +906,6 @@ export function TradeFinder() {
                 <TradeCard
                   key={idx}
                   sides={sides}
-                  fairnessLabel={config.label}
-                  fairnessBadge={config.badge}
                 />
               );
             })}

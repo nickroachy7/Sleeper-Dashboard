@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { PositionBadge } from './PositionBadge';
 
 interface AssetRowProps {
@@ -28,20 +29,26 @@ export function AssetRow({
   suffix,
   className = '',
 }: AssetRowProps) {
+  const [imgFailed, setImgFailed] = useState(false);
+
+  const isPick = !playerId;
+
   return (
     <div className={`flex items-center gap-2.5 py-2 ${className}`}>
       {/* Avatar */}
-      {playerId ? (
+      {isPick ? (
+        <div className="w-8 h-8 rounded-full bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center shrink-0">
+          <span className="text-[9px] font-bold text-cyan-400/70">PK</span>
+        </div>
+      ) : imgFailed ? (
+        <div className="w-8 h-8 rounded-full bg-[#111111] shrink-0" />
+      ) : (
         <img
           src={getPlayerImageUrl(playerId)}
           alt=""
           className="w-8 h-8 rounded-full object-cover bg-[#111111] shrink-0"
-          onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+          onError={() => setImgFailed(true)}
         />
-      ) : (
-        <div className="w-8 h-8 rounded-full bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center shrink-0">
-          <span className="text-[9px] font-bold text-cyan-400/70">PK</span>
-        </div>
       )}
 
       {/* Name + Position/Team */}

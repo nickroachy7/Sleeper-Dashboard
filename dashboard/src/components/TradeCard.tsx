@@ -27,8 +27,6 @@ interface TradeCardProps {
   winnerId?: number | null;
   isEvenTrade?: boolean;
   date?: string;
-  fairnessLabel?: string;
-  fairnessBadge?: string;
   variant?: 'compact' | 'full';
   showHeader?: boolean;
 }
@@ -38,8 +36,6 @@ export function TradeCard({
   winnerId,
   isEvenTrade,
   date,
-  fairnessLabel,
-  fairnessBadge,
   variant = 'full',
   showHeader = true,
 }: TradeCardProps) {
@@ -49,6 +45,8 @@ export function TradeCard({
   const winnerIndex = sides[0].totalValue > sides[1].totalValue ? 0 : sides[1].totalValue > sides[0].totalValue ? 1 : null;
   const actualWinnerIdx = winnerId !== null && winnerId !== undefined ? winnerId : winnerIndex;
   const isActuallyEven = isEvenTrade ?? diff === 0;
+  const hasZeroSide = sides.some(s => s.totalValue === 0);
+  const isNearEven = !hasZeroSide && (isActuallyEven || diff < 500);
 
   const isCompact = variant === 'compact';
 
@@ -61,11 +59,6 @@ export function TradeCard({
             <span className="px-2 py-0.5 bg-white text-black text-[10px] font-extrabold tracking-[1px] rounded-sm">
               TRADE
             </span>
-            {fairnessLabel && fairnessBadge && (
-              <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${fairnessBadge}`}>
-                {fairnessLabel}
-              </span>
-            )}
             {date && (
               <span className="text-[11px] text-[#555555] flex items-center gap-1">
                 <Clock className="h-3 w-3" />
@@ -73,13 +66,6 @@ export function TradeCard({
               </span>
             )}
           </div>
-          {isActuallyEven ? (
-            <span className="text-[10px] sm:text-xs text-[#555555] font-medium">Even Trade</span>
-          ) : diff > 0 && (
-            <span className="text-[10px] sm:text-xs text-emerald-400 font-semibold">
-              {sides[actualWinnerIdx ?? 0]?.teamName} +{diff.toLocaleString()}
-            </span>
-          )}
         </div>
       )}
 
@@ -96,10 +82,20 @@ export function TradeCard({
                   <span className={`font-bold text-white ${isCompact ? 'text-[13px]' : 'text-sm'}`}>
                     {side.teamName}
                   </span>
-                  {isWinner && (
-                    <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded leading-none">
-                      W
+                  {isNearEven ? (
+                    <span className="text-[10px] font-bold text-blue-400 bg-blue-500/10 px-1.5 py-0.5 rounded leading-none">
+                      =
                     </span>
+                  ) : actualWinnerIdx !== null && (
+                    isWinner ? (
+                      <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded leading-none">
+                        W
+                      </span>
+                    ) : (
+                      <span className="text-[10px] font-bold text-red-400 bg-red-500/10 px-1.5 py-0.5 rounded leading-none">
+                        L
+                      </span>
+                    )
                   )}
                   <span className="text-[10px] text-[#555555]">
                     {assetCount} asset{assetCount !== 1 ? 's' : ''}
@@ -107,16 +103,17 @@ export function TradeCard({
                 </div>
                 {(() => {
                   const otherTotal = sides.filter((_, i) => i !== idx).reduce((sum, s) => sum + s.totalValue, 0) / Math.max(sides.length - 1, 1);
-                  const net = side.totalValue - otherTotal;
-                  if (net === 0 || isActuallyEven) {
+                  const net = Math.round(side.totalValue - otherTotal);
+                  if (net === 0) {
                     return (
                       <span className="text-[11px] text-[#555555] font-medium tabular-nums">
                         {side.totalValue.toLocaleString()} KTC
                       </span>
                     );
                   }
+                  const color = isNearEven ? 'text-[#555555]' : net > 0 ? 'text-emerald-400' : 'text-red-400';
                   return (
-                    <span className={`text-[11px] font-semibold tabular-nums ${net > 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                    <span className={`text-[11px] font-semibold tabular-nums ${color}`}>
                       {net > 0 ? '+' : ''}{net.toLocaleString()} KTC
                     </span>
                   );
@@ -145,6 +142,12 @@ export function TradeCard({
                     className={`border-t border-[#111111] ${isCompact ? 'px-3' : 'px-4 sm:px-5'}`}
                   />
                 ))}
+                {side.players.length === 0 && side.picks.length === 0 && (
+                  <div className={`flex items-center gap-2.5 py-2 border-t border-[#111111] ${isCompact ? 'px-3' : 'px-4 sm:px-5'}`}>
+                    <div className="w-8 h-8 rounded-full bg-[#111111] shrink-0" />
+                    <p className="text-[13px] font-medium text-[#555555]">Zip, nothing, nada.</p>
+                  </div>
+                )}
               </div>
             </div>
           );
