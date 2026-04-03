@@ -21,8 +21,23 @@ export default function Home() {
     queryFn: async () => {
       const { data: rosters } = await supabase.from('rosters').select('*').eq('league_id', league!.league_id);
       const { data: users } = await supabase.from('users').select('*');
-      const { data: leagueUsers } = await supabase.from('league_users').select('user_id, team_name, display_name');
-      return { rosters: rosters || [], users: users || [], leagueUsers: leagueUsers || [] };
+
+      // Fetch team avatars from Sleeper API (metadata.avatar has custom team logos)
+      let teamAvatars = new Map<string, string>();
+      try {
+        const res = await fetch(`https://api.sleeper.app/v1/league/${league!.league_id}/users`);
+        const sleeperUsers = await res.json();
+        if (Array.isArray(sleeperUsers)) {
+          sleeperUsers.forEach((u: any) => {
+            const teamAvatar = u.metadata?.avatar;
+            if (teamAvatar && u.user_id) {
+              teamAvatars.set(u.user_id, teamAvatar);
+            }
+          });
+        }
+      } catch { /* fallback to user avatars */ }
+
+      return { rosters: rosters || [], users: users || [], teamAvatars };
     },
     enabled: !!league,
   });
@@ -46,11 +61,22 @@ export default function Home() {
 
   const resolveTeamName = useMemo(() => {
     if (!rostersData) return () => 'Unknown';
-    const { users, leagueUsers } = rostersData;
+    const { users } = rostersData;
     return (ownerId: string) => {
       const owner = users.find((u: any) => u.user_id === ownerId);
-      const lu = leagueUsers.find((l) => l.user_id === ownerId);
-      return lu?.team_name || lu?.display_name || owner?.display_name || owner?.username || 'Unknown';
+      return owner?.display_name || owner?.username || 'Unknown';
+    };
+  }, [rostersData]);
+
+  const resolveTeamAvatar = useMemo(() => {
+    if (!rostersData) return () => null;
+    const { teamAvatars, users } = rostersData;
+    return (ownerId: string): string | null => {
+      // Prefer team avatar (custom logo), fall back to user avatar
+      const teamAvatar = teamAvatars.get(ownerId);
+      if (teamAvatar) return teamAvatar;
+      const owner = users.find((u: any) => u.user_id === ownerId);
+      return owner?.avatar ? `https://sleepercdn.com/avatars/thumbs/${owner.avatar}` : null;
     };
   }, [rostersData]);
 
@@ -76,11 +102,12 @@ export default function Home() {
           }
         });
 
-        return { rosterId: roster.roster_id, teamName, totalValue, topPlayer, wins: roster.wins ?? 0, losses: roster.losses ?? 0 };
+        const avatarUrl = resolveTeamAvatar(roster.owner_id);
+        return { rosterId: roster.roster_id, teamName, totalValue, topPlayer, wins: roster.wins ?? 0, losses: roster.losses ?? 0, avatarUrl };
       })
       .sort((a: any, b: any) => b.totalValue - a.totalValue)
       .map((team: any, idx: number) => ({ ...team, rank: idx + 1 }));
-  }, [rostersData, playerValues, playersMap, resolveTeamName]);
+  }, [rostersData, playerValues, playersMap, resolveTeamName, resolveTeamAvatar]);
 
   // ─── Derived: Value Watch (Top 10 Assets) ────────────────────────
 

@@ -10,16 +10,52 @@ interface RankedTeam {
   wins: number;
   losses: number;
   rank: number;
+  avatarUrl?: string | null;
 }
 
 interface PowerRankingsProps {
   rankings: RankedTeam[];
 }
 
-const rankAccents: Record<number, { border: string; glow: string; badge: string }> = {
-  1: { border: 'border-amber-400/40', glow: 'card-glow-gold', badge: 'bg-amber-500/20 text-amber-400' },
-  2: { border: 'border-[#c0c0c0]/30', glow: '', badge: 'bg-zinc-500/20 text-zinc-300' },
-  3: { border: 'border-orange-500/30', glow: '', badge: 'bg-orange-500/20 text-orange-400' },
+interface Tier {
+  label: string;
+  color: string;
+  border: string;
+}
+
+function getTiers(total: number): { startIdx: number; endIdx: number; tier: Tier }[] {
+  const contenderEnd = Math.max(1, Math.floor(total * 0.25));
+  const playoffEnd = Math.max(contenderEnd + 1, Math.floor(total * 0.5));
+  const midEnd = Math.max(playoffEnd + 1, Math.floor(total * 0.75));
+
+  return [
+    {
+      startIdx: 0,
+      endIdx: contenderEnd,
+      tier: { label: 'Stacked', color: 'text-[#888888]', border: '#f59e0b' },
+    },
+    {
+      startIdx: contenderEnd,
+      endIdx: playoffEnd,
+      tier: { label: 'Solid', color: 'text-[#888888]', border: '#3b82f6' },
+    },
+    {
+      startIdx: playoffEnd,
+      endIdx: midEnd,
+      tier: { label: 'Meh', color: 'text-[#888888]', border: '#555555' },
+    },
+    {
+      startIdx: midEnd,
+      endIdx: total,
+      tier: { label: 'Pain', color: 'text-[#888888]', border: '#ef4444' },
+    },
+  ];
+}
+
+const rankAccentColors: Record<number, string> = {
+  1: '#ffd700',
+  2: '#c0c0c0',
+  3: '#cd7f32',
 };
 
 export function PowerRankings({ rankings }: PowerRankingsProps) {
@@ -27,10 +63,13 @@ export function PowerRankings({ rankings }: PowerRankingsProps) {
 
   if (rankings.length === 0) return null;
 
-  const maxTeamValue = rankings[0]?.totalValue || 1;
-  const top3 = rankings.slice(0, 3);
-  const rest = rankings.slice(3);
-  const displayedRest = showAll ? rest : rest.slice(0, 4); // Show top 7 by default
+  const tiers = getTiers(rankings.length);
+  const displayCount = showAll ? rankings.length : 7;
+  const displayed = rankings.slice(0, displayCount);
+
+  const getTierForIndex = (idx: number) => {
+    return tiers.find(t => idx >= t.startIdx && idx < t.endIdx);
+  };
 
   return (
     <section>
@@ -40,71 +79,68 @@ export function PowerRankings({ rankings }: PowerRankingsProps) {
         subtitle="Teams ranked by total KTC roster value"
       />
 
-      {/* Podium - Top 3 */}
-      <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-5">
-        {[top3[1], top3[0], top3[2]].map((team, idx) => {
-          if (!team) return <div key={idx} />;
-          const pos = idx === 1 ? 1 : idx === 0 ? 2 : 3;
-          const accent = rankAccents[pos];
-          const isFirst = pos === 1;
+      <div className="bg-[#0a0a0a] rounded-xl overflow-hidden border border-[#161616]">
+        {displayed.map((team, idx) => {
+          const accentColor = rankAccentColors[team.rank];
+          const tierInfo = getTierForIndex(idx);
+          const prevTierInfo = idx > 0 ? getTierForIndex(idx - 1) : null;
+          const showTierHeader = tierInfo && (!prevTierInfo || tierInfo.tier.label !== prevTierInfo.tier.label);
 
           return (
-            <div
-              key={team.rosterId}
-              className={`bg-[#0a0a0a] border ${accent.border} rounded-xl p-3 sm:p-4 text-center ${accent.glow} ${isFirst ? 'sm:-mt-2' : 'mt-2 sm:mt-4'}`}
-            >
-              {/* Rank number */}
-              <div className={`inline-flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-full mb-2 ${accent.badge}`}>
-                <span className={`font-extrabold tabular-nums ${isFirst ? 'text-xl sm:text-2xl' : 'text-lg sm:text-xl'}`}>
-                  {pos}
+            <div key={team.rosterId}>
+              {/* Tier header */}
+              {showTierHeader && (
+                <div
+                  className="px-4 py-2.5 bg-[#0d0d0d] border-b border-[#111111]"
+                  style={{ borderLeft: `3px solid ${tierInfo.tier.border}` }}
+                >
+                  <span className="text-xs font-bold text-[#888888]">
+                    Tier {tiers.indexOf(tierInfo) + 1}
+                  </span>
+                  <span className="text-xs text-[#555555] ml-2">
+                    — {tierInfo.tier.label}
+                  </span>
+                </div>
+              )}
+
+              {/* Team row — matches ValueWatch sizing */}
+              <div
+                className={`flex items-center gap-2.5 px-3 py-2 hover:bg-[#0d0d0d] transition-colors ${idx % 2 === 1 ? 'bg-[#070707]' : ''}`}
+              >
+                {/* Rank */}
+                <span
+                  className="text-[11px] font-bold tabular-nums w-5 text-right shrink-0"
+                  style={{ color: accentColor || '#555555' }}
+                >
+                  {team.rank}
                 </span>
-              </div>
 
-              <h3 className={`font-bold text-white truncate ${isFirst ? 'text-sm sm:text-base' : 'text-xs sm:text-sm'}`}>
-                {team.teamName}
-              </h3>
+                {/* Avatar */}
+                <div className="w-7 h-7 rounded-full overflow-hidden bg-[#111111] shrink-0">
+                  {team.avatarUrl ? (
+                    <img
+                      src={team.avatarUrl}
+                      alt=""
+                      className="w-full h-full object-cover"
+                      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                    />
+                  ) : null}
+                </div>
 
-              <p className={`font-extrabold text-white tabular-nums mt-1 ${isFirst ? 'text-lg sm:text-xl' : 'text-sm sm:text-base'}`}>
-                {team.totalValue.toLocaleString()}
-              </p>
-
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Remaining Teams */}
-      <div className="bg-[#0a0a0a] rounded-xl overflow-hidden">
-        <div className="divide-y divide-[#111111]">
-          {displayedRest.map((team) => (
-            <div key={team.rosterId} className="flex items-center gap-3 px-4 py-2.5 hover:bg-[#0d0d0d] transition-colors">
-              <span className="text-xs font-bold text-[#444444] w-6 text-right tabular-nums shrink-0">
-                {team.rank}
-              </span>
-
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-[13px] font-semibold text-white truncate">{team.teamName}</span>
-                  <span className="text-xs font-bold text-white tabular-nums ml-2 shrink-0">
+                {/* Name + Value */}
+                <div className="flex-1 min-w-0 flex items-center justify-between">
+                  <p className="text-[12px] font-semibold text-white truncate">{team.teamName}</p>
+                  <span className="text-[12px] font-bold text-white tabular-nums ml-2 shrink-0">
                     {team.totalValue.toLocaleString()}
                   </span>
                 </div>
-                <div className="w-full h-1 bg-[#111111] rounded-full overflow-hidden">
-                  <div
-                    className="h-full rounded-full"
-                    style={{
-                      width: `${(team.totalValue / maxTeamValue) * 100}%`,
-                      background: 'linear-gradient(90deg, #22c55e, rgba(34, 197, 94, 0.2))',
-                    }}
-                  />
-                </div>
               </div>
             </div>
-          ))}
-        </div>
+          );
+        })}
 
         {/* Show All / Show Less toggle */}
-        {rest.length > 4 && (
+        {rankings.length > 7 && (
           <button
             onClick={() => setShowAll(!showAll)}
             className="w-full py-2.5 text-xs font-medium text-[#555555] hover:text-[#888888] hover:bg-[#0d0d0d] transition-colors flex items-center justify-center gap-1 border-t border-[#111111]"
