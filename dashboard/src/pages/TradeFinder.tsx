@@ -7,7 +7,7 @@ import {
   Loader2,
   ArrowDown,
   ArrowUp,
-  User,
+  Plus,
   SlidersHorizontal,
 } from 'lucide-react';
 import {
@@ -496,196 +496,148 @@ export function TradeFinder() {
 
   return (
     <div>
-      {/* ── Setup Card ── */}
+      {/* ── Setup Card — styled like TradeCard ── */}
       <div className="bg-[#0a0a0a] rounded-xl overflow-hidden mb-4">
-        {/* Mode Toggle */}
-        <div className="flex border-b border-[#151515]">
-          <button
-            onClick={() => setTradeMode('dump')}
-            className={`flex-1 py-3 flex items-center justify-center gap-2 text-sm font-medium transition-all ${
-              tradeMode === 'dump'
-                ? 'text-accent-400 bg-accent-500/8 border-b-2 border-accent-500 -mb-px'
-                : 'text-[#555555] hover:text-[#888888]'
-            }`}
-          >
-            <ArrowUp className="h-4 w-4" />
-            Trade Away
-          </button>
-          <button
-            onClick={() => setTradeMode('acquire')}
-            className={`flex-1 py-3 flex items-center justify-center gap-2 text-sm font-medium transition-all ${
-              tradeMode === 'acquire'
-                ? 'text-accent-400 bg-accent-500/8 border-b-2 border-accent-500 -mb-px'
-                : 'text-[#555555] hover:text-[#888888]'
-            }`}
-          >
-            <ArrowDown className="h-4 w-4" />
-            Acquire
-          </button>
+        {/* Header */}
+        <div className="flex items-center justify-between bg-white/[0.05] px-4 sm:px-5 py-3 sm:py-4">
+          <div className="flex items-center gap-2">
+            <span className="px-2 py-0.5 bg-white text-black text-[10px] font-extrabold tracking-[1px] rounded-sm">
+              TRADE
+            </span>
+            <span className="text-[11px] text-[#555555]">Finder</span>
+          </div>
+          {/* Mode Toggle */}
+          <div className="flex items-center gap-1 bg-[#111111] rounded-lg p-0.5">
+            <button
+              onClick={() => setTradeMode('dump')}
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all ${
+                tradeMode === 'dump'
+                  ? 'bg-[#1a1a1a] text-white'
+                  : 'text-[#555555] hover:text-[#888888]'
+              }`}
+            >
+              <ArrowUp className="h-3 w-3" />
+              Away
+            </button>
+            <button
+              onClick={() => setTradeMode('acquire')}
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all ${
+                tradeMode === 'acquire'
+                  ? 'bg-[#1a1a1a] text-white'
+                  : 'text-[#555555] hover:text-[#888888]'
+              }`}
+            >
+              <ArrowDown className="h-3 w-3" />
+              Acquire
+            </button>
+          </div>
         </div>
 
-        {/* Setup Steps */}
-        <div className="p-4 space-y-3">
-          {/* Step 1: Team selection(s) */}
-          {tradeMode === 'dump' ? (
-            <button
-              onClick={() => setDropdownOpen('myTeam')}
-              className="w-full p-3 rounded-lg border border-[#1a1a1a] hover:border-[#333333] transition-colors flex items-center justify-between"
-            >
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-[#111111] flex items-center justify-center shrink-0">
-                  <User className="h-4 w-4 text-[#555555]" />
-                </div>
-                <div className="text-left">
-                  <span className="text-[10px] text-[#555555] block leading-tight">Your Team</span>
-                  <span className={`text-sm font-medium ${myRoster ? 'text-white' : 'text-[#444444]'}`}>
-                    {myRoster ? getTeamDisplayName(myRoster) : 'Select...'}
-                  </span>
-                </div>
-              </div>
-              <ChevronDown className="h-4 w-4 text-[#444444]" />
-            </button>
-          ) : (
-            <button
-              onClick={() => setDropdownOpen('targetTeam')}
-              className="w-full p-3 rounded-lg border border-[#1a1a1a] hover:border-[#333333] transition-colors flex items-center justify-between"
-            >
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-[#111111] flex items-center justify-center shrink-0">
-                  <User className="h-4 w-4 text-[#555555]" />
-                </div>
-                <div className="text-left">
-                  <span className="text-[10px] text-[#555555] block leading-tight">Trade With</span>
-                  <span className={`text-sm font-medium ${targetRoster ? 'text-white' : 'text-[#444444]'}`}>
-                    {targetRoster ? getTeamDisplayName(targetRoster) : 'Select...'}
-                  </span>
-                </div>
-              </div>
-              <ChevronDown className="h-4 w-4 text-[#444444]" />
-            </button>
-          )}
+        {/* Side 1: Your Team (dump) or Trade With (acquire) */}
+        <button
+          onClick={() => setDropdownOpen(tradeMode === 'dump' ? 'myTeam' : 'targetTeam')}
+          className="w-full flex items-center justify-between bg-[#111111] px-4 sm:px-5 py-2.5 border-t border-[#1a1a1a] group"
+        >
+          <div className="flex items-center gap-2 min-w-0">
+            <span className={`font-bold text-sm truncate ${
+              (tradeMode === 'dump' ? myRoster : targetRoster) ? 'text-white' : 'text-[#555555]'
+            }`}>
+              {tradeMode === 'dump'
+                ? (myRoster ? getTeamDisplayName(myRoster) : 'Select your team...')
+                : (targetRoster ? getTeamDisplayName(targetRoster) : 'Select team to trade with...')
+              }
+            </span>
+            {selectedAssets.length > 0 && (
+              <span className="text-[10px] text-[#555555]">
+                {selectedAssets.length} asset{selectedAssets.length !== 1 ? 's' : ''}
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            {selectedAssets.length > 0 && (
+              <span className="text-[11px] text-[#555555] font-medium tabular-nums">
+                {selectedValueInfo.adjusted.toLocaleString()} KTC
+              </span>
+            )}
+            <ChevronDown className="h-4 w-4 text-[#333333] group-hover:text-[#555555] transition-colors" />
+          </div>
+        </button>
 
-          {/* Step 2: Asset Selection */}
-          {assetSourceRoster && (
-            <>
+        {/* Assets for side 1 */}
+        {assetSourceRoster && (
+          <div style={{ borderLeft: '3px solid #222222' }}>
+            {selectedAssets.map(asset => {
+              const playerId = asset.type === 'player' ? asset.id.replace('player-', '') : null;
+              return (
+                <AssetRow
+                  key={asset.id}
+                  playerId={playerId}
+                  name={asset.name}
+                  position={asset.type === 'player' ? (asset.position || '?') : 'PICK'}
+                  team={asset.team}
+                  value={asset.value}
+                  className="group/row border-t border-[#111111] px-4 sm:px-5"
+                  suffix={
+                    <button
+                      onClick={(e) => { e.stopPropagation(); removeAsset(asset.id); }}
+                      className="p-1 rounded opacity-0 group-hover/row:opacity-100 hover:bg-red-500/10 transition-all shrink-0"
+                    >
+                      <X className="h-3 w-3 text-[#555555] hover:text-red-400" />
+                    </button>
+                  }
+                />
+              );
+            })}
+
+            {/* Add buttons — matches Evaluator style */}
+            <div className="flex gap-2 py-2 px-4 sm:px-5 border-t border-[#111111]">
               <button
                 onClick={() => setDropdownOpen('assets')}
-                className="w-full p-3 rounded-lg border border-[#1a1a1a] hover:border-[#333333] transition-colors flex items-center justify-between"
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] text-[#555555] hover:text-accent-400 hover:bg-accent-500/5 transition-all"
               >
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <div className="w-8 h-8 rounded-lg bg-[#111111] flex items-center justify-center shrink-0">
-                    <Search className="h-4 w-4 text-[#555555]" />
-                  </div>
-                  <div className="text-left">
-                    <span className="text-[10px] text-[#555555] block leading-tight">
-                      {tradeMode === 'dump' ? 'Assets to Trade' : 'Assets You Want'}
-                    </span>
-                    <span className={`text-sm ${selectedAssets.length > 0 ? 'text-white font-medium' : 'text-[#444444]'}`}>
-                      {selectedAssets.length > 0 ? `${selectedAssets.length} selected` : 'Select players or picks...'}
-                    </span>
-                  </div>
-                </div>
-                <ChevronDown className="h-4 w-4 text-[#444444] shrink-0" />
+                <Plus className="h-3 w-3" />
+                Player
               </button>
-
-              {/* Selected Assets — ValueWatch-style rows */}
-              {selectedAssets.length > 0 && (
-                <div className="divide-y divide-[#111111]">
-                  {selectedAssets.map(asset => {
-                    const playerId = asset.type === 'player' ? asset.id.replace('player-', '') : null;
-                    return (
-                      <AssetRow
-                        key={asset.id}
-                        playerId={playerId}
-                        name={asset.name}
-                        position={asset.type === 'player' ? (asset.position || '?') : 'PICK'}
-                        team={asset.team}
-                        value={asset.value}
-                        className="group/row"
-                        suffix={
-                          <button
-                            onClick={(e) => { e.stopPropagation(); removeAsset(asset.id); }}
-                            className="p-1 rounded opacity-0 group-hover/row:opacity-100 hover:bg-red-500/10 transition-all shrink-0"
-                          >
-                            <X className="h-3 w-3 text-[#555555] hover:text-red-400" />
-                          </button>
-                        }
-                      />
-                    );
-                  })}
-                </div>
-              )}
-
-              {/* Value Summary */}
-              {selectedAssets.length > 0 && (
-                <div className="flex items-center justify-between px-3 py-2 bg-accent-500/8 rounded-lg">
-                  <span className="text-xs text-[#888888]">Adjusted Value</span>
-                  <span className="text-sm font-bold text-accent-400 tabular-nums">
-                    {selectedValueInfo.adjusted.toLocaleString()}
-                    {selectedValueInfo.raw !== selectedValueInfo.adjusted && (
-                      <span className="text-[10px] text-[#555555] font-normal ml-1.5">
-                        (raw {selectedValueInfo.raw.toLocaleString()})
-                      </span>
-                    )}
-                  </span>
-                </div>
-              )}
-            </>
-          )}
-
-          {/* Optional: Trade partner (dump mode) or Your Team (acquire mode) */}
-          {tradeMode === 'dump' && myRoster && (
-            <div
-              onClick={() => setDropdownOpen('targetTeam')}
-              role="button"
-              tabIndex={0}
-              className="w-full p-3 rounded-lg border border-[#1a1a1a] hover:border-[#333333] transition-colors flex items-center justify-between cursor-pointer"
-            >
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-8 h-8 rounded-lg bg-[#111111] flex items-center justify-center shrink-0">
-                  <User className="h-4 w-4 text-[#555555]" />
-                </div>
-                <div className="text-left min-w-0">
-                  <span className="text-[10px] text-[#555555] block leading-tight">Trade With</span>
-                  <span className={`text-sm font-medium ${targetRoster ? 'text-white' : 'text-[#444444]'}`}>
-                    {targetRoster ? getTeamDisplayName(targetRoster) : 'Any team'}
-                  </span>
-                </div>
-              </div>
-              <div className="flex items-center gap-1.5 shrink-0">
-                {targetRoster && (
-                  <button
-                    onClick={(e) => { e.stopPropagation(); setTargetRoster(null); setScenarios([]); }}
-                    className="p-1 rounded hover:bg-red-500/10 transition-colors"
-                  >
-                    <X className="h-3.5 w-3.5 text-[#555555] hover:text-red-400" />
-                  </button>
-                )}
-                <ChevronDown className="h-4 w-4 text-[#444444]" />
-              </div>
+              <button
+                onClick={() => setDropdownOpen('assets')}
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] text-[#555555] hover:text-cyan-400 hover:bg-cyan-500/5 transition-all"
+              >
+                <Plus className="h-3 w-3" />
+                Pick
+              </button>
             </div>
-          )}
+          </div>
+        )}
 
-          {tradeMode === 'acquire' && targetRoster && (
-            <button
-              onClick={() => setDropdownOpen('myTeam')}
-              className="w-full p-3 rounded-lg border border-[#1a1a1a] hover:border-[#333333] transition-colors flex items-center justify-between"
-            >
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-[#111111] flex items-center justify-center shrink-0">
-                  <User className="h-4 w-4 text-[#555555]" />
-                </div>
-                <div className="text-left">
-                  <span className="text-[10px] text-[#555555] block leading-tight">Your Team</span>
-                  <span className={`text-sm font-medium ${myRoster ? 'text-white' : 'text-[#444444]'}`}>
-                    {myRoster ? getTeamDisplayName(myRoster) : 'Select...'}
-                  </span>
-                </div>
-              </div>
-              <ChevronDown className="h-4 w-4 text-[#444444]" />
-            </button>
-          )}
-        </div>
+        {/* Side 2: Trade With (dump) or Your Team (acquire) */}
+        {((tradeMode === 'dump' && myRoster) || (tradeMode === 'acquire' && targetRoster)) && (
+          <button
+            onClick={() => setDropdownOpen(tradeMode === 'dump' ? 'targetTeam' : 'myTeam')}
+            className="w-full flex items-center justify-between bg-[#111111] px-4 sm:px-5 py-2.5 border-t border-[#1a1a1a] group"
+          >
+            <div className="flex items-center gap-2 min-w-0">
+              <span className={`font-bold text-sm truncate ${
+                (tradeMode === 'dump' ? targetRoster : myRoster) ? 'text-white' : 'text-[#555555]'
+              }`}>
+                {tradeMode === 'dump'
+                  ? (targetRoster ? getTeamDisplayName(targetRoster) : 'Any team')
+                  : (myRoster ? getTeamDisplayName(myRoster) : 'Select your team...')
+                }
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0">
+              {tradeMode === 'dump' && targetRoster && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); setTargetRoster(null); setScenarios([]); }}
+                  className="p-1 rounded hover:bg-red-500/10 transition-colors"
+                >
+                  <X className="h-3.5 w-3.5 text-[#555555] hover:text-red-400" />
+                </button>
+              )}
+              <ChevronDown className="h-4 w-4 text-[#333333] group-hover:text-[#555555] transition-colors" />
+            </div>
+          </button>
+        )}
 
         {/* Filters Row */}
         <div className="border-t border-[#151515]">

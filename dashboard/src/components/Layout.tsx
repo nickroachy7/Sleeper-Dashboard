@@ -116,7 +116,7 @@ export default function Layout() {
             className="h-7 w-auto"
           />
         </div>
-        <nav className="flex items-center justify-around px-2 border-t border-[#111111]">
+        <nav className="flex items-center justify-around px-2">
           {mobileNav.map(({ to, icon: Icon, label }) => {
             const isActive = isNavItemActive(to);
             return (
