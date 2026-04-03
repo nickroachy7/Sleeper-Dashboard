@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
+import { useRealtimeSync } from '../hooks/useRealtimeSync';
 
 // ── Nav Configuration ───────────────────────────────────────────────
 
@@ -41,6 +42,7 @@ const mobileNav = [
 
 export default function Layout() {
   const location = useLocation();
+  useRealtimeSync();
 
   const { data: league } = useQuery({
     queryKey: ['layout-league'],

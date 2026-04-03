@@ -59,6 +59,7 @@ interface CronRun {
 const SYNC_TYPE_CONFIG: Record<string, { icon: typeof Database; label: string; color: string; syncType: string }> = {
   ktc_values: { icon: Crown, label: 'KTC Values', color: 'text-yellow-400', syncType: 'ktc_values' },
   league_data: { icon: Users, label: 'League Data', color: 'text-blue-400', syncType: 'league_data' },
+  transactions_live: { icon: Zap, label: 'Live Transactions', color: 'text-orange-400', syncType: 'transactions_live' },
   players: { icon: Database, label: 'Players', color: 'text-green-400', syncType: 'players' },
   nfl_state: { icon: Activity, label: 'NFL State', color: 'text-purple-400', syncType: 'nfl_state' },
 };
@@ -66,6 +67,7 @@ const SYNC_TYPE_CONFIG: Record<string, { icon: typeof Database; label: string; c
 const CRON_DESCRIPTIONS: Record<string, string> = {
   'sync-ktc-values': 'Daily at 6 AM ET',
   'sync-league-data': 'Every 6 hours',
+  'sync-transactions-live': 'Every 5 minutes',
   'sync-players': 'Mondays at 8 AM ET',
   'sync-nfl-state': 'Daily at 10 AM ET',
 };
@@ -371,10 +373,11 @@ export default function Settings() {
                 <section className="mb-8">
                   <p className="text-[10px] font-bold text-[#444444] tracking-[2px] uppercase mb-4">DATA SYNC</p>
 
-                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
+                  <div className="grid grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3">
                     {[
                       { name: 'sync-ktc-values', type: 'ktc_values' },
                       { name: 'sync-league-data', type: 'league_data' },
+                      { name: 'sync-transactions-live', type: 'transactions_live' },
                       { name: 'sync-players', type: 'players' },
                       { name: 'sync-nfl-state', type: 'nfl_state' },
                     ].map((job) => {
