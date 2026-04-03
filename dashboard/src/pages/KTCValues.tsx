@@ -671,12 +671,20 @@ function TeamsTab() {
 
       </div>
 
-      <p className="text-[11px] text-[#444444] mt-3 px-1 leading-relaxed">
-        {isAllFilter
-          ? 'Total value sums each position using diminishing returns — starters at full value, depth at 50%, deep bench at 10%. Picks are counted at full value.'
-          : 'Position values use diminishing returns — starters count at full value, depth pieces at 50%, and deep bench at 10%. Picks are counted at full value.'
-        }
-      </p>
+      <div className="text-[11px] text-[#444444] mt-3 px-1 leading-relaxed space-y-1.5">
+        <p>
+          Rankings use diminishing returns to prevent roster hoarding from inflating values. Players are sorted by KTC value at each position, then weighted by roster slot:
+        </p>
+        <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 pl-1">
+          <span className="text-[#555555] font-medium">100%</span>
+          <span>Top 2 QBs, top 3 RBs, top 3 WRs, top 1 TE</span>
+          <span className="text-[#555555] font-medium">50%</span>
+          <span>Next 1 QB, next 2 RBs, next 2 WRs, next 1 TE</span>
+          <span className="text-[#555555] font-medium">10%</span>
+          <span>Everyone else on the bench beyond that</span>
+        </div>
+        <p>Picks are always counted at full value.</p>
+      </div>
     </>
   );
 }
