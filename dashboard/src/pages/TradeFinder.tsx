@@ -23,7 +23,6 @@ import {
   useClickOutside,
   buildPicksForRoster,
   getTeamDisplayName,
-  FAIRNESS_CONFIG,
 } from '../lib/trade-shared';
 // Note: getPositionBadgeClass still used in AssetDropdown modal
 import { TeamDropdown } from '../components/TeamDropdown';
@@ -861,8 +860,6 @@ export function TradeFinder() {
             {scenarios.map((scenario, idx) => {
               const myTeamName = myRoster ? getTeamDisplayName(myRoster) : 'My Team';
               const partnerTeamName = getTeamDisplayName(scenario.partnerRoster);
-              const config = FAIRNESS_CONFIG[scenario.fairness];
-
               // Map scenario assets to TradeCard format
               const mapAssets = (assets: TradeAsset[]) => {
                 const players = assets
