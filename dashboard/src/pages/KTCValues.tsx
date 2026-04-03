@@ -122,6 +122,12 @@ interface TeamRanking {
   wrValue: number;
   teValue: number;
   picksValue: number;
+  compositeRank: number; // average position rank (lower = better)
+  qbRank: number;
+  rbRank: number;
+  wrRank: number;
+  teRank: number;
+  picksRank: number;
 }
 
 const teamTierLabels: Record<string, string> = {
@@ -157,6 +163,32 @@ const teamRankAccentColors: Record<number, string> = {
 };
 
 type TeamPositionFilter = 'ALL' | 'QB' | 'RB' | 'WR' | 'TE' | 'Picks';
+
+// Diminishing returns weight thresholds per position
+// Full value for starters, 50% for quality depth, 10% for deep bench
+const POSITION_WEIGHT_TIERS: Record<string, { full: number; reduced: number }> = {
+  QB: { full: 2, reduced: 1 },   // 2 starters (QB+SF), 3rd at 50%, 4th+ at 10%
+  RB: { full: 3, reduced: 2 },   // 3 starters (2RB+flex), 4th-5th at 50%, 6th+ at 10%
+  WR: { full: 3, reduced: 2 },   // 3 starters (3WR+flex), 4th-5th at 50%, 6th+ at 10%
+  TE: { full: 1, reduced: 1 },   // 1 starter, 2nd at 50%, 3rd+ at 10%
+};
+
+function calcWeightedPositionValue(assets: { value: number }[], position: string): number {
+  const sorted = [...assets].sort((a, b) => b.value - a.value);
+  const tiers = POSITION_WEIGHT_TIERS[position] || { full: 3, reduced: 2 };
+
+  let total = 0;
+  for (let i = 0; i < sorted.length; i++) {
+    if (i < tiers.full) {
+      total += sorted[i].value;               // 100%
+    } else if (i < tiers.full + tiers.reduced) {
+      total += Math.round(sorted[i].value * 0.5);  // 50%
+    } else {
+      total += Math.round(sorted[i].value * 0.1);  // 10%
+    }
+  }
+  return total;
+}
 
 function getTeamValueForFilter(team: TeamRanking, filter: TeamPositionFilter): number {
   switch (filter) {
@@ -465,19 +497,22 @@ function TeamsTab() {
   const teamRankings = useMemo<TeamRanking[]>(() => {
     if (!rosters.length || !playerValues.size) return [];
 
-    return rosters.map(roster => {
+    // First pass: compute weighted position values for each roster
+    const baseTeams = rosters.map(roster => {
       const playerAssets = buildPlayersForRoster(roster, playerValues, players);
       const pickAssets = buildPicksForRoster(roster.roster_id, rosters, pickValues, tradedPicks);
 
-      let qbValue = 0, rbValue = 0, wrValue = 0, teValue = 0;
+      const byPosition: Record<string, { value: number }[]> = { QB: [], RB: [], WR: [], TE: [] };
       for (const asset of playerAssets) {
-        switch (asset.position) {
-          case 'QB': qbValue += asset.value; break;
-          case 'RB': rbValue += asset.value; break;
-          case 'WR': wrValue += asset.value; break;
-          case 'TE': teValue += asset.value; break;
+        if (asset.position && byPosition[asset.position]) {
+          byPosition[asset.position].push(asset);
         }
       }
+
+      const qbValue = calcWeightedPositionValue(byPosition.QB, 'QB');
+      const rbValue = calcWeightedPositionValue(byPosition.RB, 'RB');
+      const wrValue = calcWeightedPositionValue(byPosition.WR, 'WR');
+      const teValue = calcWeightedPositionValue(byPosition.TE, 'TE');
       const picksValue = pickAssets.reduce((sum, a) => sum + a.value, 0);
       const totalValue = qbValue + rbValue + wrValue + teValue + picksValue;
 
@@ -490,13 +525,33 @@ function TeamsTab() {
         teamName: roster.teamName,
         ownerId: roster.owner_id,
         avatarUrl: teamAvatar || userAvatar,
-        totalValue,
-        qbValue,
-        rbValue,
-        wrValue,
-        teValue,
-        picksValue,
+        totalValue, qbValue, rbValue, wrValue, teValue, picksValue,
       };
+    });
+
+    // Second pass: compute position ranks and composite rank
+    const rankByField = (field: 'qbValue' | 'rbValue' | 'wrValue' | 'teValue' | 'picksValue') => {
+      const sorted = [...baseTeams].sort((a, b) => b[field] - a[field]);
+      const ranks = new Map<number, number>();
+      sorted.forEach((t, i) => ranks.set(t.rosterId, i + 1));
+      return ranks;
+    };
+
+    const qbRanks = rankByField('qbValue');
+    const rbRanks = rankByField('rbValue');
+    const wrRanks = rankByField('wrValue');
+    const teRanks = rankByField('teValue');
+    const picksRanks = rankByField('picksValue');
+
+    return baseTeams.map(t => {
+      const qbRank = qbRanks.get(t.rosterId)!;
+      const rbRank = rbRanks.get(t.rosterId)!;
+      const wrRank = wrRanks.get(t.rosterId)!;
+      const teRank = teRanks.get(t.rosterId)!;
+      const picksRank = picksRanks.get(t.rosterId)!;
+      const compositeRank = (qbRank + rbRank + wrRank + teRank + picksRank) / 5;
+
+      return { ...t, compositeRank, qbRank, rbRank, wrRank, teRank, picksRank };
     });
   }, [rosters, players, playerValues, pickValues, tradedPicks, teamAvatarData]);
 
@@ -526,7 +581,8 @@ function TeamsTab() {
 
   const getTierForIndex = (idx: number) => tiers.find(t => idx >= t.startIdx && idx < t.endIdx);
 
-  const filterLabel = positionFilter === 'ALL' ? 'Total' : positionFilter === 'Picks' ? 'Pick' : positionFilter;
+  const isAllFilter = positionFilter === 'ALL';
+  const filterLabel = isAllFilter ? 'Total' : positionFilter === 'Picks' ? 'Pick' : positionFilter;
 
   return (
     <>
@@ -614,6 +670,13 @@ function TeamsTab() {
         })}
 
       </div>
+
+      <p className="text-[11px] text-[#444444] mt-3 px-1 leading-relaxed">
+        {isAllFilter
+          ? 'Total value sums each position using diminishing returns — starters at full value, depth at 50%, deep bench at 10%. Picks are counted at full value.'
+          : 'Position values use diminishing returns — starters count at full value, depth pieces at 50%, and deep bench at 10%. Picks are counted at full value.'
+        }
+      </p>
     </>
   );
 }
