@@ -350,11 +350,17 @@ export function TradeFinder() {
         });
 
         // Match each give package against pre-computed return combos
+        // Pre-filter uses a wider band (1.5×) to catch trades that may shift
+        // after full analyzeTrade adjustments (tier mismatch, etc.), then a
+        // tighter post-analysis check ensures only fair-enough trades survive.
+        const TOLERANCE_FLOOR = 300;
         givePackages.forEach(givePkg => {
           const giveValue = calculateSideValue(givePkg as ValueAdjustmentAsset[]);
           const giveAdjusted = giveValue.adjustedTotal;
-          const minValue = giveAdjusted * (1 - tolerance / 100);
-          const maxValue = giveAdjusted * (1 + tolerance / 100);
+          const toleranceBand = Math.max(giveAdjusted * (tolerance / 100), TOLERANCE_FLOOR);
+          // Wide pre-filter (1.5× tolerance) to avoid missing trades that shift after full analysis
+          const preFilterMin = giveAdjusted - toleranceBand * 1.5;
+          const preFilterMax = giveAdjusted + toleranceBand * 1.5;
 
           teamsToSearch.forEach(searchRoster => {
             const combinations = teamCombos.get(searchRoster.roster_id) || [];
@@ -362,7 +368,7 @@ export function TradeFinder() {
             combinations.forEach(({ combo, value: comboValue }) => {
               const comboAdjusted = comboValue.adjustedTotal;
 
-              if (comboAdjusted >= minValue && comboAdjusted <= maxValue) {
+              if (comboAdjusted >= preFilterMin && comboAdjusted <= preFilterMax) {
                 // Deduplicate: same give+get asset IDs = same trade
                 const giveIds = givePkg.map(a => a.id).sort().join(',');
                 const getIds = combo.map(a => a.id).sort().join(',');
@@ -374,8 +380,14 @@ export function TradeFinder() {
                   ? analyzeTrade(givePkg as ValueAdjustmentAsset[], combo as ValueAdjustmentAsset[])
                   : analyzeTrade(combo as ValueAdjustmentAsset[], selectedAssets as ValueAdjustmentAsset[]);
 
+                // Tight post-analysis check: use actual adjusted totals after all penalties/bonuses
                 const side1Adjusted = analysis.side1.adjustedTotal;
                 const side2Adjusted = analysis.side2.adjustedTotal;
+                const postAnalysisDiff = Math.abs(side1Adjusted - side2Adjusted);
+                const postAvg = (side1Adjusted + side2Adjusted) / 2;
+                const postTolerance = Math.max(postAvg * (tolerance / 100), TOLERANCE_FLOOR);
+                if (postAnalysisDiff > postTolerance) return;
+
                 const rawDiff = comboValue.rawTotal - giveValue.rawTotal;
                 const adjustedDiff = side2Adjusted - side1Adjusted;
                 const diffPercent = side1Adjusted > 0 ? (adjustedDiff / side1Adjusted) * 100 : 0;

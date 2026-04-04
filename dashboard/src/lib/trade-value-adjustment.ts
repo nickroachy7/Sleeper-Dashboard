@@ -133,26 +133,49 @@ function calculateTierMismatchPenalty(
 }
 
 /**
+ * Calculate a smooth stud bonus percentage for a given value.
+ * Uses linear interpolation between tier thresholds instead of hard cutoffs,
+ * so a player at 6900 gets ~11.4% instead of jumping from 6% to 12% at 7000.
+ *
+ * Gradient:
+ *   0–1000        → 0%
+ *   1000–2500     → 0%–2.5%
+ *   2500–4500     → 2.5%–6%
+ *   4500–7000     → 6%–12%
+ *   7000+         → 12% (capped)
+ */
+function getStudBonusRate(value: number): number {
+  if (value >= ELITE_THRESHOLD) return 0.12;
+  if (value >= STAR_THRESHOLD) {
+    // Interpolate 6% → 12% across 4500–7000
+    return 0.06 + (0.06 * (value - STAR_THRESHOLD) / (ELITE_THRESHOLD - STAR_THRESHOLD));
+  }
+  if (value >= STARTER_THRESHOLD) {
+    // Interpolate 2.5% → 6% across 2500–4500
+    return 0.025 + (0.035 * (value - STARTER_THRESHOLD) / (STAR_THRESHOLD - STARTER_THRESHOLD));
+  }
+  if (value >= DEPTH_THRESHOLD) {
+    // Interpolate 0% → 2.5% across 1000–2500
+    return 0.025 * (value - DEPTH_THRESHOLD) / (STARTER_THRESHOLD - DEPTH_THRESHOLD);
+  }
+  return 0;
+}
+
+/**
  * Calculate the "stud factor" bonus for a set of assets.
  * Elite players are harder to acquire, so the side giving them up deserves extra value.
+ * Uses a smooth gradient so there are no cliff effects at tier boundaries.
  */
 function calculateStudBonus(assets: TradeAsset[]): number {
   let studBonus = 0;
-  
+
   for (const asset of assets) {
-    if (asset.value >= ELITE_THRESHOLD) {
-      // Elite players: 10-15% bonus on their value
-      studBonus += asset.value * 0.12;
-    } else if (asset.value >= STAR_THRESHOLD) {
-      // Stars: 5-8% bonus
-      studBonus += asset.value * 0.06;
-    } else if (asset.value >= STARTER_THRESHOLD) {
-      // Solid starters: 2-3% bonus
-      studBonus += asset.value * 0.025;
+    const rate = getStudBonusRate(asset.value);
+    if (rate > 0) {
+      studBonus += asset.value * rate;
     }
-    // Depth pieces and fliers get no bonus
   }
-  
+
   return Math.round(studBonus);
 }
 
@@ -352,20 +375,24 @@ export function analyzeTrade(
   };
 }
 
+// Minimum absolute tolerance so low-value trades still surface
+const MIN_TOLERANCE_FLOOR = 300;
+
 /**
  * Calculate adjusted fairness thresholds for the Trade Finder.
- * Used when searching for matching trade packages.
+ * Uses a hybrid band: percentage-based with an absolute floor so that
+ * low-value trades aren't squeezed out by tiny tolerance windows.
  */
 export function getAdjustedValueRange(
   assets: TradeAsset[],
   tolerancePercent: number
 ): { min: number; max: number; adjustedValue: number } {
   const sideValue = calculateSideValue(assets);
-  
+
   // Use adjusted value for range calculation
   const adjustedValue = sideValue.adjustedTotal;
-  const tolerance = adjustedValue * (tolerancePercent / 100);
-  
+  const tolerance = Math.max(adjustedValue * (tolerancePercent / 100), MIN_TOLERANCE_FLOOR);
+
   return {
     min: adjustedValue - tolerance,
     max: adjustedValue + tolerance,
@@ -384,10 +411,10 @@ export function isGoodTradeMatch(
 ): { isMatch: boolean; analysis: TradeAnalysisResult } {
   const analysis = analyzeTrade(giveAssets, getAssets);
   
-  // Check if within tolerance based on adjusted difference
+  // Check if within tolerance based on adjusted difference (hybrid: % with absolute floor)
   const avgValue = (analysis.side1.adjustedTotal + analysis.side2.adjustedTotal) / 2;
-  const toleranceValue = avgValue * (tolerancePercent / 100);
-  
+  const toleranceValue = Math.max(avgValue * (tolerancePercent / 100), MIN_TOLERANCE_FLOOR);
+
   const isMatch = analysis.adjustedDifference <= toleranceValue;
   
   return { isMatch, analysis };
