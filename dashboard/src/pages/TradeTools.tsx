@@ -4,12 +4,12 @@ import { TradeEvaluator } from './TradeEvaluator';
 import { TradeFinder } from './TradeFinder';
 import { PageHeader } from '../components/PageHeader';
 
-const tabs = [
+const tabDefs = [
   { id: 'evaluate' as const, label: 'Evaluate', icon: Scale, subtitle: 'Build a trade and see who wins' },
   { id: 'find' as const, label: 'Find', icon: Target, subtitle: 'Discover fair trades across the league' },
 ];
 
-type TabId = typeof tabs[number]['id'];
+type TabId = typeof tabDefs[number]['id'];
 
 export default function TradeTools() {
   const [activeTab, setActiveTab] = useState<TabId>('evaluate');
@@ -20,22 +20,11 @@ export default function TradeTools() {
         <PageHeader
           sectionLabel="Tools"
           title="Trade Tools"
-          subtitle={tabs.find(t => t.id === activeTab)?.subtitle}
+          subtitle={tabDefs.find(t => t.id === activeTab)?.subtitle}
+          tabs={tabDefs}
+          activeTab={activeTab}
+          onTabChange={(id) => setActiveTab(id as TabId)}
         />
-
-        {/* Segmented Control */}
-        <div className="segmented-control mb-6">
-          {tabs.map(({ id, label, icon: Icon }) => (
-            <button
-              key={id}
-              onClick={() => setActiveTab(id)}
-              className={`flex items-center gap-1.5 ${activeTab === id ? 'active' : ''}`}
-            >
-              <Icon className="h-3.5 w-3.5" />
-              {label}
-            </button>
-          ))}
-        </div>
 
         {activeTab === 'evaluate' ? <TradeEvaluator /> : <TradeFinder />}
       </div>

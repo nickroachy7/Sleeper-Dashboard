@@ -6,7 +6,7 @@ interface FilterBarProps {
 export function FilterBar({ children, sticky = false }: FilterBarProps) {
   return (
     <div
-      className={`flex flex-col sm:flex-row items-start sm:items-center gap-3 py-3 px-1 mb-4 ${
+      className={`flex flex-col sm:flex-row items-start sm:items-center gap-2 py-2 px-1 mb-3 ${
         sticky ? 'sticky top-0 z-10 bg-black/90 backdrop-blur-xl -mx-1 px-1' : ''
       }`}
     >

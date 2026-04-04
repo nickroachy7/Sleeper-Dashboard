@@ -197,7 +197,7 @@ export default function Transactions() {
 
   if (isLoading) {
     return (
-      <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto">
+      <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto">
         <div className="space-y-4 mt-12">
           {Array.from({ length: 5 }).map((_, i) => (
             <div key={i} className="bg-[#0a0a0a] rounded-xl p-5">
@@ -226,7 +226,7 @@ export default function Transactions() {
 
   if (!transactions?.length) {
     return (
-      <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto">
+      <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto">
         <div className="flex flex-col items-center justify-center py-16 text-center">
           <div className="w-14 h-14 bg-[#111111] rounded-2xl flex items-center justify-center mb-4">
             <ArrowRightLeft className="h-7 w-7 text-[#555555]" />
@@ -426,7 +426,7 @@ export default function Transactions() {
   let lastDateGroup = '';
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto">
       <PageHeader
         sectionLabel="League"
         title="Transactions"

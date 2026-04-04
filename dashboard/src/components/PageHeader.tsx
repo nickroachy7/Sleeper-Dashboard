@@ -1,3 +1,11 @@
+import type { ReactNode } from 'react';
+
+interface Tab {
+  id: string;
+  label: string;
+  icon?: React.ComponentType<{ className?: string }>;
+}
+
 interface PageHeaderProps {
   title: string;
   subtitle?: string;
@@ -5,13 +13,26 @@ interface PageHeaderProps {
   children?: React.ReactNode;
   actions?: React.ReactNode;
   stats?: React.ReactNode;
+  tabs?: Tab[];
+  activeTab?: string;
+  onTabChange?: (id: string) => void;
 }
 
-export function PageHeader({ title, subtitle, sectionLabel, children, actions, stats }: PageHeaderProps) {
+export function PageHeader({
+  title,
+  subtitle,
+  sectionLabel,
+  children,
+  actions,
+  stats,
+  tabs,
+  activeTab,
+  onTabChange,
+}: PageHeaderProps) {
   return (
-    <div className="mb-6 sm:mb-8">
+    <div className="mb-3">
       {sectionLabel && (
-        <p className="text-[10px] font-bold text-[#555555] tracking-[3px] uppercase mb-2">
+        <p className="text-[10px] font-bold text-[#555555] tracking-[3px] uppercase mb-1">
           {sectionLabel}
         </p>
       )}
@@ -20,17 +41,31 @@ export function PageHeader({ title, subtitle, sectionLabel, children, actions, s
           {title}
         </h1>
         <div className="flex items-center gap-2 flex-shrink-0">
+          {tabs && onTabChange && (
+            <div className="segmented-control">
+              {tabs.map(({ id, label, icon: Icon }) => (
+                <button
+                  key={id}
+                  onClick={() => onTabChange(id)}
+                  className={`flex items-center gap-1.5 ${activeTab === id ? 'active' : ''}`}
+                >
+                  {Icon && <Icon className="h-3.5 w-3.5" />}
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
           {actions}
           {children}
         </div>
       </div>
-      {subtitle && (
-        <p className="text-[13px] text-[#555555] mt-1.5">
-          {subtitle}
-        </p>
-      )}
-      {stats && (
-        <div className="flex items-center gap-3 mt-3 flex-wrap">
+      {(subtitle || stats) && (
+        <div className="flex items-center gap-2 mt-1 flex-wrap">
+          {subtitle && (
+            <p className="text-[13px] text-[#555555]">
+              {subtitle}
+            </p>
+          )}
           {stats}
         </div>
       )}

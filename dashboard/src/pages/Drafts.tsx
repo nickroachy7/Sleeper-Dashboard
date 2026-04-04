@@ -220,19 +220,17 @@ export default function Drafts() {
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto">
-      <PageHeader sectionLabel="League" title="Drafts" subtitle="View draft history and future pick ownership" />
-
-      {/* Segmented Control */}
-      <div className="segmented-control mb-6">
-        <button onClick={() => setActiveTab('history')} className={`flex items-center gap-1.5 ${activeTab === 'history' ? 'active' : ''}`}>
-          <History className="h-3.5 w-3.5" />
-          History
-        </button>
-        <button onClick={() => setActiveTab('capital')} className={`flex items-center gap-1.5 ${activeTab === 'capital' ? 'active' : ''}`}>
-          <Calendar className="h-3.5 w-3.5" />
-          Capital
-        </button>
-      </div>
+      <PageHeader
+        sectionLabel="League"
+        title="Drafts"
+        subtitle="View draft history and future pick ownership"
+        tabs={[
+          { id: 'history', label: 'History', icon: History },
+          { id: 'capital', label: 'Capital', icon: Calendar },
+        ]}
+        activeTab={activeTab}
+        onTabChange={(id) => setActiveTab(id as 'history' | 'capital')}
+      />
 
       {/* Draft History Tab */}
       {activeTab === 'history' && (

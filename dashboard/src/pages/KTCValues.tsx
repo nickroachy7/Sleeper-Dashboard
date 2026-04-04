@@ -321,11 +321,11 @@ function PlayersTab() {
 
   return (
     <>
-      <div className="flex items-center gap-2 flex-wrap mb-4">
-        <span className="text-[11px] text-[#555555] bg-[#0a0a0a] px-2 py-1 rounded-md">
+      <div className="flex items-center gap-2 flex-wrap mb-2">
+        <span className="text-[11px] text-[#555555] bg-[#0a0a0a] px-2 py-0.5 rounded-md">
           {stats.totalPlayers} players
         </span>
-        <span className="text-[11px] text-[#555555] bg-[#0a0a0a] px-2 py-1 rounded-md">
+        <span className="text-[11px] text-[#555555] bg-[#0a0a0a] px-2 py-0.5 rounded-md">
           {stats.totalPicks} picks
         </span>
         {stats.lastUpdated && (
@@ -334,8 +334,7 @@ function PlayersTab() {
           </span>
         )}
       </div>
-
-      <FilterBar>
+      <FilterBar sticky>
         <SearchInput
           value={searchQuery}
           onChange={handleSearchChange}
@@ -695,29 +694,18 @@ export function KTCValues() {
   const [activeTab, setActiveTab] = useState<TabType>('players');
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto">
       <PageHeader
         sectionLabel="Values"
         title="KTC Values"
         subtitle="Superflex Dynasty Rankings"
+        tabs={[
+          { id: 'players', label: 'Players' },
+          { id: 'teams', label: 'Teams' },
+        ]}
+        activeTab={activeTab}
+        onTabChange={(id) => setActiveTab(id as 'players' | 'teams')}
       />
-
-      {/* Tab Switcher */}
-      <div className="flex items-center gap-1 mb-4 bg-[#0a0a0a] rounded-lg p-1 w-fit">
-        {(['players', 'teams'] as const).map(tab => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={`px-4 py-1.5 rounded-md text-[13px] font-semibold transition-colors ${
-              activeTab === tab
-                ? 'bg-[#1a1a1a] text-white'
-                : 'text-[#555555] hover:text-[#888888]'
-            }`}
-          >
-            {tab === 'players' ? 'Players' : 'Teams'}
-          </button>
-        ))}
-      </div>
 
       {activeTab === 'players' ? <PlayersTab /> : <TeamsTab />}
     </div>
