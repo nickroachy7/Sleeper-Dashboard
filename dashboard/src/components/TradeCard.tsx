@@ -1,5 +1,7 @@
 import { Clock } from 'lucide-react';
 import { AssetRow } from './AssetRow';
+import { FAIRNESS_CONFIG } from '../lib/trade-shared';
+import type { Fairness } from '../types/domain';
 
 interface TradePlayer {
   id: string;
@@ -20,6 +22,7 @@ export interface TradeSide {
   players: TradePlayer[];
   picks: TradePick[];
   totalValue: number;
+  adjustedValue?: number;
 }
 
 interface TradeCardProps {
@@ -29,6 +32,7 @@ interface TradeCardProps {
   date?: string;
   variant?: 'compact' | 'full';
   showHeader?: boolean;
+  fairness?: Fairness;
 }
 
 export function TradeCard({
@@ -38,15 +42,19 @@ export function TradeCard({
   date,
   variant = 'full',
   showHeader = true,
+  fairness,
 }: TradeCardProps) {
   if (sides.length < 2) return null;
 
-  const diff = Math.abs(sides[0].totalValue - sides[1].totalValue);
-  const winnerIndex = sides[0].totalValue > sides[1].totalValue ? 0 : sides[1].totalValue > sides[0].totalValue ? 1 : null;
+  // Use adjusted values when available, fall back to raw totals
+  const val0 = sides[0].adjustedValue ?? sides[0].totalValue;
+  const val1 = sides[1].adjustedValue ?? sides[1].totalValue;
+  const diff = Math.abs(val0 - val1);
+  const winnerIndex = val0 > val1 ? 0 : val1 > val0 ? 1 : null;
   const actualWinnerIdx = winnerId !== null && winnerId !== undefined ? winnerId : winnerIndex;
   const isActuallyEven = isEvenTrade ?? diff === 0;
-  const hasZeroSide = sides.some(s => s.totalValue === 0);
-  const isNearEven = !hasZeroSide && (isActuallyEven || diff < 500);
+  const hasZeroSide = sides.some(s => (s.adjustedValue ?? s.totalValue) === 0);
+  const isNearEven = !hasZeroSide && (fairness === 'fair' || isActuallyEven || diff < 500);
 
   const isCompact = variant === 'compact';
 
@@ -66,6 +74,11 @@ export function TradeCard({
               </span>
             )}
           </div>
+          {fairness && (
+            <span className={`px-2 py-0.5 text-[10px] font-bold rounded-sm ${FAIRNESS_CONFIG[fairness].badge}`}>
+              {FAIRNESS_CONFIG[fairness].label}
+            </span>
+          )}
         </div>
       )}
 
@@ -102,12 +115,13 @@ export function TradeCard({
                   </span>
                 </div>
                 {(() => {
-                  const otherTotal = sides.filter((_, i) => i !== idx).reduce((sum, s) => sum + s.totalValue, 0) / Math.max(sides.length - 1, 1);
-                  const net = Math.round(side.totalValue - otherTotal);
+                  const sideVal = side.adjustedValue ?? side.totalValue;
+                  const otherTotal = sides.filter((_, i) => i !== idx).reduce((sum, s) => sum + (s.adjustedValue ?? s.totalValue), 0) / Math.max(sides.length - 1, 1);
+                  const net = Math.round(sideVal - otherTotal);
                   if (net === 0) {
                     return (
                       <span className="text-[11px] text-[#555555] font-medium tabular-nums">
-                        {side.totalValue.toLocaleString()} KTC
+                        {sideVal.toLocaleString()} KTC
                       </span>
                     );
                   }

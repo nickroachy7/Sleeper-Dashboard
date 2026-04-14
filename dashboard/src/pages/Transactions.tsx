@@ -14,6 +14,8 @@ import { usePlayerMap } from '../hooks/useLeagueData';
 import { usePlayerValuesList } from '../hooks/queries';
 import { TradeCard as SharedTradeCard, type TradeSide } from '../components/TradeCard';
 import { AssetRow } from '../components/AssetRow';
+import { analyzeTrade } from '../lib/trade-value-adjustment';
+import type { TradeAsset } from '../types/domain';
 
 interface LeagueUser {
   user_id: string;
@@ -105,52 +107,41 @@ export default function Transactions() {
 
     const getTransactionValueMetrics = (tx: any) => {
       if (tx.type === 'trade') {
-        const teamValues: Record<number, { received: number; gave: number }> = {};
-
-        if (tx.adds) {
-          Object.entries(tx.adds).forEach(([playerId, rosterId]) => {
-            const rId = rosterId as number;
-            if (!teamValues[rId]) teamValues[rId] = { received: 0, gave: 0 };
-            teamValues[rId].received += playerValues?.get(playerId) || 0;
+        // Build TradeAsset arrays per side for adjusted analysis
+        const teams = tx.teams || [];
+        const tradeAssets = getTradeAssets(tx);
+        const sideAssetArrays: TradeAsset[][] = teams.map((team: any) => {
+          const assets = tradeAssets[team.rosterId] || { players: [], picks: [], value: 0 };
+          const result: TradeAsset[] = [];
+          assets.players.forEach((playerId: string) => {
+            const player = players instanceof Map ? players.get(playerId) : undefined;
+            result.push({
+              id: `player-${playerId}`,
+              type: 'player',
+              name: player?.full_name || playerId,
+              value: playerValues?.get(playerId) || 0,
+              position: player?.position || '?',
+              team: player?.team || null,
+            });
           });
-        }
-
-        if (tx.drops) {
-          Object.entries(tx.drops).forEach(([playerId, rosterId]) => {
-            const rId = rosterId as number;
-            if (!teamValues[rId]) teamValues[rId] = { received: 0, gave: 0 };
-            teamValues[rId].gave += playerValues?.get(playerId) || 0;
+          assets.picks.forEach((pick: any) => {
+            result.push({
+              id: `pick-${pick.season}-${pick.round}`,
+              type: 'pick',
+              name: `${pick.season} Round ${pick.round}`,
+              value: pick.round === 1 ? 5000 : pick.round === 2 ? 2000 : pick.round === 3 ? 800 : 400,
+            });
           });
-        }
-
-        if (tx.draft_picks && Array.isArray(tx.draft_picks)) {
-          tx.draft_picks.forEach((pick: any) => {
-            const pickValue = pick.round === 1 ? 5000 : pick.round === 2 ? 2000 : pick.round === 3 ? 800 : 400;
-            if (pick.owner_id) {
-              if (!teamValues[pick.owner_id]) teamValues[pick.owner_id] = { received: 0, gave: 0 };
-              teamValues[pick.owner_id].received += pickValue;
-            }
-            if (pick.previous_owner_id) {
-              if (!teamValues[pick.previous_owner_id]) teamValues[pick.previous_owner_id] = { received: 0, gave: 0 };
-              teamValues[pick.previous_owner_id].gave += pickValue;
-            }
-          });
-        }
-
-        let totalValue = 0;
-        let maxGain = -Infinity;
-        let maxLoss = Infinity;
-
-        Object.values(teamValues).forEach(team => {
-          totalValue += team.received;
-          const netGain = team.received - team.gave;
-          if (netGain > maxGain) maxGain = netGain;
-          if (netGain < maxLoss) maxLoss = netGain;
+          return result;
         });
 
-        const valueDiff = maxGain - maxLoss;
+        if (sideAssetArrays.length >= 2) {
+          const analysis = analyzeTrade(sideAssetArrays[0], sideAssetArrays[1]);
+          const totalValue = analysis.side1.adjustedTotal + analysis.side2.adjustedTotal;
+          return { totalValue, valueDiff: analysis.adjustedDifference, maxTeamGain: analysis.adjustedDifference };
+        }
 
-        return { totalValue, valueDiff, maxTeamGain: maxGain === -Infinity ? 0 : maxGain };
+        return { totalValue: 0, valueDiff: 0, maxTeamGain: 0 };
       } else {
         const adds = tx.adds ? Object.keys(tx.adds) : [];
         const drops = tx.drops ? Object.keys(tx.drops) : [];
@@ -294,9 +285,39 @@ export default function Transactions() {
     const teams = tx.teams || [];
     if (teams.length < 2) return null;
 
-    // Convert to shared TradeSide format
-    const sides: TradeSide[] = teams.map((team: any) => {
+    // Build TradeAsset arrays for value adjustment analysis
+    const sideAssets: TradeAsset[][] = teams.map((team: any) => {
       const assets = teamAssets[team.rosterId] || { players: [], picks: [], value: 0 };
+      const tradeAssets: TradeAsset[] = [];
+      assets.players.forEach((playerId: string) => {
+        const player = getPlayer(playerId);
+        tradeAssets.push({
+          id: `player-${playerId}`,
+          type: 'player',
+          name: player?.full_name || playerId,
+          value: getPlayerValue(playerId),
+          position: player?.position || '?',
+          team: player?.team || null,
+        });
+      });
+      assets.picks.forEach((pick: any) => {
+        tradeAssets.push({
+          id: `pick-${pick.season}-${pick.round}-${pick.roster_id}`,
+          type: 'pick',
+          name: `${pick.season} Round ${pick.round}`,
+          value: pick.round === 1 ? 5000 : pick.round === 2 ? 2000 : pick.round === 3 ? 800 : 400,
+        });
+      });
+      return tradeAssets;
+    });
+
+    // Run the value adjustment analysis
+    const analysis = sideAssets.length >= 2 ? analyzeTrade(sideAssets[0], sideAssets[1]) : null;
+
+    // Convert to shared TradeSide format with adjusted values
+    const sides: TradeSide[] = teams.map((team: any, idx: number) => {
+      const assets = teamAssets[team.rosterId] || { players: [], picks: [], value: 0 };
+      const sideResult = analysis ? (idx === 0 ? analysis.side1 : analysis.side2) : null;
       return {
         teamName: team.teamName,
         players: assets.players.map((playerId: string) => {
@@ -315,6 +336,7 @@ export default function Transactions() {
           value: pick.round === 1 ? 5000 : pick.round === 2 ? 2000 : pick.round === 3 ? 800 : 400,
         })),
         totalValue: assets.value,
+        adjustedValue: sideResult?.adjustedTotal,
       };
     });
 
@@ -322,6 +344,7 @@ export default function Transactions() {
       <SharedTradeCard
         sides={sides}
         date={formatDate(tx)}
+        fairness={analysis?.fairness}
       />
     );
   };

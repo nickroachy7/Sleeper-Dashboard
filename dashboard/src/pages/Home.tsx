@@ -14,6 +14,8 @@ import {
   POSITION_WEIGHT_TIERS,
   type RosterPosition,
 } from '../lib/trade-shared';
+import { analyzeTrade } from '../lib/trade-value-adjustment';
+import type { TradeAsset } from '../types/domain';
 
 // ─── Component ───────────────────────────────────────────────────────
 
@@ -170,7 +172,7 @@ export default function Home() {
     rosters.forEach((r: any) => rosterToTeam.set(r.roster_id, resolveTeamName(r.owner_id)));
 
     return recentTrades.map((tx: any) => {
-      const teamAssets: Record<number, { teamName: string; players: { id: string; name: string; position: string; team: string | null; value: number }[]; picks: any[]; totalValue: number }> = {};
+      const teamAssets: Record<number, { teamName: string; players: { id: string; name: string; position: string; team: string | null; value: number }[]; picks: any[]; totalValue: number; adjustedValue?: number }> = {};
 
       (tx.roster_ids || []).forEach((rid: number) => {
         teamAssets[rid] = { teamName: rosterToTeam.get(rid) || `Team ${rid}`, players: [], picks: [], totalValue: 0 };
@@ -199,12 +201,19 @@ export default function Home() {
       }
 
       const sides = Object.values(teamAssets);
-      let winnerId: number | null = null;
-      let isEvenTrade = false;
+
+      // Run value adjustment analysis
+      let fairness: 'fair' | 'slight' | 'unfair' | 'lopsided' | undefined;
       if (sides.length === 2) {
-        const diff = sides[0].totalValue - sides[1].totalValue;
-        if (diff === 0) isEvenTrade = true;
-        else winnerId = diff > 0 ? Number(Object.keys(teamAssets)[0]) : Number(Object.keys(teamAssets)[1]);
+        const buildAssets = (side: typeof sides[0]): TradeAsset[] => [
+          ...side.players.map(p => ({ id: `player-${p.id}`, type: 'player' as const, name: p.name, value: p.value, position: p.position, team: p.team })),
+          ...side.picks.map((pick: any) => ({ id: `pick-${pick.season}-${pick.round}`, type: 'pick' as const, name: `${pick.season} Round ${pick.round}`, value: pick.round === 1 ? 5000 : pick.round === 2 ? 2000 : pick.round === 3 ? 800 : 400 })),
+        ];
+        const analysis = analyzeTrade(buildAssets(sides[0]), buildAssets(sides[1]));
+        fairness = analysis.fairness;
+        // Attach adjusted values to each side
+        sides[0].adjustedValue = analysis.side1.adjustedTotal;
+        sides[1].adjustedValue = analysis.side2.adjustedTotal;
       }
 
       const timestamp = tx.created || tx.status_updated;
@@ -214,8 +223,7 @@ export default function Home() {
         id: tx.transaction_id || tx.id,
         date: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
         teamAssets,
-        winnerId,
-        isEvenTrade,
+        fairness,
         sides,
       };
     });

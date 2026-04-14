@@ -1,6 +1,7 @@
 import { ChevronRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { TradeCard, type TradeSide } from './TradeCard';
+import type { Fairness } from '../types/domain';
 
 interface TradePlayer {
   id: string;
@@ -15,14 +16,14 @@ interface TradeSideAssets {
   players: TradePlayer[];
   picks: any[];
   totalValue: number;
+  adjustedValue?: number;
 }
 
 interface TradeWithTeams {
   id: string;
   date: string;
   teamAssets: Record<number, TradeSideAssets>;
-  winnerId: number | null;
-  isEvenTrade: boolean;
+  fairness?: Fairness;
   sides: TradeSideAssets[];
 }
 
@@ -63,6 +64,7 @@ export function RecentTrades({ trades }: RecentTradesProps) {
               value: pick.round === 1 ? 5000 : pick.round === 2 ? 2000 : pick.round === 3 ? 800 : 400,
             })),
             totalValue: assets.totalValue,
+            adjustedValue: assets.adjustedValue,
           }));
 
           return (
@@ -70,7 +72,7 @@ export function RecentTrades({ trades }: RecentTradesProps) {
               key={trade.id}
               sides={sides}
               date={trade.date}
-              isEvenTrade={trade.isEvenTrade}
+              fairness={trade.fairness}
             />
           );
         })}
