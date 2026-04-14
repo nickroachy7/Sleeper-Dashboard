@@ -241,6 +241,31 @@ export function getProjectedPickTier(roster_id: number, rosters: Roster[]): stri
   return 'Late';
 }
 
+/**
+ * Look up a pick's KTC value from the pick_values table.
+ * When tier is unknown (e.g. transaction history), defaults to "Mid".
+ * Falls back to a conservative hardcoded value if no DB match is found.
+ */
+export function lookupPickValue(
+  pickValues: PickValue[],
+  season: string,
+  round: number,
+  tier?: string | null
+): number {
+  const resolvedTier = tier || 'Mid';
+  const match = pickValues.find(
+    (pv) => pv.pick_year === season && pv.pick_round === round && pv.pick_tier === resolvedTier
+  );
+  if (match) return match.value;
+  // Fallback: try any tier for that year/round
+  const anyTier = pickValues.find(
+    (pv) => pv.pick_year === season && pv.pick_round === round
+  );
+  if (anyTier) return anyTier.value;
+  // Last resort hardcoded fallback
+  return round === 1 ? 5000 : round === 2 ? 2000 : round === 3 ? 800 : 400;
+}
+
 export function getPickDisplayName(year: string, round: number, tier: string): string {
   const roundSuffix = round === 1 ? '1st' : round === 2 ? '2nd' : round === 3 ? '3rd' : `${round}th`;
   return `${year} ${tier} ${roundSuffix}`;

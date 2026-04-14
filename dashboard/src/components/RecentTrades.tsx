@@ -61,7 +61,7 @@ export function RecentTrades({ trades }: RecentTradesProps) {
             picks: assets.picks.map((pick: any) => ({
               season: pick.season,
               round: pick.round,
-              value: pick.round === 1 ? 5000 : pick.round === 2 ? 2000 : pick.round === 3 ? 800 : 400,
+              value: pick.value || 0,
             })),
             totalValue: assets.totalValue,
             adjustedValue: assets.adjustedValue,

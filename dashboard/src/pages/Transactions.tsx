@@ -11,11 +11,12 @@ import { Pagination } from '../components/Pagination';
 import { FilterBar, FilterPills, SortSelect } from '../components/FilterBar';
 
 import { usePlayerMap } from '../hooks/useLeagueData';
-import { usePlayerValuesList } from '../hooks/queries';
+import { usePlayerValuesList, usePickValues } from '../hooks/queries';
 import { TradeCard as SharedTradeCard, type TradeSide } from '../components/TradeCard';
 import { AssetRow } from '../components/AssetRow';
 import { analyzeTrade } from '../lib/trade-value-adjustment';
 import type { TradeAsset } from '../types/domain';
+import { lookupPickValue } from '../lib/trade-shared';
 
 interface LeagueUser {
   user_id: string;
@@ -32,6 +33,7 @@ export default function Transactions() {
 
   const { data: players } = usePlayerMap();
   const { data: playerValues } = usePlayerValuesList();
+  const { data: pickValuesData } = usePickValues();
 
   const { data: transactions, isLoading } = useQuery({
     queryKey: ['transactions'],
@@ -129,7 +131,7 @@ export default function Transactions() {
               id: `pick-${pick.season}-${pick.round}`,
               type: 'pick',
               name: `${pick.season} Round ${pick.round}`,
-              value: pick.round === 1 ? 5000 : pick.round === 2 ? 2000 : pick.round === 3 ? 800 : 400,
+              value: lookupPickValue(pickValuesData || [], pick.season, pick.round),
             });
           });
           return result;
@@ -175,7 +177,7 @@ export default function Transactions() {
         default: return 0;
       }
     });
-  }, [transactions, typeFilter, sortBy, playerValues]);
+  }, [transactions, typeFilter, sortBy, playerValues, pickValuesData]);
 
   const totalPages = Math.ceil(filteredAndSortedTransactions.length / ITEMS_PER_PAGE);
   const paginatedTransactions = useMemo(() => {
@@ -269,7 +271,7 @@ export default function Transactions() {
       tx.draft_picks.forEach((pick: any) => {
         if (pick.owner_id && teamAssets[pick.owner_id]) {
           teamAssets[pick.owner_id].picks.push(pick);
-          const pickBaseValue = pick.round === 1 ? 5000 : pick.round === 2 ? 2000 : pick.round === 3 ? 800 : 400;
+          const pickBaseValue = lookupPickValue(pickValuesData || [], pick.season, pick.round);
           teamAssets[pick.owner_id].value += pickBaseValue;
         }
       });
@@ -305,7 +307,7 @@ export default function Transactions() {
           id: `pick-${pick.season}-${pick.round}-${pick.roster_id}`,
           type: 'pick',
           name: `${pick.season} Round ${pick.round}`,
-          value: pick.round === 1 ? 5000 : pick.round === 2 ? 2000 : pick.round === 3 ? 800 : 400,
+          value: lookupPickValue(pickValuesData || [], pick.season, pick.round),
         });
       });
       return tradeAssets;
@@ -333,7 +335,7 @@ export default function Transactions() {
         picks: assets.picks.map((pick: any) => ({
           season: pick.season,
           round: pick.round,
-          value: pick.round === 1 ? 5000 : pick.round === 2 ? 2000 : pick.round === 3 ? 800 : 400,
+          value: lookupPickValue(pickValuesData || [], pick.season, pick.round),
         })),
         totalValue: assets.value,
         adjustedValue: sideResult?.adjustedTotal,

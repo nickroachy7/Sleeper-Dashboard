@@ -11,6 +11,7 @@ import { ValueWatch } from '../components/ValueWatch';
 import {
   calcWeightedPositionValue,
   buildPicksForRoster,
+  lookupPickValue,
   POSITION_WEIGHT_TIERS,
   type RosterPosition,
 } from '../lib/trade-shared';
@@ -192,10 +193,10 @@ export default function Home() {
 
       if (tx.draft_picks && Array.isArray(tx.draft_picks)) {
         tx.draft_picks.forEach((pick: any) => {
-          const pickValue = pick.round === 1 ? 5000 : pick.round === 2 ? 2000 : pick.round === 3 ? 800 : 400;
+          const pv = lookupPickValue(pickValues, pick.season, pick.round);
           if (pick.owner_id && teamAssets[pick.owner_id]) {
-            teamAssets[pick.owner_id].picks.push(pick);
-            teamAssets[pick.owner_id].totalValue += pickValue;
+            teamAssets[pick.owner_id].picks.push({ ...pick, value: pv });
+            teamAssets[pick.owner_id].totalValue += pv;
           }
         });
       }
@@ -207,7 +208,7 @@ export default function Home() {
       if (sides.length === 2) {
         const buildAssets = (side: typeof sides[0]): TradeAsset[] => [
           ...side.players.map(p => ({ id: `player-${p.id}`, type: 'player' as const, name: p.name, value: p.value, position: p.position, team: p.team })),
-          ...side.picks.map((pick: any) => ({ id: `pick-${pick.season}-${pick.round}`, type: 'pick' as const, name: `${pick.season} Round ${pick.round}`, value: pick.round === 1 ? 5000 : pick.round === 2 ? 2000 : pick.round === 3 ? 800 : 400 })),
+          ...side.picks.map((pick: any) => ({ id: `pick-${pick.season}-${pick.round}`, type: 'pick' as const, name: `${pick.season} Round ${pick.round}`, value: lookupPickValue(pickValues, pick.season, pick.round) })),
         ];
         const analysis = analyzeTrade(buildAssets(sides[0]), buildAssets(sides[1]));
         fairness = analysis.fairness;
@@ -227,7 +228,7 @@ export default function Home() {
         sides,
       };
     });
-  }, [recentTrades, rostersData, playersMap, playerValues, resolveTeamName]);
+  }, [recentTrades, rostersData, playersMap, playerValues, resolveTeamName, pickValues]);
 
   // ─── Loading / Empty states ──────────────────────────────────────
 

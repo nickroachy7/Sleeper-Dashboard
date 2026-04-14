@@ -110,18 +110,24 @@ function computeRecoveryRate(
   const topQuality = Math.max(...qualityAssets.map((a) => a.value), 0);
   const topSpread = Math.max(...spreadAssets.map((a) => a.value), 0);
 
-  let rate = 0.50; // base recovery
+  let rate = 0.15; // base recovery — low so starter-for-depth trades stay modest
 
-  // Piece differential: each extra piece on spread side increases recovery
-  rate += Math.min(pieceDiff, 5) * 0.28;
+  // Piece differential: each extra piece adds a small bump
+  rate += Math.min(pieceDiff, 5) * 0.08;
 
-  // Top asset quality boost
+  // Top asset quality boost — the main driver.
+  // Elite studs recover the lion's share of any raw-value gap.
   if (topQuality >= ELITE_THRESHOLD) {
-    rate += 0.12;
+    rate += 0.70;
   } else if (topQuality >= STAR_THRESHOLD) {
-    rate += 0.08 + 0.04 * (topQuality - STAR_THRESHOLD) / (ELITE_THRESHOLD - STAR_THRESHOLD);
+    // Gradient from 0.45 (at star threshold) to 0.70 (approaching elite)
+    rate += 0.45 + 0.25 * (topQuality - STAR_THRESHOLD) / (ELITE_THRESHOLD - STAR_THRESHOLD);
   } else if (topQuality >= STARTER_THRESHOLD) {
-    rate += 0.04 + 0.04 * (topQuality - STARTER_THRESHOLD) / (STAR_THRESHOLD - STARTER_THRESHOLD);
+    // Gradient from 0.05 (at starter threshold) to 0.45 (approaching star)
+    rate += 0.05 + 0.40 * (topQuality - STARTER_THRESHOLD) / (STAR_THRESHOLD - STARTER_THRESHOLD);
+  } else if (topQuality >= DEPTH_THRESHOLD) {
+    // Minimal recovery for depth-level consolidation
+    rate += 0.01 + 0.04 * (topQuality - DEPTH_THRESHOLD) / (STARTER_THRESHOLD - DEPTH_THRESHOLD);
   }
 
   // Tier mismatch: quality side has higher tier than spread side's best
