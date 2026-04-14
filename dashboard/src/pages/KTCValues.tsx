@@ -6,7 +6,11 @@ import { Pagination } from '../components/Pagination';
 import { FilterBar, SearchInput, FilterPills, SortSelect } from '../components/FilterBar';
 import { PositionBadge } from '../components/PositionBadge';
 import { useTradeData } from '../hooks/useLeagueData';
-import { buildPlayersForRoster, buildPicksForRoster } from '../lib/trade-shared';
+import {
+  buildPlayersForRoster,
+  buildPicksForRoster,
+  calcWeightedPositionValue,
+} from '../lib/trade-shared';
 
 // ── Player Values Types ──────────────────────────────────────────
 
@@ -164,31 +168,8 @@ const teamRankAccentColors: Record<number, string> = {
 
 type TeamPositionFilter = 'ALL' | 'QB' | 'RB' | 'WR' | 'TE' | 'Picks';
 
-// Diminishing returns weight thresholds per position
-// Full value for starters, 50% for quality depth, 10% for deep bench
-const POSITION_WEIGHT_TIERS: Record<string, { full: number; reduced: number }> = {
-  QB: { full: 2, reduced: 1 },   // 2 starters (QB+SF), 3rd at 50%, 4th+ at 10%
-  RB: { full: 3, reduced: 2 },   // 3 starters (2RB+flex), 4th-5th at 50%, 6th+ at 10%
-  WR: { full: 3, reduced: 2 },   // 3 starters (3WR+flex), 4th-5th at 50%, 6th+ at 10%
-  TE: { full: 1, reduced: 1 },   // 1 starter, 2nd at 50%, 3rd+ at 10%
-};
-
-function calcWeightedPositionValue(assets: { value: number }[], position: string): number {
-  const sorted = [...assets].sort((a, b) => b.value - a.value);
-  const tiers = POSITION_WEIGHT_TIERS[position] || { full: 3, reduced: 2 };
-
-  let total = 0;
-  for (let i = 0; i < sorted.length; i++) {
-    if (i < tiers.full) {
-      total += sorted[i].value;               // 100%
-    } else if (i < tiers.full + tiers.reduced) {
-      total += Math.round(sorted[i].value * 0.5);  // 50%
-    } else {
-      total += Math.round(sorted[i].value * 0.1);  // 10%
-    }
-  }
-  return total;
-}
+// Positional weighting now lives in trade-shared.ts so the same "team strength
+// at position X" definition is used by the Evaluator and Finder too.
 
 function getTeamValueForFilter(team: TeamRanking, filter: TeamPositionFilter): number {
   switch (filter) {
@@ -590,7 +571,7 @@ function TeamsTab() {
           {sortedTeams.length} teams
         </span>
         <span className="text-[11px] text-[#444444]">
-          Ranked by {filterLabel} KTC value
+          Ranked by {filterLabel} weighted KTC value
         </span>
       </div>
 

@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { usePlayers, usePlayerValues, useLeagueIds, useRosters, usePickValues, useTradedPicks } from './queries';
-import type { Player, PlayerValue, Roster } from '../types/domain';
+import type { Player, PlayerValue } from '../types/domain';
 
 // ── Player Map ────────────────────────────────────────────────────
 // Map<player_id, Player> for quick lookups
@@ -45,20 +45,3 @@ export function useTradeData() {
   };
 }
 
-// ── Power Rankings ────────────────────────────────────────────────
-// Rosters sorted by total KTC value
-
-export function usePowerRankings(rosters: Roster[], playerValueMap: Map<string, number> | undefined) {
-  return useMemo(() => {
-    if (!rosters.length || !playerValueMap?.size) return [];
-    return rosters
-      .map(roster => {
-        const totalValue = (roster.players || []).reduce(
-          (sum, pid) => sum + (playerValueMap.get(pid) || 0),
-          0
-        );
-        return { ...roster, totalValue };
-      })
-      .sort((a, b) => b.totalValue - a.totalValue);
-  }, [rosters, playerValueMap]);
-}

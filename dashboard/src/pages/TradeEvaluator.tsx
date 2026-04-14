@@ -9,6 +9,8 @@ import {
   RotateCcw,
   Info,
   AlertTriangle,
+  TrendingUp,
+  TrendingDown,
 } from 'lucide-react';
 import {
   analyzeTrade,
@@ -18,9 +20,11 @@ import {
 import {
   type Roster,
   type TradeAsset,
+  type RosterPosition,
   buildPicksForRoster,
   buildPlayersForRoster,
   getTeamDisplayName,
+  simulateTradeOnRoster,
   FAIRNESS_CONFIG,
 } from '../lib/trade-shared';
 import { AssetDropdown } from '../components/AssetDropdown';
@@ -34,13 +38,30 @@ interface TradeSide {
   assets: TradeAsset[];
 }
 
+export interface TradeEvaluatorProps {
+  /**
+   * Optional initial trade state — used when navigating in from Trade Finder's
+   * "Open in Evaluator" button. The evaluator will pre-populate both sides and
+   * immediately surface analysis.
+   */
+  initialSides?: TradeSide[];
+}
+
 // ── Main Component ─────────────────────────────────────────────────
 
-export function TradeEvaluator() {
-  const [tradeSides, setTradeSides] = useState<TradeSide[]>([
-    { rosterId: 0, assets: [] },
-    { rosterId: 0, assets: [] },
-  ]);
+export function TradeEvaluator({ initialSides }: TradeEvaluatorProps = {}) {
+  // NOTE: to re-seed with new initial sides, the parent should remount this
+  // component by changing its `key` prop. We intentionally do not sync
+  // `initialSides` into state via useEffect — that pattern fights React and
+  // triggers cascading renders. See TradeTools.tsx for the remount trigger.
+  const [tradeSides, setTradeSides] = useState<TradeSide[]>(
+    initialSides && initialSides.length === 2
+      ? initialSides
+      : [
+          { rosterId: 0, assets: [] },
+          { rosterId: 0, assets: [] },
+        ]
+  );
   const [activeDropdown, setActiveDropdown] = useState<{ side: number; type: 'player' | 'pick' | 'team' } | null>(null);
 
   const { rosters, players, playerValues, pickValues, tradedPicks, isLoading: dataLoading } = useTradeData();
@@ -109,6 +130,36 @@ export function TradeEvaluator() {
     );
   }, [tradeSides]);
 
+  // Post-trade roster impact: for each side, simulate what their roster looks
+  // like after removing what they're giving and adding what they're receiving.
+  // This is the "what does this do for my team?" answer the old UI was missing.
+  const rosterImpacts = useMemo(() => {
+    if (!tradeAnalysis) return null;
+    if (tradeSides.some((s) => s.rosterId === 0)) return null;
+
+    const side0Current = [
+      ...getPlayersOwnedByRoster(tradeSides[0].rosterId),
+      ...getPicksOwnedByRoster(tradeSides[0].rosterId),
+    ];
+    const side1Current = [
+      ...getPlayersOwnedByRoster(tradeSides[1].rosterId),
+      ...getPicksOwnedByRoster(tradeSides[1].rosterId),
+    ];
+
+    return [
+      simulateTradeOnRoster(
+        side0Current,
+        tradeSides[0].assets,
+        tradeSides[1].assets
+      ),
+      simulateTradeOnRoster(
+        side1Current,
+        tradeSides[1].assets,
+        tradeSides[0].assets
+      ),
+    ];
+  }, [tradeAnalysis, tradeSides, getPlayersOwnedByRoster, getPicksOwnedByRoster]);
+
   const getExcludedRosterIds = useCallback((currentSideIndex: number) => {
     return tradeSides.filter((_, i) => i !== currentSideIndex).map((s) => s.rosterId).filter((id) => id > 0);
   }, [tradeSides]);
@@ -129,7 +180,14 @@ export function TradeEvaluator() {
   // ── Helpers for trade card display ──
   const hasZeroSide = tradeSides.some(s => s.assets.length === 0 && s.rosterId > 0);
   const diff = tradeAnalysis ? Math.abs(tradeAnalysis.adjustedDifference) : 0;
-  const isNearEven = tradeAnalysis && !hasZeroSide && diff < 500;
+  // Scale near-even threshold with trade size: small trades use the 300 floor,
+  // mid-size trades widen to 3% of the larger side. Prevents a 15k vs 15.4k
+  // package from reading as "lopsided" when it's actually dead even by %.
+  const largerSide = tradeAnalysis
+    ? Math.max(totals[0].adjustedTotal, totals[1].adjustedTotal)
+    : 0;
+  const nearEvenThreshold = Math.max(300, Math.round(largerSide * 0.03));
+  const isNearEven = tradeAnalysis && !hasZeroSide && diff < nearEvenThreshold;
 
   // ── Render a single trade side ──
   const renderSide = (sideIndex: number) => {
@@ -140,9 +198,11 @@ export function TradeEvaluator() {
     const roster = rosters?.find(r => r.roster_id === side.rosterId);
     const assetCount = side.assets.length;
 
-    // Calculate net KTC like TradeCard
+    // Net KTC from *this side's perspective*. Each side's assets represent
+    // what they're giving up, so the value this side RECEIVES is the other
+    // side's total. Net gain = received − given. Positive net is a win.
     const otherTotal = totals[sideIndex === 0 ? 1 : 0]?.adjustedTotal || 0;
-    const net = Math.round(sideTotal.adjustedTotal - otherTotal);
+    const net = Math.round(otherTotal - sideTotal.adjustedTotal);
 
     return (
       <div>
@@ -284,14 +344,22 @@ export function TradeEvaluator() {
         {renderSide(1)}
       </div>
 
+      {/* ── Empty-side hint ── */}
+      {hasZeroSide && (
+        <div className="mt-4 bg-[#0a0a0a] border border-[#1a1a1a] rounded-xl px-4 py-3 flex items-center gap-2.5">
+          <Info className="h-4 w-4 text-[#555555] shrink-0" />
+          <span className="text-[11px] text-[#888888]">
+            Add assets to both sides to see the trade analysis and roster impact.
+          </span>
+        </div>
+      )}
+
       {/* ── Trade Analysis (appears automatically) ── */}
       {tradeAnalysis && (() => {
         const config = FAIRNESS_CONFIG[tradeAnalysis.fairness];
         const side1Name = rosters?.find(r => r.roster_id === tradeSides[0].rosterId);
         const side2Name = rosters?.find(r => r.roster_id === tradeSides[1].rosterId);
-        const diff = Math.abs(tradeAnalysis.adjustedDifference);
         const winnerName = winnerIdx !== null && winnerIdx === 0 ? side1Name : side2Name;
-        const isEvenTrade = tradeAnalysis.adjustedDifference === 0;
 
         const maxTotal = Math.max(totals[0].adjustedTotal, totals[1].adjustedTotal) || 1;
         const bar0Pct = (totals[0].adjustedTotal / maxTotal) * 100;
@@ -307,8 +375,8 @@ export function TradeEvaluator() {
                   {config.label}
                 </span>
               </div>
-              {isEvenTrade ? (
-                <span className="text-xs text-[#555555] font-medium">Even Trade</span>
+              {isNearEven || winnerIdx === null ? (
+                <span className="text-xs text-blue-400 font-medium">Even Trade</span>
               ) : (
                 <span className="text-xs text-emerald-400 font-semibold">
                   {winnerName ? getTeamDisplayName(winnerName) : ''} +{diff.toLocaleString()}
@@ -316,10 +384,10 @@ export function TradeEvaluator() {
               )}
             </div>
 
-            {/* Value Comparison Bars */}
+            {/* Value Comparison Bars — lower giving = winner (green) */}
             <div className="space-y-2">
               {tradeSides.map((side, sideIndex) => {
-                const isW = winnerIdx === sideIndex;
+                const isW = !isNearEven && winnerIdx === sideIndex;
                 const roster = rosters?.find(r => r.roster_id === side.rosterId);
                 const pct = sideIndex === 0 ? bar0Pct : bar1Pct;
                 return (
@@ -327,6 +395,7 @@ export function TradeEvaluator() {
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-[11px] font-medium text-[#888888]">
                         {roster ? getTeamDisplayName(roster) : ''}
+                        <span className="text-[#444444] ml-1">gives</span>
                       </span>
                       <span className={`text-xs font-bold tabular-nums ${isW ? 'text-emerald-400' : 'text-[#888888]'}`}>
                         {totals[sideIndex].adjustedTotal.toLocaleString()}
@@ -348,6 +417,59 @@ export function TradeEvaluator() {
               })}
             </div>
 
+            {/* ── Per-side Adjustment Breakdown ── */}
+            <div className="pt-3 mt-3 border-t border-[#111111] space-y-3">
+              {tradeSides.map((side, sideIndex) => {
+                const sideResult = sideIndex === 0 ? tradeAnalysis.side1 : tradeAnalysis.side2;
+                const roster = rosters?.find(r => r.roster_id === side.rosterId);
+                const hasAdjustment =
+                  sideResult.studBonus > 0 ||
+                  sideResult.consolidationBonus > 0 ||
+                  sideResult.piecesPenalty > 0 ||
+                  sideResult.tierMismatchPenalty > 0;
+                if (!hasAdjustment) return null;
+                return (
+                  <div key={sideIndex} className="text-[10px] space-y-0.5">
+                    <div className="text-[#666666] font-semibold uppercase tracking-wider">
+                      {roster ? getTeamDisplayName(roster) : `Side ${sideIndex + 1}`}
+                    </div>
+                    <div className="flex items-center justify-between text-[#555555]">
+                      <span>Raw value</span>
+                      <span className="tabular-nums">{sideResult.rawTotal.toLocaleString()}</span>
+                    </div>
+                    {sideResult.studBonus > 0 && (
+                      <div className="flex items-center justify-between text-emerald-400/80">
+                        <span>+ Stud bonus</span>
+                        <span className="tabular-nums">+{sideResult.studBonus.toLocaleString()}</span>
+                      </div>
+                    )}
+                    {sideResult.consolidationBonus > 0 && (
+                      <div className="flex items-center justify-between text-emerald-400/80">
+                        <span>+ Consolidation</span>
+                        <span className="tabular-nums">+{sideResult.consolidationBonus.toLocaleString()}</span>
+                      </div>
+                    )}
+                    {sideResult.piecesPenalty > 0 && (
+                      <div className="flex items-center justify-between text-red-400/80">
+                        <span>− Pieces penalty</span>
+                        <span className="tabular-nums">−{sideResult.piecesPenalty.toLocaleString()}</span>
+                      </div>
+                    )}
+                    {sideResult.tierMismatchPenalty > 0 && (
+                      <div className="flex items-center justify-between text-amber-400/80">
+                        <span>− Tier mismatch</span>
+                        <span className="tabular-nums">−{sideResult.tierMismatchPenalty.toLocaleString()}</span>
+                      </div>
+                    )}
+                    <div className="flex items-center justify-between text-white font-semibold pt-0.5 border-t border-[#111111]">
+                      <span>Adjusted</span>
+                      <span className="tabular-nums">{sideResult.adjustedTotal.toLocaleString()}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
             {/* Adjustment details */}
             {(tradeAnalysis.rawDifference !== tradeAnalysis.adjustedDifference || tradeAnalysis.tierMismatchExplanation) && (
               <div className="pt-3 mt-3 border-t border-[#111111] space-y-1.5">
@@ -355,7 +477,7 @@ export function TradeEvaluator() {
                   <div className="flex items-center gap-1.5">
                     <Info className="h-3 w-3 text-[#444444] shrink-0" />
                     <span className="text-[10px] text-[#555555]">
-                      Raw: {tradeAnalysis.rawDifference.toLocaleString()} → Adjusted: {tradeAnalysis.adjustedDifference.toLocaleString()}
+                      Raw gap: {tradeAnalysis.rawDifference.toLocaleString()} → Adjusted gap: {tradeAnalysis.adjustedDifference.toLocaleString()}
                     </span>
                   </div>
                 )}
@@ -370,6 +492,110 @@ export function TradeEvaluator() {
           </div>
         );
       })()}
+
+      {/* ── Post-Trade Roster Impact ── */}
+      {tradeAnalysis && rosterImpacts && (
+        <div className="mt-4 bg-[#0a0a0a] rounded-xl p-4 sm:p-5">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-white uppercase tracking-wider">Roster Impact</span>
+              <span className="text-[10px] text-[#555555]">After trade, by position</span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {tradeSides.map((side, sideIndex) => {
+              const impact = rosterImpacts[sideIndex];
+              const roster = rosters?.find(r => r.roster_id === side.rosterId);
+              const positions: RosterPosition[] = ['QB', 'RB', 'WR', 'TE'];
+              const totalDelta = impact.delta.total;
+              const pickDelta = impact.delta.picksValue;
+
+              // Pick a scale for the position bars: use the max current value
+              // across all positions on this roster so bars are comparable.
+              const scale = Math.max(
+                ...positions.map(p => Math.max(impact.before.byPosition[p], impact.after.byPosition[p])),
+                1
+              );
+
+              return (
+                <div key={sideIndex} className="space-y-2">
+                  <div className="flex items-center justify-between pb-2 border-b border-[#111111]">
+                    <span className="text-[11px] font-semibold text-white">
+                      {roster ? getTeamDisplayName(roster) : `Side ${sideIndex + 1}`}
+                    </span>
+                    <div className="flex items-center gap-1">
+                      {totalDelta > 0 ? (
+                        <TrendingUp className="h-3 w-3 text-emerald-400" />
+                      ) : totalDelta < 0 ? (
+                        <TrendingDown className="h-3 w-3 text-red-400" />
+                      ) : null}
+                      <span className={`text-[11px] font-bold tabular-nums ${
+                        totalDelta > 0 ? 'text-emerald-400' : totalDelta < 0 ? 'text-red-400' : 'text-[#555555]'
+                      }`}>
+                        {totalDelta > 0 ? '+' : ''}{totalDelta.toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
+
+                  {positions.map(pos => {
+                    const before = impact.before.byPosition[pos];
+                    const after = impact.after.byPosition[pos];
+                    const delta = impact.delta.byPosition[pos];
+                    const beforePct = (before / scale) * 100;
+                    const afterPct = (after / scale) * 100;
+                    const deltaColor =
+                      delta > 0 ? 'text-emerald-400' : delta < 0 ? 'text-red-400' : 'text-[#555555]';
+
+                    return (
+                      <div key={pos}>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-[10px] font-semibold text-[#888888] w-6">{pos}</span>
+                          <div className="flex items-center gap-2 text-[10px] tabular-nums">
+                            <span className="text-[#666666]">{before.toLocaleString()}</span>
+                            <span className="text-[#333333]">→</span>
+                            <span className="text-white">{after.toLocaleString()}</span>
+                            {delta !== 0 && (
+                              <span className={`${deltaColor} font-semibold w-14 text-right`}>
+                                {delta > 0 ? '+' : ''}{delta.toLocaleString()}
+                              </span>
+                            )}
+                            {delta === 0 && <span className="w-14" />}
+                          </div>
+                        </div>
+                        {/* Stacked bars: before (grey) + after (color) */}
+                        <div className="relative w-full h-1.5 bg-[#111111] rounded-full overflow-hidden">
+                          <div
+                            className="absolute inset-y-0 left-0 bg-[#2a2a2a] rounded-full"
+                            style={{ width: `${beforePct}%` }}
+                          />
+                          <div
+                            className={`absolute inset-y-0 left-0 rounded-full ${
+                              delta > 0 ? 'bg-emerald-500/70' : delta < 0 ? 'bg-red-500/70' : 'bg-[#444444]'
+                            }`}
+                            style={{ width: `${afterPct}%` }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {pickDelta !== 0 && (
+                    <div className="flex items-center justify-between pt-2 mt-2 border-t border-[#111111]">
+                      <span className="text-[10px] font-semibold text-[#888888]">Picks</span>
+                      <span className={`text-[10px] font-semibold tabular-nums ${
+                        pickDelta > 0 ? 'text-emerald-400' : 'text-red-400'
+                      }`}>
+                        {pickDelta > 0 ? '+' : ''}{pickDelta.toLocaleString()}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Dropdowns */}
       {tradeSides.map((_, sideIndex) => (

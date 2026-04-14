@@ -1,13 +1,19 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useLeague, usePlayerValuesList } from '../hooks/queries';
-import { usePlayerMap } from '../hooks/useLeagueData';
+import { usePlayerMap, useTradeData } from '../hooks/useLeagueData';
 import { Zap, Scale, TrendingUp, FileText } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useMemo } from 'react';
 import { PowerRankings } from '../components/PowerRankings';
 import { RecentTrades } from '../components/RecentTrades';
 import { ValueWatch } from '../components/ValueWatch';
+import {
+  calcWeightedPositionValue,
+  buildPicksForRoster,
+  POSITION_WEIGHT_TIERS,
+  type RosterPosition,
+} from '../lib/trade-shared';
 
 // ─── Component ───────────────────────────────────────────────────────
 
@@ -15,6 +21,7 @@ export default function Home() {
   const { data: league, isLoading: leagueLoading } = useLeague();
   const { data: playersMap } = usePlayerMap();
   const { data: playerValues } = usePlayerValuesList();
+  const { rosters: tradeRosters, pickValues, tradedPicks } = useTradeData();
 
   const { data: rostersData } = useQuery({
     queryKey: ['home-rosters', league?.league_id],
@@ -90,24 +97,41 @@ export default function Home() {
       .map((roster: any) => {
         const teamName = resolveTeamName(roster.owner_id);
         const playerIds: string[] = roster.players || [];
-        let totalValue = 0;
         let topPlayer: { name: string; value: number; position: string; playerId: string } | null = null;
 
+        // Group players by position for weighted calculation
+        const positionGroups: Record<string, { value: number }[]> = {};
         playerIds.forEach((pid: string) => {
           const val = playerValues.get(pid) || 0;
-          totalValue += val;
+          const p = playersMap.get(pid);
+          if (p && p.position in POSITION_WEIGHT_TIERS) {
+            if (!positionGroups[p.position]) positionGroups[p.position] = [];
+            positionGroups[p.position].push({ value: val });
+          }
           if (!topPlayer || val > topPlayer.value) {
-            const p = playersMap.get(pid);
             if (p) topPlayer = { name: p.full_name, value: val, position: p.position, playerId: pid };
           }
         });
+
+        // Apply diminishing returns (same formula as KTC Values page)
+        let totalValue = 0;
+        for (const pos of Object.keys(POSITION_WEIGHT_TIERS) as RosterPosition[]) {
+          totalValue += calcWeightedPositionValue(positionGroups[pos] || [], pos);
+        }
+
+        // Add pick values at full value (same as KTC Values page)
+        const matchingTradeRoster = tradeRosters.find((r) => r.roster_id === roster.roster_id);
+        if (matchingTradeRoster && pickValues.length) {
+          const pickAssets = buildPicksForRoster(roster.roster_id, tradeRosters, pickValues, tradedPicks);
+          totalValue += pickAssets.reduce((sum, a) => sum + a.value, 0);
+        }
 
         const avatarUrl = resolveTeamAvatar(roster.owner_id);
         return { rosterId: roster.roster_id, teamName, totalValue, topPlayer, wins: roster.wins ?? 0, losses: roster.losses ?? 0, avatarUrl };
       })
       .sort((a: any, b: any) => b.totalValue - a.totalValue)
       .map((team: any, idx: number) => ({ ...team, rank: idx + 1 }));
-  }, [rostersData, playerValues, playersMap, resolveTeamName, resolveTeamAvatar]);
+  }, [rostersData, playerValues, playersMap, resolveTeamName, resolveTeamAvatar, tradeRosters, pickValues, tradedPicks]);
 
   // ─── Derived: Value Watch (Top 10 Assets) ────────────────────────
 

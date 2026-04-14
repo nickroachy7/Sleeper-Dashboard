@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useTradeData } from '../hooks/useLeagueData';
 import {
   Search,
@@ -9,6 +10,7 @@ import {
   ArrowUp,
   Plus,
   SlidersHorizontal,
+  ExternalLink,
 } from 'lucide-react';
 import {
   analyzeTrade,
@@ -23,6 +25,9 @@ import {
   useClickOutside,
   buildPicksForRoster,
   getTeamDisplayName,
+  computeRosterFitScore,
+  computeLeagueContext,
+  simulateTradeOnRoster,
 } from '../lib/trade-shared';
 // Note: getPositionBadgeClass still used in AssetDropdown modal
 import { TeamDropdown } from '../components/TeamDropdown';
@@ -43,12 +48,15 @@ interface TradeScenario {
   differencePercent: number;
   fairness: Fairness;
   partnerRoster: Roster;
+  userFit: number;        // [-100, 100] — does this trade help the user's roster shape?
+  partnerDeltaPct: number; // % change in partner's total strength (negative = worse for partner)
 }
 
 type TradeMode = 'dump' | 'acquire';
 type AssetPreference = 'all' | 'players' | 'picks';
 type MaxPieces = 1 | 2 | 3 | 0; // 0 = any
 type PositionFilter = 'QB' | 'RB' | 'WR' | 'TE' | 'PICK';
+type SortMode = 'balanced' | 'fairness' | 'quality' | 'fit';
 
 // ── Multi-Select Asset Modal ───────────────────────────────────────
 
@@ -174,6 +182,7 @@ function AssetDropdown({
 // ── Main Component ─────────────────────────────────────────────────
 
 export function TradeFinder() {
+  const navigate = useNavigate();
   const [tradeMode, setTradeMode] = useState<TradeMode>('dump');
   const [myRoster, setMyRoster] = useState<Roster | null>(null);
   const [targetRoster, setTargetRoster] = useState<Roster | null>(null);
@@ -186,6 +195,7 @@ export function TradeFinder() {
   const [showFilters, setShowFilters] = useState(false);
   const [maxPieces, setMaxPieces] = useState<MaxPieces>(0);
   const [positionFilters, setPositionFilters] = useState<Set<PositionFilter>>(new Set());
+  const [sortMode, setSortMode] = useState<SortMode>('balanced');
 
   // Clear selected assets only when the asset-source roster changes (or mode flips)
   // In dump mode, assets come from myRoster; in acquire mode, from targetRoster
@@ -280,15 +290,28 @@ export function TradeFinder() {
         const newScenarios: TradeScenario[] = [];
         const selectedIds = new Set(selectedAssets.map(a => a.id));
 
+        // ── League context: build each roster's current full asset list once,
+        // then compute positional medians across the league. Used for both the
+        // roster-fit scoring frame and for partner-fit gating.
+        const allRosterAssets = new Map<number, TradeAsset[]>();
+        rosters.forEach(r => {
+          allRosterAssets.set(r.roster_id, [
+            ...getPlayersOwnedByRoster(r),
+            ...getPicksOwnedByRoster(r.roster_id),
+          ]);
+        });
+        const leagueContext = computeLeagueContext(
+          Array.from(allRosterAssets.values())
+        );
+
         // Build "give" packages: the selected assets + optionally 1-2 extras from my roster
         // This lets users find trades where they add sweeteners to unlock bigger targets
         const givePackages: TradeAsset[][] = [selectedAssets];
 
         if (tradeMode === 'dump' && myRoster) {
-          const myExtras = [
-            ...getPlayersOwnedByRoster(myRoster),
-            ...getPicksOwnedByRoster(myRoster.roster_id),
-          ].filter(a => !selectedIds.has(a.id)).slice(0, 8); // top 8 extras by value
+          const myExtras = (allRosterAssets.get(myRoster.roster_id) || [])
+            .filter(a => !selectedIds.has(a.id))
+            .slice(0, 8); // top 8 extras by value
 
           // selected + 1 extra
           myExtras.forEach(extra => {
@@ -302,41 +325,46 @@ export function TradeFinder() {
             : rosters.filter(r => r.roster_id !== myRoster?.roster_id)
           : myRoster ? [myRoster] : [];
 
-        // Pre-compute return combos per team (expensive, only do once)
+        // Pre-compute return combos per team (expensive, only do once).
+        // NOTE: position filter is applied at the COMBO level below, not here.
+        // We used to filter individual assets at the input, which excluded
+        // mixed packages (e.g. a WR+pick combo was dropped when filtering for
+        // WR because the pick was filtered out of the input pool).
         const seenTradeKeys = new Set<string>();
         const teamCombos = new Map<number, { combo: TradeAsset[]; value: ReturnType<typeof calculateSideValue> }[]>();
 
-        teamsToSearch.forEach(searchRoster => {
-          const searchAssets = [
-            ...getPlayersOwnedByRoster(searchRoster),
-            ...getPicksOwnedByRoster(searchRoster.roster_id),
-          ];
+        const comboMatchesPositionFilter = (combo: TradeAsset[]): boolean => {
+          if (positionFilters.size === 0) return true;
+          // "Contains at least one asset matching the filter" — picks count
+          // toward the PICK filter, players toward their position.
+          return combo.some(a => {
+            if (a.type === 'pick') return positionFilters.has('PICK');
+            return a.position ? positionFilters.has(a.position as PositionFilter) : false;
+          });
+        };
 
-          const filteredAssets = positionFilters.size > 0
-            ? searchAssets.filter(a => {
-                if (a.type === 'pick') return positionFilters.has('PICK');
-                return a.position ? positionFilters.has(a.position as PositionFilter) : false;
-              })
-            : searchAssets;
+        teamsToSearch.forEach(searchRoster => {
+          const searchAssets = allRosterAssets.get(searchRoster.roster_id) || [];
 
           const combinations: { combo: TradeAsset[]; value: ReturnType<typeof calculateSideValue> }[] = [];
           const addCombo = (c: TradeAsset[]) => {
+            if (!comboMatchesPositionFilter(c)) return;
             const v = calculateSideValue(c as ValueAdjustmentAsset[]);
             combinations.push({ combo: c, value: v });
           };
 
           if (maxPieces === 0 || maxPieces >= 1) {
-            filteredAssets.forEach(a => addCombo([a]));
+            searchAssets.forEach(a => addCombo([a]));
           }
           if (maxPieces === 0 || maxPieces >= 2) {
-            for (let i = 0; i < filteredAssets.length; i++) {
-              for (let j = i + 1; j < filteredAssets.length; j++) {
-                addCombo([filteredAssets[i], filteredAssets[j]]);
+            for (let i = 0; i < searchAssets.length; i++) {
+              for (let j = i + 1; j < searchAssets.length; j++) {
+                addCombo([searchAssets[i], searchAssets[j]]);
               }
             }
           }
           if (maxPieces === 0 || maxPieces >= 3) {
-            const topAssets = filteredAssets.slice(0, 25);
+            const topAssets = searchAssets.slice(0, 25);
             for (let i = 0; i < topAssets.length; i++) {
               for (let j = i + 1; j < topAssets.length; j++) {
                 for (let k = j + 1; k < topAssets.length; k++) {
@@ -388,6 +416,41 @@ export function TradeFinder() {
                 const postTolerance = Math.max(postAvg * (tolerance / 100), TOLERANCE_FLOOR);
                 if (postAnalysisDiff > postTolerance) return;
 
+                // ── Partner-fit gate ──
+                // Simulate the trade on the partner's roster. If it would make
+                // them materially worse off (>2% total strength drop), drop
+                // the scenario — no rational partner would accept it.
+                const userRoster = myRoster!;
+                const partnerAssetsNow = allRosterAssets.get(searchRoster.roster_id) || [];
+                const userAssetsNow = allRosterAssets.get(userRoster.roster_id) || [];
+
+                // Figure out giving/receiving from each perspective
+                const userGives = tradeMode === 'dump' ? givePkg : combo;
+                const userReceives = tradeMode === 'dump' ? combo : selectedAssets;
+                const partnerGives = userReceives;
+                const partnerReceives = userGives;
+
+                const partnerImpact = simulateTradeOnRoster(
+                  partnerAssetsNow,
+                  partnerGives,
+                  partnerReceives
+                );
+                const partnerBefore = partnerImpact.before.total || 1;
+                const partnerDeltaPct = (partnerImpact.delta.total / partnerBefore) * 100;
+                // Drop trades that tank the partner's roster value by >2%.
+                // This is a soft filter — small dips still OK, big dips filtered.
+                if (partnerDeltaPct < -2) return;
+
+                // ── User-fit score ──
+                // How does this trade shape the USER's roster relative to the
+                // league? Rewards improving weak positions, penalizes glut.
+                const userImpact = simulateTradeOnRoster(
+                  userAssetsNow,
+                  userGives,
+                  userReceives
+                );
+                const userFit = computeRosterFitScore(userImpact, leagueContext);
+
                 const rawDiff = comboValue.rawTotal - giveValue.rawTotal;
                 const adjustedDiff = side2Adjusted - side1Adjusted;
                 const diffPercent = side1Adjusted > 0 ? (adjustedDiff / side1Adjusted) * 100 : 0;
@@ -405,6 +468,8 @@ export function TradeFinder() {
                     differencePercent: diffPercent,
                     fairness: analysis.fairness,
                     partnerRoster: searchRoster,
+                    userFit,
+                    partnerDeltaPct,
                   });
                 } else {
                   newScenarios.push({
@@ -419,6 +484,8 @@ export function TradeFinder() {
                     differencePercent: -diffPercent,
                     fairness: analysis.fairness,
                     partnerRoster: targetRoster!,
+                    userFit,
+                    partnerDeltaPct,
                   });
                 }
               }
@@ -449,10 +516,19 @@ export function TradeFinder() {
           const concenScore = (1 / returnCombo.length) * 100;
           const prefScore = getPreferenceScore(returnCombo, assetPreference);
 
+          // Normalize userFit from [-100, 100] → [0, 100]
+          const fitScore = (s.userFit + 100) / 2;
+
+          // Single-axis sorts: let the user choose what matters most
+          if (sortMode === 'fairness') return fairnessScore;
+          if (sortMode === 'quality') return qualityScore;
+          if (sortMode === 'fit') return fitScore;
+
+          // 'balanced' default — mix everything
           if (assetPreference !== 'all') {
-            return (fairnessScore * 0.30) + (qualityScore * 0.25) + (concenScore * 0.15) + (prefScore * 0.30);
+            return (fairnessScore * 0.25) + (qualityScore * 0.20) + (concenScore * 0.10) + (fitScore * 0.20) + (prefScore * 0.25);
           }
-          return (fairnessScore * 0.40) + (qualityScore * 0.35) + (concenScore * 0.25);
+          return (fairnessScore * 0.30) + (qualityScore * 0.25) + (concenScore * 0.15) + (fitScore * 0.30);
         };
 
         // Split into exact trades (just selected assets) vs expanded (with extras)
@@ -490,7 +566,7 @@ export function TradeFinder() {
         setIsSearching(false);
       }
     }, 100);
-  }, [rosters, myRoster, targetRoster, selectedAssets, selectedValueInfo, tolerance, tradeMode, assetPreference, maxPieces, positionFilters, getPlayersOwnedByRoster, getPicksOwnedByRoster]);
+  }, [rosters, myRoster, targetRoster, selectedAssets, selectedValueInfo, tolerance, tradeMode, assetPreference, maxPieces, positionFilters, sortMode, getPlayersOwnedByRoster, getPicksOwnedByRoster]);
 
   const isLoading = dataLoading;
   const canSearch = tradeMode === 'dump'
@@ -820,6 +896,59 @@ export function TradeFinder() {
             </span>
           </div>
 
+          {/* Sort controls */}
+          <div className="flex items-center gap-1.5 mb-3 bg-[#0a0a0a] rounded-lg p-1 w-fit">
+            <span className="text-[10px] text-[#555555] font-semibold uppercase tracking-wider px-2">Sort</span>
+            {([
+              { key: 'balanced', label: 'Balanced' },
+              { key: 'fairness', label: 'Fairness' },
+              { key: 'quality', label: 'Quality' },
+              { key: 'fit', label: 'Roster Fit' },
+            ] as const).map(({ key, label }) => (
+              <button
+                key={key}
+                onClick={() => {
+                  setSortMode(key);
+                  // Re-sort existing scenarios in place without re-searching
+                  setScenarios(prev => {
+                    if (prev.length === 0) return prev;
+                    const resorted = [...prev];
+                    // Build a fresh maxDiff / maxAssetValue frame so scores stay comparable
+                    let maxDiff = 1, maxPossible = 1;
+                    for (const s of resorted) {
+                      const d = Math.abs(s.adjustedDifference);
+                      if (d > maxDiff) maxDiff = d;
+                      const returnCombo = tradeMode === 'dump' ? s.get : s.give;
+                      for (const a of returnCombo) if (a.value > maxPossible) maxPossible = a.value;
+                    }
+                    const score = (s: TradeScenario) => {
+                      const returnCombo = tradeMode === 'dump' ? s.get : s.give;
+                      const fairnessScore = 100 - (Math.abs(s.adjustedDifference) / maxDiff) * 100;
+                      let maxAssetValue = 0;
+                      for (const a of returnCombo) if (a.value > maxAssetValue) maxAssetValue = a.value;
+                      const qualityScore = (maxAssetValue / maxPossible) * 100;
+                      const concenScore = (1 / returnCombo.length) * 100;
+                      const fitScore = (s.userFit + 100) / 2;
+                      if (key === 'fairness') return fairnessScore;
+                      if (key === 'quality') return qualityScore;
+                      if (key === 'fit') return fitScore;
+                      return (fairnessScore * 0.30) + (qualityScore * 0.25) + (concenScore * 0.15) + (fitScore * 0.30);
+                    };
+                    resorted.sort((a, b) => score(b) - score(a));
+                    return resorted;
+                  });
+                }}
+                className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all ${
+                  sortMode === key
+                    ? 'bg-accent-500/15 text-accent-400'
+                    : 'text-[#666666] hover:text-[#aaaaaa]'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
           <div className="space-y-3">
             {scenarios.map((scenario, idx) => {
               const myTeamName = myRoster ? getTeamDisplayName(myRoster) : 'My Team';
@@ -863,11 +992,58 @@ export function TradeFinder() {
                 },
               ];
 
+              const fitColor =
+                scenario.userFit >= 25 ? 'text-emerald-400'
+                  : scenario.userFit <= -25 ? 'text-red-400'
+                  : 'text-[#888888]';
+              const fitLabel =
+                scenario.userFit >= 40 ? 'Great fit'
+                  : scenario.userFit >= 15 ? 'Good fit'
+                  : scenario.userFit <= -25 ? 'Poor fit'
+                  : 'Neutral fit';
+
               return (
-                <TradeCard
-                  key={idx}
-                  sides={sides}
-                />
+                <div key={idx}>
+                  <TradeCard sides={sides} />
+                  <div className="flex items-center justify-between gap-2 px-4 py-2 bg-[#0a0a0a] border-t border-[#151515] rounded-b-xl -mt-[1px]">
+                    <div className="flex items-center gap-3 text-[10px]">
+                      <span className={`font-semibold ${fitColor}`}>
+                        {fitLabel}
+                        <span className="text-[#555555] font-normal ml-1">
+                          ({scenario.userFit > 0 ? '+' : ''}{Math.round(scenario.userFit)})
+                        </span>
+                      </span>
+                      {scenario.partnerDeltaPct < -0.5 && (
+                        <span className="text-[#666666]">
+                          Partner {scenario.partnerDeltaPct.toFixed(1)}%
+                        </span>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => {
+                        // Build initial sides for the Evaluator — side 0 = user (gives), side 1 = partner (gives)
+                        const userRosterId = myRoster?.roster_id || 0;
+                        const partnerRosterId = scenario.partnerRoster.roster_id;
+                        const userGives = tradeMode === 'dump' ? scenario.give : scenario.get;
+                        const partnerGives = tradeMode === 'dump' ? scenario.get : scenario.give;
+                        navigate('/trade', {
+                          state: {
+                            initialTrade: {
+                              sides: [
+                                { rosterId: userRosterId, assets: userGives },
+                                { rosterId: partnerRosterId, assets: partnerGives },
+                              ],
+                            },
+                          },
+                        });
+                      }}
+                      className="flex items-center gap-1 text-[10px] text-[#666666] hover:text-accent-400 font-semibold px-2 py-1 rounded transition-colors"
+                    >
+                      Open in Evaluator
+                      <ExternalLink className="h-3 w-3" />
+                    </button>
+                  </div>
+                </div>
               );
             })}
           </div>

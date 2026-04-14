@@ -2,6 +2,205 @@ import { useEffect, useCallback } from 'react';
 import type { Player, PlayerValue, PickValue, Roster, TradedPick, TradeAsset, Fairness } from '../types/domain';
 export type { Player, PlayerValue, PickValue, Roster, TradedPick, TradeAsset, Fairness } from '../types/domain';
 
+// ── Positional Weighting (Superflex Calibration) ──────────────────
+// Starter counts per position in a Superflex league (QB+SF, 2RB+flex, 3WR+flex, 1TE).
+// Full value for starters, 50% for quality depth, 10% for deep bench.
+// Shared between KTCValues Team tab, Trade Evaluator's roster impact,
+// and Trade Finder's roster-fit scoring so "team strength at position X"
+// means the same thing everywhere.
+
+export type RosterPosition = 'QB' | 'RB' | 'WR' | 'TE';
+
+export const POSITION_WEIGHT_TIERS: Record<RosterPosition, { full: number; reduced: number }> = {
+  QB: { full: 2, reduced: 1 }, // 2 starters (QB + SF), 3rd at 50%, 4th+ at 10%
+  RB: { full: 3, reduced: 2 }, // 3 starters (2RB + flex), 4th-5th at 50%, 6th+ at 10%
+  WR: { full: 3, reduced: 2 }, // 3 starters (3WR + flex), 4th-5th at 50%, 6th+ at 10%
+  TE: { full: 1, reduced: 1 }, // 1 starter, 2nd at 50%, 3rd+ at 10%
+};
+
+/**
+ * Weighted positional value for a list of assets at one position.
+ * Diminishing returns: starters get full value, depth 50%, deep bench 10%.
+ */
+export function calcWeightedPositionValue(
+  assets: { value: number }[],
+  position: string
+): number {
+  const sorted = [...assets].sort((a, b) => b.value - a.value);
+  const tiers =
+    POSITION_WEIGHT_TIERS[position as RosterPosition] ?? { full: 3, reduced: 2 };
+
+  let total = 0;
+  for (let i = 0; i < sorted.length; i++) {
+    if (i < tiers.full) {
+      total += sorted[i].value; // 100%
+    } else if (i < tiers.full + tiers.reduced) {
+      total += Math.round(sorted[i].value * 0.5); // 50%
+    } else {
+      total += Math.round(sorted[i].value * 0.1); // 10%
+    }
+  }
+  return total;
+}
+
+// ── Roster Strength ───────────────────────────────────────────────
+// A single metric for "how strong is this roster, by position and overall".
+// Used to compute trade fit (does the trade improve/hurt my positional balance?)
+// and to gate Trade Finder scenarios where the partner's roster would get worse.
+
+export interface RosterStrength {
+  total: number;              // Sum of all weighted positional values + picks
+  byPosition: Record<RosterPosition, number>;
+  picksValue: number;         // Raw sum of all pick values on the roster
+  picksCount: number;
+  playerCount: number;
+}
+
+export function computeRosterStrength(assets: TradeAsset[]): RosterStrength {
+  const byPosition: Record<RosterPosition, number> = { QB: 0, RB: 0, WR: 0, TE: 0 };
+  const positionGroups: Record<RosterPosition, TradeAsset[]> = { QB: [], RB: [], WR: [], TE: [] };
+  let picksValue = 0;
+  let picksCount = 0;
+  let playerCount = 0;
+
+  for (const asset of assets) {
+    if (asset.type === 'pick') {
+      picksValue += asset.value;
+      picksCount += 1;
+      continue;
+    }
+    playerCount += 1;
+    const pos = asset.position as RosterPosition | undefined;
+    if (pos && pos in positionGroups) {
+      positionGroups[pos].push(asset);
+    }
+  }
+
+  (Object.keys(positionGroups) as RosterPosition[]).forEach((pos) => {
+    byPosition[pos] = calcWeightedPositionValue(positionGroups[pos], pos);
+  });
+
+  const total =
+    byPosition.QB + byPosition.RB + byPosition.WR + byPosition.TE + picksValue;
+
+  return { total, byPosition, picksValue, picksCount, playerCount };
+}
+
+/**
+ * Simulate a trade on a roster: take current assets, remove the ones being
+ * given up, add the ones being received, return before/after strength +
+ * per-position deltas.
+ */
+export interface RosterImpact {
+  before: RosterStrength;
+  after: RosterStrength;
+  delta: {
+    total: number;
+    byPosition: Record<RosterPosition, number>;
+    picksValue: number;
+  };
+}
+
+export function simulateTradeOnRoster(
+  currentAssets: TradeAsset[],
+  giving: TradeAsset[],
+  receiving: TradeAsset[]
+): RosterImpact {
+  const givingIds = new Set(giving.map((a) => a.id));
+  const afterAssets = [
+    ...currentAssets.filter((a) => !givingIds.has(a.id)),
+    ...receiving,
+  ];
+
+  const before = computeRosterStrength(currentAssets);
+  const after = computeRosterStrength(afterAssets);
+
+  return {
+    before,
+    after,
+    delta: {
+      total: after.total - before.total,
+      byPosition: {
+        QB: after.byPosition.QB - before.byPosition.QB,
+        RB: after.byPosition.RB - before.byPosition.RB,
+        WR: after.byPosition.WR - before.byPosition.WR,
+        TE: after.byPosition.TE - before.byPosition.TE,
+      },
+      picksValue: after.picksValue - before.picksValue,
+    },
+  };
+}
+
+/**
+ * A "roster fit" score in [-100, 100] for a trade from one team's perspective.
+ * Rewards improving weak positions, penalizes piling onto already-strong
+ * positions, rewards total value gain. Uses league-relative context so
+ * "weak" and "strong" are defined relative to the other rosters in the league.
+ */
+export function computeRosterFitScore(
+  impact: RosterImpact,
+  leagueContext: { medianByPosition: Record<RosterPosition, number>; medianTotal: number }
+): number {
+  // Normalize delta against league median. A +1000 gain at a position where
+  // the median is 20000 is ~5 points. Relative change matters more than raw.
+  const positionFit = (pos: RosterPosition): number => {
+    const delta = impact.delta.byPosition[pos];
+    const before = impact.before.byPosition[pos];
+    const median = leagueContext.medianByPosition[pos] || 1;
+
+    // Relative current strength: <1 means weak, >1 means strong
+    const currentStrength = before / median;
+
+    // If weak (<0.8), rewards improvement ~2x. If strong (>1.2), penalizes glut.
+    let multiplier = 1;
+    if (currentStrength < 0.8) multiplier = 2;
+    else if (currentStrength > 1.2) multiplier = 0.3;
+
+    // Normalize delta to a ~[-1, 1] range against median
+    const normalized = Math.max(-1, Math.min(1, delta / median));
+    return normalized * multiplier * 25; // each position can contribute ±25-50
+  };
+
+  const positional =
+    positionFit('QB') + positionFit('RB') + positionFit('WR') + positionFit('TE');
+
+  // Bonus for absolute total improvement (picks + players combined)
+  const totalNormalized = Math.max(
+    -1,
+    Math.min(1, impact.delta.total / Math.max(leagueContext.medianTotal * 0.05, 1))
+  );
+  const totalBonus = totalNormalized * 20;
+
+  return Math.max(-100, Math.min(100, positional + totalBonus));
+}
+
+/**
+ * Compute league context (positional medians) from all rosters' assets.
+ * Used as the reference frame for roster-fit scoring.
+ */
+export function computeLeagueContext(
+  allRosterAssets: TradeAsset[][]
+): { medianByPosition: Record<RosterPosition, number>; medianTotal: number } {
+  const strengths = allRosterAssets.map(computeRosterStrength);
+
+  const median = (nums: number[]): number => {
+    if (nums.length === 0) return 0;
+    const sorted = [...nums].sort((a, b) => a - b);
+    const mid = Math.floor(sorted.length / 2);
+    return sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
+  };
+
+  return {
+    medianByPosition: {
+      QB: median(strengths.map((s) => s.byPosition.QB)),
+      RB: median(strengths.map((s) => s.byPosition.RB)),
+      WR: median(strengths.map((s) => s.byPosition.WR)),
+      TE: median(strengths.map((s) => s.byPosition.TE)),
+    },
+    medianTotal: median(strengths.map((s) => s.total)),
+  };
+}
+
 // ── Position Colors ────────────────────────────────────────────────
 
 export const POSITION_COLORS: Record<string, { bg: string; text: string; dot: string }> = {

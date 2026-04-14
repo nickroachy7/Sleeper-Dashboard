@@ -44,7 +44,7 @@ export interface TradeAnalysisResult {
   valueAdjustment: number;    // The "value adjustment" amount added to lesser side
   tierMismatchExplanation: string; // Explanation of tier mismatch if any
   fairness: 'fair' | 'slight' | 'unfair' | 'lopsided';
-  winnerIndex: number;        // 0 or 1
+  winnerIndex: 0 | 1 | null;  // null on exact tie
   explanation: string;
 }
 
@@ -88,48 +88,48 @@ function calculateTierMismatchPenalty(
   
   let givePenalty = 0;
   let getPenalty = 0;
-  let explanation = '';
-  
+  const explanations: string[] = [];
+
   // Check if giving side has elite but not receiving any elite/star
   if (giveHighestTier === 'elite' && getHighestTier !== 'elite' && getHighestTier !== 'star') {
     // Significant penalty - trading elite for no comparable return
     const eliteAssets = giveAssets.filter(a => a.value >= ELITE_THRESHOLD);
     const totalEliteValue = eliteAssets.reduce((sum, a) => sum + a.value, 0);
     getPenalty = Math.round(totalEliteValue * 0.15); // 15% penalty on elite value
-    explanation = 'Tier mismatch: giving elite without getting elite/star back';
+    explanations.push('Side 1 gives elite without getting elite/star back');
   } else if (giveHighestTier === 'elite' && getHighestTier === 'star') {
     // Smaller penalty - getting star but not elite
     const eliteAssets = giveAssets.filter(a => a.value >= ELITE_THRESHOLD);
     const totalEliteValue = eliteAssets.reduce((sum, a) => sum + a.value, 0);
     getPenalty = Math.round(totalEliteValue * 0.06); // 6% penalty
-    explanation = 'Tier mismatch: giving elite, getting star (not elite)';
+    explanations.push('Side 1 gives elite, only gets a star back');
   } else if (giveHighestTier === 'star' && getHighestTier !== 'elite' && getHighestTier !== 'star') {
     // Penalty for trading star without star/elite return
     const starAssets = giveAssets.filter(a => a.value >= STAR_THRESHOLD);
     const totalStarValue = starAssets.reduce((sum, a) => sum + a.value, 0);
     getPenalty = Math.round(totalStarValue * 0.10); // 10% penalty
-    explanation = 'Tier mismatch: giving star without getting star/elite back';
+    explanations.push('Side 1 gives a star without getting star/elite back');
   }
-  
+
   // Apply same logic in reverse for the other side
   if (getHighestTier === 'elite' && giveHighestTier !== 'elite' && giveHighestTier !== 'star') {
     const eliteAssets = getAssets.filter(a => a.value >= ELITE_THRESHOLD);
     const totalEliteValue = eliteAssets.reduce((sum, a) => sum + a.value, 0);
     givePenalty = Math.round(totalEliteValue * 0.15);
-    explanation = explanation || 'Tier mismatch: receiving elite without giving elite/star';
+    explanations.push('Side 2 gives elite without getting elite/star back');
   } else if (getHighestTier === 'elite' && giveHighestTier === 'star') {
     const eliteAssets = getAssets.filter(a => a.value >= ELITE_THRESHOLD);
     const totalEliteValue = eliteAssets.reduce((sum, a) => sum + a.value, 0);
     givePenalty = Math.round(totalEliteValue * 0.06);
-    explanation = explanation || 'Tier mismatch: receiving elite, giving star (not elite)';
+    explanations.push('Side 2 gives elite, only gets a star back');
   } else if (getHighestTier === 'star' && giveHighestTier !== 'elite' && giveHighestTier !== 'star') {
     const starAssets = getAssets.filter(a => a.value >= STAR_THRESHOLD);
     const totalStarValue = starAssets.reduce((sum, a) => sum + a.value, 0);
     givePenalty = Math.round(totalStarValue * 0.10);
-    explanation = explanation || 'Tier mismatch: receiving star without giving star/elite';
+    explanations.push('Side 2 gives a star without getting star/elite back');
   }
-  
-  return { givePenalty, getPenalty, explanation };
+
+  return { givePenalty, getPenalty, explanation: explanations.join(' · ') };
 }
 
 /**
@@ -326,10 +326,13 @@ export function analyzeTrade(
   // The "value adjustment" is the amount the lesser side would need to add
   // This is calculated as the difference between adjusted totals
   const valueAdjustment = adjustedDifference;
-  
-  // Determine winner (lower adjusted total = winning the trade)
-  const winnerIndex = side1.adjustedTotal <= side2.adjustedTotal ? 0 : 1;
-  
+
+  // Each side's assets represent what THAT side is giving up in the trade.
+  // The side giving up LESS value comes out ahead. Null on exact tie.
+  const winnerIndex: 0 | 1 | null = side1.adjustedTotal === side2.adjustedTotal
+    ? null
+    : side1.adjustedTotal < side2.adjustedTotal ? 0 : 1;
+
   // Determine fairness based on adjusted difference
   let fairness: 'fair' | 'slight' | 'unfair' | 'lopsided';
   const percentDiff = side1.adjustedTotal > 0 
@@ -348,11 +351,11 @@ export function analyzeTrade(
   
   // Build explanation
   let explanation = '';
-  if (side1.adjustedTotal === side2.adjustedTotal) {
+  if (winnerIndex === null) {
     explanation = 'Perfectly balanced trade';
   } else {
     const winner = winnerIndex === 0 ? 'Side 1' : 'Side 2';
-    
+
     if (rawDifference !== adjustedDifference) {
       const adjustmentDirection = adjustedDifference > rawDifference ? 'widened' : 'narrowed';
       explanation = `${winner} wins by ${adjustedDifference.toLocaleString()} adjusted value. ` +

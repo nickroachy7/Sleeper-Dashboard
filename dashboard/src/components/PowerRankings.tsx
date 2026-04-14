@@ -76,7 +76,7 @@ export function PowerRankings({ rankings }: PowerRankingsProps) {
       <PageHeader
         sectionLabel="Power Rankings"
         title="Dynasty Rankings"
-        subtitle="Teams ranked by total KTC roster value"
+        subtitle="Weighted roster strength — starters valued most"
       />
 
       <div className="bg-[#0a0a0a] rounded-xl overflow-hidden border border-[#161616]">
