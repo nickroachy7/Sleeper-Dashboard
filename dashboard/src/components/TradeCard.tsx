@@ -15,6 +15,7 @@ interface TradePick {
   season: string;
   round: number;
   value?: number;
+  name?: string;
 }
 
 export interface TradeSide {
@@ -155,7 +156,7 @@ export function TradeCard({
                 {side.picks.map((pick, pickIdx) => (
                   <AssetRow
                     key={pickIdx}
-                    name={`${pick.season} Round ${pick.round}`}
+                    name={pick.name || `${pick.season} Round ${pick.round}`}
                     position="PICK"
                     value={pick.value}
                     className={`border-t border-[#111111] ${isCompact ? 'px-3' : 'px-4 sm:px-5'}`}

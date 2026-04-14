@@ -62,6 +62,7 @@ export function RecentTrades({ trades }: RecentTradesProps) {
               season: pick.season,
               round: pick.round,
               value: pick.value || 0,
+              name: pick.resolvedName,
             })),
             totalValue: assets.totalValue,
             adjustedValue: assets.adjustedValue,

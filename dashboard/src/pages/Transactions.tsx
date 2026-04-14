@@ -16,7 +16,8 @@ import { TradeCard as SharedTradeCard, type TradeSide } from '../components/Trad
 import { AssetRow } from '../components/AssetRow';
 import { analyzeTrade } from '../lib/trade-value-adjustment';
 import type { TradeAsset } from '../types/domain';
-import { lookupPickValue } from '../lib/trade-shared';
+import { lookupPickValue, getProjectedPickSlot, getPickSlotDisplayName } from '../lib/trade-shared';
+import type { Roster } from '../types/domain';
 
 interface LeagueUser {
   user_id: string;
@@ -35,7 +36,7 @@ export default function Transactions() {
   const { data: playerValues } = usePlayerValuesList();
   const { data: pickValuesData } = usePickValues();
 
-  const { data: transactions, isLoading } = useQuery({
+  const { data: txData, isLoading } = useQuery({
     queryKey: ['transactions'],
     queryFn: async () => {
       let allTransactions: any[] = [];
@@ -59,14 +60,24 @@ export default function Transactions() {
       const { data: rosters } = await supabase.from('rosters').select('*');
       const { data: leagueUsers } = await supabase.from('league_users').select('user_id, team_name, display_name');
 
-      if (!allTransactions.length) return [];
+      if (!allTransactions.length) return { transactions: [] as any[], rosters: [] as Roster[] };
 
       const rosterToOwner = new Map<number, string>();
+      const rosterList: Roster[] = (rosters as any[] || []).map((r: any) => ({
+        roster_id: r.roster_id,
+        owner_id: r.owner_id || '',
+        players: r.players || [],
+        wins: r.wins || 0,
+        losses: r.losses || 0,
+        fpts: Number(r.fpts) || 0,
+        ownerName: '',
+        teamName: null,
+      }));
       (rosters as any[])?.forEach((r: any) => {
         rosterToOwner.set(r.roster_id, r.owner_id);
       });
 
-      return allTransactions.map((tx: any) => {
+      const txList = allTransactions.map((tx: any) => {
         const rosterOwners = tx.roster_ids?.map((rosterId: number) => {
           const ownerId = rosterToOwner.get(rosterId);
           const owner = (users as any[])?.find((u: any) => u.user_id === ownerId);
@@ -88,11 +99,28 @@ export default function Transactions() {
         };
         return getTimestamp(b) - getTimestamp(a);
       });
+      return { transactions: txList, rosters: rosterList };
     },
   });
 
+  const transactions = txData?.transactions;
+  const leagueRosters = txData?.rosters || [];
+  const leagueSize = leagueRosters.length;
+
   const getPlayer = (playerId: string) => players instanceof Map ? players.get(playerId) : undefined;
   const getPlayerValue = (playerId: string): number => (playerValues instanceof Map ? playerValues.get(playerId) : 0) || 0;
+
+  /** Resolve pick slot and value from roster standings */
+  const resolvePickSlotAndValue = (pick: any) => {
+    const slot = leagueSize > 0 ? getProjectedPickSlot(pick.roster_id, leagueRosters) : 0;
+    const value = slot > 0
+      ? lookupPickValue(pickValuesData || [], pick.season, pick.round, { slot, leagueSize })
+      : lookupPickValue(pickValuesData || [], pick.season, pick.round);
+    const name = slot > 0
+      ? getPickSlotDisplayName(pick.season, pick.round, slot)
+      : `${pick.season} Round ${pick.round}`;
+    return { slot, value, name };
+  };
 
   // Stats
   const typeCounts = useMemo(() => {
@@ -127,11 +155,12 @@ export default function Transactions() {
             });
           });
           assets.picks.forEach((pick: any) => {
+            const resolved = resolvePickSlotAndValue(pick);
             result.push({
-              id: `pick-${pick.season}-${pick.round}`,
+              id: `pick-${pick.season}-${pick.round}-${pick.roster_id}`,
               type: 'pick',
-              name: `${pick.season} Round ${pick.round}`,
-              value: lookupPickValue(pickValuesData || [], pick.season, pick.round),
+              name: resolved.name,
+              value: resolved.value,
             });
           });
           return result;
@@ -270,9 +299,9 @@ export default function Transactions() {
     if (tx.draft_picks && Array.isArray(tx.draft_picks)) {
       tx.draft_picks.forEach((pick: any) => {
         if (pick.owner_id && teamAssets[pick.owner_id]) {
-          teamAssets[pick.owner_id].picks.push(pick);
-          const pickBaseValue = lookupPickValue(pickValuesData || [], pick.season, pick.round);
-          teamAssets[pick.owner_id].value += pickBaseValue;
+          const resolved = resolvePickSlotAndValue(pick);
+          teamAssets[pick.owner_id].picks.push({ ...pick, resolvedValue: resolved.value, resolvedName: resolved.name });
+          teamAssets[pick.owner_id].value += resolved.value;
         }
       });
     }
@@ -306,8 +335,8 @@ export default function Transactions() {
         tradeAssets.push({
           id: `pick-${pick.season}-${pick.round}-${pick.roster_id}`,
           type: 'pick',
-          name: `${pick.season} Round ${pick.round}`,
-          value: lookupPickValue(pickValuesData || [], pick.season, pick.round),
+          name: pick.resolvedName || `${pick.season} Round ${pick.round}`,
+          value: pick.resolvedValue ?? lookupPickValue(pickValuesData || [], pick.season, pick.round),
         });
       });
       return tradeAssets;
@@ -335,7 +364,8 @@ export default function Transactions() {
         picks: assets.picks.map((pick: any) => ({
           season: pick.season,
           round: pick.round,
-          value: lookupPickValue(pickValuesData || [], pick.season, pick.round),
+          name: pick.resolvedName,
+          value: pick.resolvedValue ?? lookupPickValue(pickValuesData || [], pick.season, pick.round),
         })),
         totalValue: assets.value,
         adjustedValue: sideResult?.adjustedTotal,

@@ -242,17 +242,119 @@ export function getProjectedPickTier(roster_id: number, rosters: Roster[]): stri
 }
 
 /**
+ * Get the projected draft slot (1-based) for a roster based on standings.
+ * Worst team gets slot 1 (first pick), best team gets the last slot.
+ */
+export function getProjectedPickSlot(roster_id: number, rosters: Roster[]): number {
+  const sortedRosters = [...rosters].sort((a, b) => {
+    const winsA = a.wins || 0;
+    const winsB = b.wins || 0;
+    if (winsA !== winsB) return winsB - winsA;
+    const fptsA = Number(a.fpts) || 0;
+    const fptsB = Number(b.fpts) || 0;
+    return fptsB - fptsA;
+  });
+  // Reverse: worst team = slot 1
+  const standing = sortedRosters.findIndex((r) => r.roster_id === roster_id) + 1;
+  return rosters.length - standing + 1;
+}
+
+/**
+ * Interpolate per-slot pick values for an entire draft year.
+ * Mirrors KTC's calcPicksSimpleSingleMode algorithm:
+ * - Takes ALL tier values for a year (sorted descending by value)
+ * - Generates leagueSize individual slot values per round
+ * - Extrapolates above the highest and below the lowest
+ * - Linear interpolation between consecutive tier values
+ *
+ * Returns a Map: round -> number[] (one value per slot, index 0 = pick 1)
+ */
+export function interpolateAllPickSlots(
+  pickValues: PickValue[],
+  season: string,
+  leagueSize: number
+): Map<number, number[]> {
+  // Get all tier values for this year, sorted descending (highest first)
+  const yearPicks = pickValues
+    .filter((pv) => pv.pick_year === season)
+    .sort((a, b) => b.value - a.value);
+
+  const result = new Map<number, number[]>();
+  if (yearPicks.length === 0) {
+    for (const round of [1, 2, 3, 4]) {
+      const fallback = round === 1 ? 5000 : round === 2 ? 2000 : round === 3 ? 800 : 400;
+      result.set(round, Array(leagueSize).fill(fallback));
+    }
+    return result;
+  }
+
+  // KTC algorithm: interpolate between consecutive tier values
+  // 2 slots above top, 4 slots between each pair, 2 slots below bottom
+  const allValues: number[] = [];
+  const tierValues = yearPicks.map((p) => p.value);
+
+  for (let i = 0; i < tierValues.length - 1; i++) {
+    const high = tierValues[i];
+    const low = tierValues[i + 1];
+    const step = (high - low) / 8;
+
+    if (i === 0) {
+      // Extrapolate 2 picks above the highest tier
+      allValues.push(Math.min(9999, Math.round(high + 7 * step)));
+      allValues.push(Math.min(9999, Math.round(high + 3 * step)));
+    }
+
+    // 4 interpolated values between tiers (steps 1,3,5,7)
+    for (let s = 1; s < 8; s++) {
+      allValues.push(Math.round(high - s * step));
+      s++; // skip every other
+    }
+
+    if (i === tierValues.length - 2) {
+      // Extrapolate 2 picks below the lowest tier
+      allValues.push(Math.max(0, Math.round(low - step)));
+      allValues.push(Math.max(0, Math.round(low - 3 * step)));
+    }
+  }
+
+  // Split into rounds: each round gets leagueSize picks
+  for (let round = 1; round <= 4; round++) {
+    const startIdx = (round - 1) * leagueSize;
+    const roundValues: number[] = [];
+    for (let slot = 0; slot < leagueSize; slot++) {
+      const idx = startIdx + slot;
+      roundValues.push(idx < allValues.length ? allValues[idx] : allValues[allValues.length - 1] || 0);
+    }
+    result.set(round, roundValues);
+  }
+
+  return result;
+}
+
+/**
  * Look up a pick's KTC value from the pick_values table.
- * When tier is unknown (e.g. transaction history), defaults to "Mid".
+ * If slot and leagueSize are provided, uses interpolated per-slot values.
+ * Otherwise defaults to "Mid" tier lookup.
  * Falls back to a conservative hardcoded value if no DB match is found.
  */
 export function lookupPickValue(
   pickValues: PickValue[],
   season: string,
   round: number,
-  tier?: string | null
+  opts?: { tier?: string | null; slot?: number; leagueSize?: number }
 ): number {
-  const resolvedTier = tier || 'Mid';
+  // If we have slot info, use interpolated values
+  if (opts?.slot && opts?.leagueSize) {
+    const allSlots = interpolateAllPickSlots(pickValues, season, opts.leagueSize);
+    const roundSlots = allSlots.get(round);
+    if (roundSlots) {
+      const idx = Math.max(0, Math.min(opts.slot - 1, roundSlots.length - 1));
+      return roundSlots[idx];
+    }
+  }
+
+  // Tier-based lookup
+  const resolvedTier = opts?.tier || 'Mid';
   const match = pickValues.find(
     (pv) => pv.pick_year === season && pv.pick_round === round && pv.pick_tier === resolvedTier
   );
@@ -269,6 +371,14 @@ export function lookupPickValue(
 export function getPickDisplayName(year: string, round: number, tier: string): string {
   const roundSuffix = round === 1 ? '1st' : round === 2 ? '2nd' : round === 3 ? '3rd' : `${round}th`;
   return `${year} ${tier} ${roundSuffix}`;
+}
+
+/**
+ * Format a pick with slot number: "2026 Pick 1.03"
+ */
+export function getPickSlotDisplayName(year: string, round: number, slot: number): string {
+  const slotStr = slot < 10 ? `0${slot}` : `${slot}`;
+  return `${year} Pick ${round}.${slotStr}`;
 }
 
 // ── Hooks ──────────────────────────────────────────────────────────
@@ -297,21 +407,30 @@ export function buildPicksForRoster(
   const picks: TradeAsset[] = [];
   const futureYears = ['2025', '2026', '2027', '2028'];
   const rounds = [1, 2, 3, 4];
+  const leagueSize = rosters.length;
+
+  // Pre-compute interpolated slot values per year for efficiency
+  const yearSlotCache = new Map<string, Map<number, number[]>>();
+  for (const year of futureYears) {
+    yearSlotCache.set(year, interpolateAllPickSlots(pickValues, year, leagueSize));
+  }
 
   for (const year of futureYears) {
+    const yearSlots = yearSlotCache.get(year)!;
     for (const round of rounds) {
+      const roundSlots = yearSlots.get(round);
       for (const originalRoster of rosters) {
         const tradedPick = tradedPicks.find(
           (tp) => tp.season === year && tp.round === round && tp.roster_id === originalRoster.roster_id
         );
         const currentOwnerId = tradedPick ? tradedPick.owner_id : originalRoster.roster_id;
         if (currentOwnerId === rosterId) {
-          const tier = getProjectedPickTier(originalRoster.roster_id, rosters);
-          const pickValue = pickValues.find(
-            (pv) => pv.pick_year === year && pv.pick_round === round && pv.pick_tier === tier
-          );
-          if (pickValue) {
-            const pickName = getPickDisplayName(year, round, tier);
+          const slot = getProjectedPickSlot(originalRoster.roster_id, rosters);
+          const value = roundSlots
+            ? roundSlots[Math.max(0, Math.min(slot - 1, roundSlots.length - 1))]
+            : 0;
+          if (value > 0) {
+            const pickName = getPickSlotDisplayName(year, round, slot);
             const displayName = originalRoster.roster_id !== rosterId
               ? `${pickName} (via ${originalRoster.ownerName})`
               : pickName;
@@ -319,10 +438,10 @@ export function buildPicksForRoster(
               id: `pick-${year}-${round}-${originalRoster.roster_id}`,
               type: 'pick',
               name: displayName,
-              value: pickValue.value,
+              value,
               pickYear: year,
               pickRound: round,
-              pickTier: tier,
+              pickTier: getProjectedPickTier(originalRoster.roster_id, rosters),
             });
           }
         }
