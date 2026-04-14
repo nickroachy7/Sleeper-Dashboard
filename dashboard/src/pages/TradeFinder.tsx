@@ -250,7 +250,7 @@ export function TradeFinder() {
     return {
       raw: sideValue.rawTotal,
       adjusted: sideValue.adjustedTotal,
-      breakdown: sideValue.adjustmentBreakdown,
+      adjustment: sideValue.valueAdjustment,
     };
   }, [selectedAssets]);
 

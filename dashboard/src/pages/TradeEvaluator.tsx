@@ -8,7 +8,6 @@ import {
   Loader2,
   RotateCcw,
   Info,
-  AlertTriangle,
   TrendingUp,
   TrendingDown,
 } from 'lucide-react';
@@ -417,74 +416,43 @@ export function TradeEvaluator({ initialSides }: TradeEvaluatorProps = {}) {
               })}
             </div>
 
-            {/* ── Per-side Adjustment Breakdown ── */}
-            <div className="pt-3 mt-3 border-t border-[#111111] space-y-3">
-              {tradeSides.map((side, sideIndex) => {
-                const sideResult = sideIndex === 0 ? tradeAnalysis.side1 : tradeAnalysis.side2;
-                const roster = rosters?.find(r => r.roster_id === side.rosterId);
-                const hasAdjustment =
-                  sideResult.studBonus > 0 ||
-                  sideResult.consolidationBonus > 0 ||
-                  sideResult.piecesPenalty > 0 ||
-                  sideResult.tierMismatchPenalty > 0;
-                if (!hasAdjustment) return null;
-                return (
-                  <div key={sideIndex} className="text-[10px] space-y-0.5">
-                    <div className="text-[#666666] font-semibold uppercase tracking-wider">
-                      {roster ? getTeamDisplayName(roster) : `Side ${sideIndex + 1}`}
+            {/* ── Value Adjustment Breakdown ── */}
+            {tradeAnalysis.valueAdjustment > 0 && (
+              <div className="pt-3 mt-3 border-t border-[#111111] space-y-2">
+                {tradeSides.map((side, sideIndex) => {
+                  const sideResult = sideIndex === 0 ? tradeAnalysis.side1 : tradeAnalysis.side2;
+                  const roster = rosters?.find(r => r.roster_id === side.rosterId);
+                  const teamLabel = roster ? getTeamDisplayName(roster) : `Side ${sideIndex + 1}`;
+                  const hasAdj = sideResult.valueAdjustment > 0;
+                  return (
+                    <div key={sideIndex} className="text-[10px] space-y-0.5">
+                      <div className="text-[#666666] font-semibold uppercase tracking-wider">
+                        {teamLabel}
+                      </div>
+                      <div className="flex items-center justify-between text-[#555555]">
+                        <span>Raw value</span>
+                        <span className="tabular-nums">{sideResult.rawTotal.toLocaleString()}</span>
+                      </div>
+                      {hasAdj && (
+                        <div className="flex items-center justify-between text-emerald-400/80">
+                          <span>+ Value Adjustment</span>
+                          <span className="tabular-nums">+{sideResult.valueAdjustment.toLocaleString()}</span>
+                        </div>
+                      )}
+                      <div className="flex items-center justify-between text-white font-semibold pt-0.5 border-t border-[#111111]">
+                        <span>Adjusted</span>
+                        <span className="tabular-nums">{sideResult.adjustedTotal.toLocaleString()}</span>
+                      </div>
                     </div>
-                    <div className="flex items-center justify-between text-[#555555]">
-                      <span>Raw value</span>
-                      <span className="tabular-nums">{sideResult.rawTotal.toLocaleString()}</span>
-                    </div>
-                    {sideResult.studBonus > 0 && (
-                      <div className="flex items-center justify-between text-emerald-400/80">
-                        <span>+ Stud bonus</span>
-                        <span className="tabular-nums">+{sideResult.studBonus.toLocaleString()}</span>
-                      </div>
-                    )}
-                    {sideResult.consolidationBonus > 0 && (
-                      <div className="flex items-center justify-between text-emerald-400/80">
-                        <span>+ Consolidation</span>
-                        <span className="tabular-nums">+{sideResult.consolidationBonus.toLocaleString()}</span>
-                      </div>
-                    )}
-                    {sideResult.piecesPenalty > 0 && (
-                      <div className="flex items-center justify-between text-red-400/80">
-                        <span>− Pieces penalty</span>
-                        <span className="tabular-nums">−{sideResult.piecesPenalty.toLocaleString()}</span>
-                      </div>
-                    )}
-                    {sideResult.tierMismatchPenalty > 0 && (
-                      <div className="flex items-center justify-between text-amber-400/80">
-                        <span>− Tier mismatch</span>
-                        <span className="tabular-nums">−{sideResult.tierMismatchPenalty.toLocaleString()}</span>
-                      </div>
-                    )}
-                    <div className="flex items-center justify-between text-white font-semibold pt-0.5 border-t border-[#111111]">
-                      <span>Adjusted</span>
-                      <span className="tabular-nums">{sideResult.adjustedTotal.toLocaleString()}</span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
 
-            {/* Adjustment details */}
-            {(tradeAnalysis.rawDifference !== tradeAnalysis.adjustedDifference || tradeAnalysis.tierMismatchExplanation) && (
-              <div className="pt-3 mt-3 border-t border-[#111111] space-y-1.5">
                 {tradeAnalysis.rawDifference !== tradeAnalysis.adjustedDifference && (
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5 pt-1">
                     <Info className="h-3 w-3 text-[#444444] shrink-0" />
                     <span className="text-[10px] text-[#555555]">
                       Raw gap: {tradeAnalysis.rawDifference.toLocaleString()} → Adjusted gap: {tradeAnalysis.adjustedDifference.toLocaleString()}
                     </span>
-                  </div>
-                )}
-                {tradeAnalysis.tierMismatchExplanation && (
-                  <div className="flex items-center gap-1.5">
-                    <AlertTriangle className="h-3 w-3 text-amber-500/60 shrink-0" />
-                    <span className="text-[10px] text-amber-400/70">{tradeAnalysis.tierMismatchExplanation}</span>
                   </div>
                 )}
               </div>
