@@ -127,9 +127,14 @@ export function TradeCard({
                   }
                   const color = isNearEven ? 'text-[#555555]' : net > 0 ? 'text-emerald-400' : 'text-red-400';
                   return (
-                    <span className={`text-[11px] font-semibold tabular-nums ${color}`}>
-                      {net > 0 ? '+' : ''}{net.toLocaleString()} KTC
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11px] text-[#444444] font-medium tabular-nums">
+                        {sideVal.toLocaleString()}
+                      </span>
+                      <span className={`text-[11px] font-semibold tabular-nums ${color}`}>
+                        {net > 0 ? '+' : ''}{net.toLocaleString()}
+                      </span>
+                    </div>
                   );
                 })()}
               </div>
@@ -162,6 +167,20 @@ export function TradeCard({
                     <p className="text-[13px] font-medium text-[#555555]">Zip, nothing, nada.</p>
                   </div>
                 )}
+                {/* Value Adjustment line */}
+                {(() => {
+                  if (side.adjustedValue == null) return null;
+                  const adj = side.adjustedValue - side.totalValue;
+                  if (adj === 0) return null;
+                  return (
+                    <div className={`flex items-center justify-between py-2 border-t border-dashed border-[#1a1a1a] ${isCompact ? 'px-3' : 'px-4 sm:px-5'}`}>
+                      <span className="text-[11px] text-[#666666] italic">Value Adjustment</span>
+                      <span className={`text-[11px] font-semibold tabular-nums ${adj > 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                        {adj > 0 ? '+' : ''}{adj.toLocaleString()}
+                      </span>
+                    </div>
+                  );
+                })()}
               </div>
             </div>
           );
