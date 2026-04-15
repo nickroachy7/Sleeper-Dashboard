@@ -187,15 +187,19 @@ export default function Home() {
     const rosterToTeam = new Map<number, string>();
     rosters.forEach((r: any) => rosterToTeam.set(r.roster_id, resolveTeamName(r.owner_id)));
 
+    const currentDraftYear = new Date().getFullYear().toString();
+
     const resolvePickSlot = (pick: any) => {
-      const slot = leagueSize > 0 ? getProjectedPickSlot(pick.roster_id, rosterList) : 0;
-      const value = slot > 0
-        ? lookupPickValue(pickValues, pick.season, pick.round, { slot, leagueSize })
-        : lookupPickValue(pickValues, pick.season, pick.round);
-      const name = slot > 0
-        ? getPickSlotDisplayName(pick.season, pick.round, slot)
-        : `${pick.season} Round ${pick.round}`;
-      return { slot, value, name };
+      const isCurrentYear = pick.season === currentDraftYear;
+      if (isCurrentYear && leagueSize > 0) {
+        const slot = getProjectedPickSlot(pick.roster_id, rosterList);
+        const value = lookupPickValue(pickValues, pick.season, pick.round, { slot, leagueSize });
+        const name = getPickSlotDisplayName(pick.season, pick.round, slot);
+        return { value, name };
+      }
+      const value = lookupPickValue(pickValues, pick.season, pick.round);
+      const name = `${pick.season} Round ${pick.round}`;
+      return { value, name };
     };
 
     return recentTrades.map((tx: any) => {

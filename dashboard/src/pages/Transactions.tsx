@@ -110,16 +110,23 @@ export default function Transactions() {
   const getPlayer = (playerId: string) => players instanceof Map ? players.get(playerId) : undefined;
   const getPlayerValue = (playerId: string): number => (playerValues instanceof Map ? playerValues.get(playerId) : 0) || 0;
 
-  /** Resolve pick slot and value from roster standings */
+  const currentDraftYear = new Date().getFullYear().toString();
+
+  /** Resolve pick value and display name from roster standings.
+   *  Only the current draft year gets slot-specific labels (e.g. "2026 Pick 1.03").
+   *  Future years use tier labels (e.g. "2027 Early 1st"). */
   const resolvePickSlotAndValue = (pick: any) => {
-    const slot = leagueSize > 0 ? getProjectedPickSlot(pick.roster_id, leagueRosters) : 0;
-    const value = slot > 0
-      ? lookupPickValue(pickValuesData || [], pick.season, pick.round, { slot, leagueSize })
-      : lookupPickValue(pickValuesData || [], pick.season, pick.round);
-    const name = slot > 0
-      ? getPickSlotDisplayName(pick.season, pick.round, slot)
-      : `${pick.season} Round ${pick.round}`;
-    return { slot, value, name };
+    const isCurrentYear = pick.season === currentDraftYear;
+    if (isCurrentYear && leagueSize > 0) {
+      const slot = getProjectedPickSlot(pick.roster_id, leagueRosters);
+      const value = lookupPickValue(pickValuesData || [], pick.season, pick.round, { slot, leagueSize });
+      const name = getPickSlotDisplayName(pick.season, pick.round, slot);
+      return { value, name };
+    }
+    // Future years: tier-based
+    const value = lookupPickValue(pickValuesData || [], pick.season, pick.round);
+    const name = `${pick.season} Round ${pick.round}`;
+    return { value, name };
   };
 
   // Stats

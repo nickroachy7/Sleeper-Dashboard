@@ -409,28 +409,43 @@ export function buildPicksForRoster(
   const rounds = [1, 2, 3, 4];
   const leagueSize = rosters.length;
 
-  // Pre-compute interpolated slot values per year for efficiency
-  const yearSlotCache = new Map<string, Map<number, number[]>>();
-  for (const year of futureYears) {
-    yearSlotCache.set(year, interpolateAllPickSlots(pickValues, year, leagueSize));
-  }
+  // Only the current draft year gets slot-specific values & labels
+  const currentDraftYear = new Date().getFullYear().toString();
+
+  // Pre-compute interpolated slot values for the current draft year only
+  const currentYearSlots = interpolateAllPickSlots(pickValues, currentDraftYear, leagueSize);
 
   for (const year of futureYears) {
-    const yearSlots = yearSlotCache.get(year)!;
+    const useSlots = year === currentDraftYear;
     for (const round of rounds) {
-      const roundSlots = yearSlots.get(round);
       for (const originalRoster of rosters) {
         const tradedPick = tradedPicks.find(
           (tp) => tp.season === year && tp.round === round && tp.roster_id === originalRoster.roster_id
         );
         const currentOwnerId = tradedPick ? tradedPick.owner_id : originalRoster.roster_id;
         if (currentOwnerId === rosterId) {
-          const slot = getProjectedPickSlot(originalRoster.roster_id, rosters);
-          const value = roundSlots
-            ? roundSlots[Math.max(0, Math.min(slot - 1, roundSlots.length - 1))]
-            : 0;
+          const tier = getProjectedPickTier(originalRoster.roster_id, rosters);
+          let value: number;
+          let pickName: string;
+
+          if (useSlots) {
+            // Current year: use interpolated per-slot values and "Pick X.YY" labels
+            const slot = getProjectedPickSlot(originalRoster.roster_id, rosters);
+            const roundSlots = currentYearSlots.get(round);
+            value = roundSlots
+              ? roundSlots[Math.max(0, Math.min(slot - 1, roundSlots.length - 1))]
+              : 0;
+            pickName = getPickSlotDisplayName(year, round, slot);
+          } else {
+            // Future years: use tier-based values and "Year Tier Round" labels
+            const pv = pickValues.find(
+              (p) => p.pick_year === year && p.pick_round === round && p.pick_tier === tier
+            );
+            value = pv?.value ?? 0;
+            pickName = getPickDisplayName(year, round, tier);
+          }
+
           if (value > 0) {
-            const pickName = getPickSlotDisplayName(year, round, slot);
             const displayName = originalRoster.roster_id !== rosterId
               ? `${pickName} (via ${originalRoster.ownerName})`
               : pickName;
@@ -441,7 +456,7 @@ export function buildPicksForRoster(
               value,
               pickYear: year,
               pickRound: round,
-              pickTier: getProjectedPickTier(originalRoster.roster_id, rosters),
+              pickTier: tier,
             });
           }
         }
