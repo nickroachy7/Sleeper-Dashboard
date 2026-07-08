@@ -171,7 +171,7 @@ export function LookupSearch() {
             autoCorrect="off"
             autoCapitalize="none"
             spellCheck={false}
-            className="flex-1 min-w-0 bg-transparent py-3.5 sm:py-4 text-base text-white placeholder-[#75757f] focus:outline-none [appearance:none] [&::-webkit-search-cancel-button]:hidden"
+            className="flex-1 min-w-0 bg-transparent py-3.5 sm:py-4 text-base text-white placeholder-[#75757f] focus:outline-none focus-visible:outline-none [appearance:none] [&::-webkit-search-cancel-button]:hidden"
           />
           {query && (
             <button
