@@ -4,7 +4,7 @@ import type {
   SleeperRoster,
   SleeperMatchup,
   SleeperTransaction,
-} from '../types/database';
+} from '../types/sleeper';
 
 const SLEEPER_API_BASE = 'https://api.sleeper.app/v1';
 

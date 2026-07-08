@@ -1,18 +1,26 @@
 # Backend Recovery Guide
 
-**Status (July 2026):** The original Supabase project (`ieviegvkitwwtttgrcso`) no longer
-exists — its hostname doesn't resolve and the CLI reports "Resource has been removed."
-Free-tier projects get paused after ~1 week of inactivity and removed later; this one
-was idle since April.
+**Status: RECOVERED (July 8, 2026).** The original Supabase project
+(`ieviegvkitwwtttgrcso`) was removed after free-tier inactivity. A new project
+was provisioned end-to-end and all data re-synced from Sleeper + KeepTradeCut:
 
-**The good news:** nothing important was lost. Every table is re-syncable from the
-Sleeper API and KeepTradeCut. The only unrecoverable data is `sync_log` history and any
-`player_value_history` snapshots (that table was brand new and likely empty anyway).
-The full schema now lives in `supabase/migrations/`, so re-provisioning is ~15 minutes.
+- **Project:** `sleeper-dashboard` (`yxtnocecnqutcvltptya`), org "Yap Sports Database",
+  us-east-1 — https://supabase.com/dashboard/project/yxtnocecnqutcvltptya
+- **Synced:** 4 seasons (2023–2026), 48 rosters, 984 transactions, 434 traded picks,
+  432 draft picks, 445 KTC player values, 36 pick values
+- **Cron:** all five sync jobs scheduled via pg_cron + Vault and verified firing
+- **Local secrets:** DB password and API keys in `supabase/.temp/` (gitignored)
+- **Still to do:** update `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` in
+  Railway if the deployed frontend is still wanted (local `dashboard/.env` is
+  already updated)
+
+The steps below remain as the playbook for any future re-provisioning.
+
+---
 
 ## League reference
 
-The dashboard tracked **Dynasty Reloaded** (12-team). Current chain from Sleeper's API:
+The dashboard tracks **Dynasty Reloaded** (12-team). Chain from Sleeper's API:
 
 | Season | league_id |
 |--------|-----------------------|
@@ -21,83 +29,66 @@ The dashboard tracked **Dynasty Reloaded** (12-team). Current chain from Sleeper
 | 2024   | `1048274277511962624` |
 | 2023   | `990713355411271680`  |
 
-Only the 2026 row needs seeding — `sync-league-data` traverses `previous_league_id`
-and backfills the rest. (You're also in "DK Dynasty", 2026 id `1313965360898146304`,
-if that was ever meant to be added.)
+Only the current-season row needs seeding — `sync-league-data` traverses
+`previous_league_id` and backfills the rest.
 
-## Steps
+## Re-provisioning steps
 
-1. **Create a new Supabase project** at [database.new](https://database.new).
-   Note the project ref, anon key, and service role key (Project Settings → API).
-
-2. **Re-link the CLI** (the old login token is also stale):
+1. **Create a project** (CLI works if `supabase orgs list` succeeds):
    ```sh
-   cd Sleeper-Dashboard
-   supabase login
-   supabase link --project-ref <NEW_PROJECT_REF>
+   supabase projects create sleeper-dashboard \
+     --org-id trfdfmhpoezdyyzseimf --db-password <PW> --region us-east-1
    ```
 
-3. **Push the schema** — three migrations run in order
-   (initial schema → realtime/cron → value history + upsert indexes):
+2. **Link and push the schema** (three migrations: initial schema → cron/realtime
+   → value history + upsert indexes):
    ```sh
+   supabase link --project-ref <REF>
    supabase db push
    ```
 
-4. **Deploy the edge functions:**
+3. **Deploy the edge functions** (no secrets needed — `SUPABASE_URL` /
+   `SUPABASE_SERVICE_ROLE_KEY` are injected automatically):
    ```sh
-   supabase functions deploy sync-players
-   supabase functions deploy sync-league-data
-   supabase functions deploy sync-nfl-state
-   supabase functions deploy sync-ktc-values
-   supabase functions deploy sync-transactions-live
+   for fn in sync-players sync-league-data sync-nfl-state sync-ktc-values sync-transactions-live; do
+     supabase functions deploy $fn
+   done
    ```
-   No secrets to set — they use `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY`,
-   which Supabase injects automatically.
 
-5. **Seed the league row** (SQL editor in the dashboard):
+4. **Seed the Vault secrets the cron jobs read** (SQL editor or psql via
+   `postgres.<REF>@aws-0-us-east-1.pooler.supabase.com:5432`). Note: managed
+   Supabase denies `ALTER DATABASE/ROLE ... SET`, so Vault is the only option:
+   ```sql
+   SELECT vault.create_secret('https://<REF>.supabase.co', 'project_url');
+   SELECT vault.create_secret('<SERVICE_ROLE_KEY>', 'service_role_key');
+   ```
+
+5. **Seed the league row:**
    ```sql
    INSERT INTO leagues (league_id, name, season, status, total_rosters)
    VALUES ('1312080194361638912', 'Dynasty Reloaded', '2026', 'in_season', 12);
    ```
 
-6. **Run the first sync, in this order** (each is an HTTP POST; use the dashboard's
-   "invoke" button or curl with the service role key as Bearer token):
-   1. `sync-players` (~5 min, populates the players table other syncs FK against)
-   2. `sync-nfl-state`
-   3. `sync-league-data` (all four seasons — takes a few minutes)
-   4. `sync-ktc-values`
+6. **Run the first sync in order** (POST with the service role key as Bearer):
+   `sync-players` → `sync-nfl-state` → `sync-league-data` → `sync-ktc-values`.
+   Cron keeps everything fresh afterwards (and counts as activity, which keeps
+   the free-tier project from pausing).
 
-7. **Update the frontend env** in `dashboard/.env` (and the same two vars in
-   Railway if the deployed site is still wanted):
+7. **Point the frontend at it** — `dashboard/.env` and Railway env vars:
    ```
-   VITE_SUPABASE_URL=https://<NEW_PROJECT_REF>.supabase.co
-   VITE_SUPABASE_ANON_KEY=<NEW_ANON_KEY>
+   VITE_SUPABASE_URL=https://<REF>.supabase.co
+   VITE_SUPABASE_ANON_KEY=<ANON_KEY>
    ```
 
-8. **Re-create the cron schedules.** The `sync-transactions-live` job from the
-   20260402 migration is installed but points at `app.settings.*` settings that
-   don't exist on the new project. Either set them:
-   ```sql
-   ALTER DATABASE postgres SET app.settings.supabase_url = 'https://<NEW_PROJECT_REF>.supabase.co';
-   ALTER DATABASE postgres SET app.settings.supabase_service_role_key = '<SERVICE_ROLE_KEY>';
-   ```
-   or re-schedule the jobs with hardcoded URLs (see the note at the bottom of
-   `supabase/migrations/20260402_live_transaction_sync.sql`). Intended cadence:
-   - `sync-transactions-live` — every 5 min
-   - `sync-league-data` — every 6 h
-   - `sync-players` — daily 4 AM ET
-   - `sync-ktc-values` — daily 6 AM ET
-   - `sync-nfl-state` — hourly
-
-9. **Regenerate types** (optional but keeps `database.ts` honest):
+8. **Regenerate types:**
    ```sh
    supabase gen types typescript --linked > dashboard/src/types/database.ts
    ```
-   Note: the reconstructed schema drops tables the app never used
-   (`articles`, `player_projections`, `playoff_brackets`, `trade_analyses`, `yf_*`),
-   so the generated file will be smaller than the old one. `tsc` should still pass;
-   if it doesn't, a type import somewhere references a dropped table.
+   Sleeper API shapes live separately in `dashboard/src/types/sleeper.ts`, so
+   regeneration is safe.
 
-10. **Keep it alive.** Free-tier projects pause after ~1 week without traffic.
-    The cron jobs in step 8 count as activity, so once they're running the project
-    stays warm. If you skip cron, expect to have to unpause the project manually.
+## Verification checklist
+
+- `SELECT jobname, active FROM cron.job` — five active jobs
+- `SELECT * FROM sync_log ORDER BY started_at DESC LIMIT 5` — completed runs
+- App Home page shows power rankings and recent trades with KTC values
