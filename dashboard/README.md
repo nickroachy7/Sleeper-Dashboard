@@ -1,73 +1,52 @@
-# React + TypeScript + Vite
+# Sleeper Dynasty Dashboard
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A dashboard for the **Dynasty Reloaded** Sleeper league (12-team superflex dynasty):
+KeepTradeCut-powered trade tools, power rankings, transaction history with trade
+grading, and draft capital tracking.
 
-Currently, two official plugins are available:
+> ⚠️ **Backend status:** the Supabase project was removed after free-tier
+> inactivity. The app runs but shows empty states until it's re-provisioned —
+> see [`../RECOVERY.md`](../RECOVERY.md) for the ~15-minute restore procedure.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Stack
 
-## React Compiler
+- **Frontend:** React 19 + TypeScript + Vite, Tailwind CSS 4, TanStack Query,
+  React Router. Deployed on Railway (serves `dist/` via `npm run serve`).
+- **Backend:** Supabase (Postgres + edge functions). Schema lives in
+  `../supabase/migrations/`; five Deno edge functions in `../supabase/functions/`
+  sync data on cron schedules:
+  - `sync-players` — Sleeper player database (daily)
+  - `sync-league-data` — rosters, users, transactions, picks, matchups, drafts
+    for **all** dynasty seasons via the `previous_league_id` chain (every 6 h)
+  - `sync-transactions-live` — recent transactions + rosters (every 5 min)
+  - `sync-ktc-values` — KeepTradeCut dynasty values, superflex + TEP, with daily
+    history snapshots (daily)
+  - `sync-nfl-state` — current NFL week (hourly)
+- The frontend is read-only against the database (anon key + RLS public-read
+  policies); all writes happen in edge functions with the service role.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Pages
 
-## Expanding the ESLint configuration
+| Route | What it does |
+|-------|--------------|
+| `/` | Power rankings (KTC-weighted with diminishing returns), value watch, recent trades |
+| `/trade` | Trade Evaluator (KTC value adjustment + post-trade roster impact) and Trade Finder (package search with partner-fit and roster-fit scoring) |
+| `/values` | KTC value browser: players, picks, and team positional strength |
+| `/transactions` | Full transaction history with trade grading and value diffs |
+| `/drafts` | Draft history and future draft capital by team |
+| `/settings` | Sync status, league info, manual sync triggers |
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+The trade math lives in `src/lib/trade-value-adjustment.ts` (KTC-style net value
+adjustment: stud premiums, piece-count asymmetry, gap recovery) and
+`src/lib/trade-shared.ts` (positional weighting, pick valuation, shared helpers).
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+## Development
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```sh
+npm install
+npm run dev      # Vite dev server on :5173
+npm run build    # tsc + vite build
+npm run lint     # eslint (kept at zero problems)
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
-
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+Requires `.env` with `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`.
