@@ -43,6 +43,9 @@
 html {
   color-scheme: dark;
   scroll-behavior: smooth;
+  /* Stop iOS from inflating text after orientation change */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 body {
@@ -51,6 +54,23 @@ body {
   -moz-osx-font-smoothing: grayscale;
   background-color: #0d0d11;
   color: #ffffff;
+  /* No sideways scroll on mobile even if a child misbehaves */
+  overflow-x: hidden;
+}
+
+/* Kill the grey flash iOS paints over tapped elements */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* iOS zooms the viewport when focusing any field under 16px.
+   Force 16px on touch layouts; desktop keeps the finer type scale. */
+@media (max-width: 1023px) {
+  input,
+  textarea,
+  select {
+    font-size: 16px;
+  }
 }
 
 /* Graphite surface ramp — cool-tinted neutrals with real separation */

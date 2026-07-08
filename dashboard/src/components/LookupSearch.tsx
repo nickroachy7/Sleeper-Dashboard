@@ -144,16 +144,16 @@ export function LookupSearch() {
 
   return (
     <div
-      className="fixed inset-0 z-[60] bg-black/70 backdrop-blur-sm flex items-start justify-center pt-[12vh] px-4"
+      className="fixed inset-0 z-[60] bg-black/70 sm:backdrop-blur-sm flex items-stretch sm:items-start justify-center sm:pt-[10vh] sm:px-4"
       onClick={() => setOpen(false)}
     >
       <div
-        className="w-full max-w-xl bg-[#141419] border border-[#2a2a34] rounded-2xl overflow-hidden shadow-2xl ring-1 ring-black/40"
+        className="flex flex-col w-full h-full sm:h-auto sm:max-h-[80vh] sm:max-w-xl bg-[#141419] sm:border sm:border-[#2a2a34] sm:rounded-2xl overflow-hidden sm:shadow-2xl sm:ring-1 sm:ring-black/40 pt-[env(safe-area-inset-top)] sm:pt-0"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Search input */}
-        <div className="flex items-center gap-3 px-4 border-b border-[#22222b]">
-          <Search className="h-4 w-4 text-[#75757f] shrink-0" />
+        <div className="flex items-center gap-2.5 px-4 border-b border-[#22222b] shrink-0">
+          <Search className="h-[18px] w-[18px] text-[#75757f] shrink-0" />
           <input
             ref={inputRef}
             value={query}
@@ -164,21 +164,34 @@ export function LookupSearch() {
               if (e.key === 'Enter') { e.preventDefault(); go(flat[activeIdx]); }
             }}
             placeholder="Search players and teams…"
-            className="flex-1 bg-transparent py-4 text-[15px] text-white placeholder-[#75757f] focus:outline-none"
+            type="search"
+            inputMode="search"
+            enterKeyHint="go"
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="none"
+            spellCheck={false}
+            className="flex-1 min-w-0 bg-transparent py-3.5 sm:py-4 text-base text-white placeholder-[#75757f] focus:outline-none [appearance:none] [&::-webkit-search-cancel-button]:hidden"
           />
           {query && (
             <button
               onClick={() => { setQuery(''); inputRef.current?.focus(); }}
-              className="text-[#60606a] hover:text-white transition-colors"
+              className="w-8 h-8 -mr-1 flex items-center justify-center text-[#60606a] hover:text-white active:text-white transition-colors shrink-0"
               aria-label="Clear search"
             >
               <X className="h-4 w-4" />
             </button>
           )}
+          <button
+            onClick={() => setOpen(false)}
+            className="sm:hidden ml-1 text-[15px] font-semibold text-accent-400 active:text-accent-500 shrink-0"
+          >
+            Cancel
+          </button>
         </div>
 
         {/* Results */}
-        <div className="max-h-[54vh] overflow-y-auto py-1.5">
+        <div className="flex-1 overflow-y-auto overscroll-contain py-1.5 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
           {flat.length === 0 ? (
             <p className="px-4 py-10 text-center text-[12px] text-[#75757f]">
               {query ? (
@@ -235,8 +248,8 @@ export function LookupSearch() {
           )}
         </div>
 
-        {/* Footer hints */}
-        <div className="px-4 py-2.5 border-t border-[#22222b] flex items-center gap-3 text-[9px] text-[#60606a]">
+        {/* Footer hints (desktop only — meaningless on touch) */}
+        <div className="hidden sm:flex px-4 py-2.5 border-t border-[#22222b] items-center gap-3 text-[9px] text-[#60606a] shrink-0">
           <span>↑↓ navigate</span>
           <span>↵ open</span>
           <span>esc close</span>

@@ -113,9 +113,9 @@ export default function Layout() {
   );
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-dvh">
       {/* ── Mobile Header + Nav ── */}
-      <header className="lg:hidden fixed top-0 left-0 right-0 z-40 bg-[#0d0d11]/90 backdrop-blur-xl border-b border-[#2a2a34]">
+      <header className="lg:hidden fixed top-0 left-0 right-0 z-40 bg-[#0d0d11]/90 backdrop-blur-xl border-b border-[#2a2a34] pt-[env(safe-area-inset-top)]">
         <div className="relative flex items-center justify-center h-12 px-4">
           <img
             src="/yapsports-logo.webp"
@@ -125,7 +125,7 @@ export default function Layout() {
           <button
             onClick={openLookup}
             aria-label="Search players and teams"
-            className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-lg flex items-center justify-center text-[#9c9ca7] hover:text-white hover:bg-[#1b1b22] transition-colors"
+            className="absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-lg flex items-center justify-center text-[#9c9ca7] hover:text-white hover:bg-[#1b1b22] active:bg-[#22222b] transition-colors"
           >
             <Search className="h-[18px] w-[18px]" />
           </button>
@@ -137,7 +137,7 @@ export default function Layout() {
               <Link
                 key={to}
                 to={to}
-                className={`flex flex-col items-center gap-0.5 py-2 px-3 min-w-[56px] transition-colors ${
+                className={`flex flex-col items-center gap-0.5 py-2 px-3 min-w-[56px] rounded-lg transition-colors active:bg-[#1b1b22] ${
                   isActive ? 'text-accent-400' : 'text-[#75757f]'
                 }`}
               >
@@ -225,7 +225,7 @@ export default function Layout() {
       {/* ── Main Content ── */}
       <div className="sidebar-layout-main">
         <TopBar />
-        <main className="min-h-screen pt-[104px] lg:pt-0">
+        <main className="min-h-dvh pt-[calc(104px+env(safe-area-inset-top))] lg:pt-0">
           <Outlet />
         </main>
         <LookupSearch />

@@ -92,7 +92,7 @@ export function PowerRankings({ rankings }: PowerRankingsProps) {
               {/* Team row */}
               <Link
                 to={`/teams/${team.rosterId}`}
-                className="group flex items-center gap-3 px-4 py-2.5 hover:bg-[#1b1b22] transition-colors"
+                className="group flex items-center gap-3 px-4 py-2.5 hover:bg-[#1b1b22] active:bg-[#22222b] transition-colors"
               >
                 {/* Rank */}
                 <div className="w-6 shrink-0 flex items-center justify-center">

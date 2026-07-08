@@ -285,7 +285,7 @@ export default function Chat() {
       </div>
 
       {/* Input */}
-      <div className="shrink-0 px-4 sm:px-6 pb-4 lg:pb-6 pt-2">
+      <div className="shrink-0 px-4 sm:px-6 pb-[calc(1rem+env(safe-area-inset-bottom))] lg:pb-6 pt-2">
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -310,7 +310,7 @@ export default function Chat() {
           <button
             type="submit"
             disabled={!input.trim() || pending}
-            className="shrink-0 w-8 h-8 rounded-xl bg-accent-500 hover:bg-accent-400 disabled:bg-[#1b1b22] disabled:text-[#60606a] text-black flex items-center justify-center transition-colors"
+            className="shrink-0 w-9 h-9 rounded-xl bg-accent-500 hover:bg-accent-400 active:bg-accent-300 disabled:bg-[#1b1b22] disabled:text-[#60606a] text-black flex items-center justify-center transition-colors"
           >
             {pending ? (
               <Loader2 className="h-4 w-4 animate-spin" />

@@ -51,7 +51,7 @@ export function TeamRow({
 
   const base = `flex items-center gap-3 px-3 ${isSm ? 'py-2' : 'py-2.5'} text-left w-full ${
     divided ? 'border-b border-[#1b1b22] last:border-b-0' : ''
-  } ${interactive ? 'group hover:bg-[#1b1b22] transition-colors cursor-pointer' : ''} ${className}`;
+  } ${interactive ? 'group hover:bg-[#1b1b22] active:bg-[#22222b] transition-colors cursor-pointer' : ''} ${className}`;
 
   const inner = (
     <>

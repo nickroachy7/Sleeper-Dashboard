@@ -305,7 +305,7 @@ export default function Home() {
 
   if (leagueLoading) {
     return (
-      <div className="min-h-screen">
+      <div className="min-h-dvh">
         <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
           {/* Skeleton: Two-column layout */}
           <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 lg:gap-8">
@@ -353,7 +353,7 @@ export default function Home() {
 
   if (!league) {
     return (
-      <div className="min-h-screen p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
+      <div className="min-h-dvh p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
         <div className="flex flex-col items-center justify-center py-20">
           <div className="text-center max-w-sm">
             <div className="w-16 h-16 bg-accent-500/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
@@ -377,7 +377,7 @@ export default function Home() {
   // ─── Main Render ─────────────────────────────────────────────────
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-dvh">
     <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6 lg:space-y-8">
 
       {/* ── Hero ── */}

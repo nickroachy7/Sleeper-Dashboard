@@ -39,7 +39,7 @@ export default function TradeTools() {
   }
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-dvh">
       <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto">
         <PageHeader
           sectionLabel="Tools"
