@@ -177,6 +177,12 @@ Deno.serve(async (req) => {
     // Match and prepare values
     const playerValues: any[] = [];
     const pickValues: any[] = [];
+    // History snapshots use BASE superflex value (no TE premium) so they stay
+    // on the same basis as the 6-year backfill from KTC player pages. Mixing
+    // TEP into history would make every TE look like a riser vs. older base
+    // readings. player_values (what the app displays) stays TEP.
+    const historyRows: any[] = [];
+    const today = new Date().toISOString().split("T")[0];
     let unmatched = 0;
 
     for (const ktcPlayer of ktcPlayers) {
@@ -213,6 +219,14 @@ Deno.serve(async (req) => {
           source: "keeptradecut",
           fetched_at: new Date().toISOString(),
         });
+        // BASE superflex value for the history snapshot (see note above).
+        historyRows.push({
+          player_id: matched.player_id,
+          value: ktcPlayer.superflexValues?.value || tepValues?.value || 0,
+          rank: ktcPlayer.superflexValues?.rank || null,
+          date: today,
+          source: "keeptradecut",
+        });
       } else {
         unmatched++;
       }
@@ -242,14 +256,7 @@ Deno.serve(async (req) => {
       else console.error(`Pick values batch error at ${i}:`, error.message);
     }
 
-    // Record daily snapshot in player_value_history
-    const historyRows = playerValues.map((pv: any) => ({
-      player_id: pv.player_id,
-      value: pv.value,
-      rank: pv.rank,
-      date: new Date().toISOString().split("T")[0],
-      source: "keeptradecut",
-    }));
+    // Record daily snapshot in player_value_history (base superflex values)
     for (let i = 0; i < historyRows.length; i += BATCH_SIZE) {
       const batch = historyRows.slice(i, i + BATCH_SIZE);
       await supabase.from("player_value_history").upsert(batch, {

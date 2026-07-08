@@ -5,6 +5,7 @@ import { usePlayers, usePlayerValuesList } from '../hooks/queries';
 import { useLeagueDirectory } from '../hooks/detail';
 import { PositionBadge } from './PositionBadge';
 import { getPlayerImageUrl } from '../lib/trade-shared';
+import { OPEN_LOOKUP_EVENT } from '../lib/lookup';
 
 interface Result {
   kind: 'player' | 'team';
@@ -17,8 +18,8 @@ interface Result {
 }
 
 /**
- * Global player/team lookup. Self-contained: renders its own floating
- * trigger button and opens with Cmd/Ctrl+K or "/".
+ * Global player/team lookup palette. Opens via Cmd/Ctrl+K, "/", or the
+ * OPEN_LOOKUP_EVENT dispatched by the top bar / mobile search button.
  */
 export function LookupSearch() {
   const [open, setOpen] = useState(false);
@@ -46,8 +47,13 @@ export function LookupSearch() {
         setOpen(false);
       }
     };
+    const onOpen = () => setOpen(true);
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    window.addEventListener(OPEN_LOOKUP_EVENT, onOpen);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener(OPEN_LOOKUP_EVENT, onOpen);
+    };
   }, []);
 
   useEffect(() => {
@@ -114,93 +120,82 @@ export function LookupSearch() {
     navigate(r.to);
   }, [navigate]);
 
+  if (!open) return null;
+
   return (
-    <>
-      {/* Floating trigger */}
-      <button
-        onClick={() => setOpen(true)}
-        aria-label="Search players and teams"
-        className="fixed z-40 bottom-5 right-5 lg:bottom-8 lg:right-8 w-11 h-11 rounded-full bg-[#161616] border border-[#2a2a2a] flex items-center justify-center text-[#888888] hover:text-white hover:border-[#3a3a3a] transition-colors shadow-lg"
+    <div
+      className="fixed inset-0 z-[60] bg-black/70 backdrop-blur-sm flex items-start justify-center pt-[12vh] px-4"
+      onClick={() => setOpen(false)}
+    >
+      <div
+        className="w-full max-w-lg bg-[#141419] border border-[#2a2a34] rounded-xl overflow-hidden shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
       >
-        <Search className="h-4.5 w-4.5" style={{ width: 18, height: 18 }} />
-      </button>
-
-      {open && (
-        <div
-          className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-start justify-center pt-[12vh] px-4"
-          onClick={() => setOpen(false)}
-        >
-          <div
-            className="w-full max-w-lg bg-[#0f0f0f] border border-[#242424] rounded-xl overflow-hidden shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center gap-2.5 px-4 border-b border-[#1a1a1a]">
-              <Search className="h-4 w-4 text-[#555555] shrink-0" />
-              <input
-                ref={inputRef}
-                value={query}
-                onChange={(e) => { setQuery(e.target.value); setActiveIdx(0); }}
-                onKeyDown={(e) => {
-                  if (e.key === 'ArrowDown') { e.preventDefault(); setActiveIdx((i) => Math.min(i + 1, results.length - 1)); }
-                  if (e.key === 'ArrowUp') { e.preventDefault(); setActiveIdx((i) => Math.max(i - 1, 0)); }
-                  if (e.key === 'Enter' && results[activeIdx]) go(results[activeIdx]);
-                }}
-                placeholder="Search players and teams..."
-                className="flex-1 bg-transparent py-3.5 text-sm text-white placeholder-[#555555] focus:outline-none"
-              />
-              <button onClick={() => setOpen(false)} className="text-[#555555] hover:text-white" aria-label="Close search">
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            <div className="max-h-[50vh] overflow-y-auto">
-              {results.length === 0 && (
-                <p className="px-4 py-6 text-center text-[11px] text-[#555555]">
-                  {query ? 'No matches.' : 'Type to search players, or pick a team.'}
-                </p>
-              )}
-              {results.map((r, i) => (
-                <button
-                  key={r.id}
-                  onClick={() => go(r)}
-                  onPointerEnter={() => setActiveIdx(i)}
-                  className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors ${
-                    i === activeIdx ? 'bg-[#1a1a1a]' : ''
-                  }`}
-                >
-                  {r.kind === 'player' ? (
-                    <img
-                      src={getPlayerImageUrl(r.id.replace('player-', ''))}
-                      alt=""
-                      className="w-8 h-8 rounded-full bg-[#161616] object-cover shrink-0"
-                      onError={(e) => { (e.target as HTMLImageElement).style.visibility = 'hidden'; }}
-                    />
-                  ) : (
-                    <div className="w-8 h-8 rounded-full bg-[#161616] flex items-center justify-center shrink-0">
-                      <Users className="h-3.5 w-3.5 text-[#555555]" />
-                    </div>
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[13px] font-medium text-white truncate">{r.title}</p>
-                    <p className="text-[10px] text-[#666666] truncate">{r.subtitle}</p>
-                  </div>
-                  {r.kind === 'player' && r.position && <PositionBadge position={r.position} />}
-                  {r.kind === 'player' && r.value ? (
-                    <span className="text-[11px] text-[#888888] tabular-nums shrink-0">{r.value.toLocaleString()}</span>
-                  ) : null}
-                </button>
-              ))}
-            </div>
-
-            <div className="px-4 py-2 border-t border-[#1a1a1a] flex items-center gap-3 text-[9px] text-[#444444]">
-              <span>↑↓ navigate</span>
-              <span>↵ open</span>
-              <span>esc close</span>
-              <span className="ml-auto">⌘K anywhere</span>
-            </div>
-          </div>
+        <div className="flex items-center gap-2.5 px-4 border-b border-[#1b1b22]">
+          <Search className="h-4 w-4 text-[#75757f] shrink-0" />
+          <input
+            ref={inputRef}
+            value={query}
+            onChange={(e) => { setQuery(e.target.value); setActiveIdx(0); }}
+            onKeyDown={(e) => {
+              if (e.key === 'ArrowDown') { e.preventDefault(); setActiveIdx((i) => Math.min(i + 1, results.length - 1)); }
+              if (e.key === 'ArrowUp') { e.preventDefault(); setActiveIdx((i) => Math.max(i - 1, 0)); }
+              if (e.key === 'Enter' && results[activeIdx]) go(results[activeIdx]);
+            }}
+            placeholder="Search players and teams..."
+            className="flex-1 bg-transparent py-3.5 text-sm text-white placeholder-[#75757f] focus:outline-none"
+          />
+          <button onClick={() => setOpen(false)} className="text-[#75757f] hover:text-white" aria-label="Close search">
+            <X className="h-4 w-4" />
+          </button>
         </div>
-      )}
-    </>
+
+        <div className="max-h-[50vh] overflow-y-auto">
+          {results.length === 0 && (
+            <p className="px-4 py-6 text-center text-[11px] text-[#75757f]">
+              {query ? 'No matches.' : 'Type to search players, or pick a team.'}
+            </p>
+          )}
+          {results.map((r, i) => (
+            <button
+              key={r.id}
+              onClick={() => go(r)}
+              onPointerEnter={() => setActiveIdx(i)}
+              className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors ${
+                i === activeIdx ? 'bg-[#1b1b22]' : ''
+              }`}
+            >
+              {r.kind === 'player' ? (
+                <img
+                  src={getPlayerImageUrl(r.id.replace('player-', ''))}
+                  alt=""
+                  className="w-8 h-8 rounded-full bg-[#22222b] object-cover shrink-0"
+                  onError={(e) => { (e.target as HTMLImageElement).style.visibility = 'hidden'; }}
+                />
+              ) : (
+                <div className="w-8 h-8 rounded-full bg-[#22222b] flex items-center justify-center shrink-0">
+                  <Users className="h-3.5 w-3.5 text-[#75757f]" />
+                </div>
+              )}
+              <div className="min-w-0 flex-1">
+                <p className="text-[13px] font-medium text-white truncate">{r.title}</p>
+                <p className="text-[10px] text-[#9c9ca7] truncate">{r.subtitle}</p>
+              </div>
+              {r.kind === 'player' && r.position && <PositionBadge position={r.position} />}
+              {r.kind === 'player' && r.value ? (
+                <span className="text-[11px] text-[#9c9ca7] tabular-nums shrink-0">{r.value.toLocaleString()}</span>
+              ) : null}
+            </button>
+          ))}
+        </div>
+
+        <div className="px-4 py-2 border-t border-[#1b1b22] flex items-center gap-3 text-[9px] text-[#60606a]">
+          <span>↑↓ navigate</span>
+          <span>↵ open</span>
+          <span>esc close</span>
+          <span className="ml-auto">⌘K anywhere</span>
+        </div>
+      </div>
+    </div>
   );
 }

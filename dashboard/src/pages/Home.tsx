@@ -8,6 +8,9 @@ import { useCallback, useMemo } from 'react';
 import { PowerRankings } from '../components/PowerRankings';
 import { RecentTrades } from '../components/RecentTrades';
 import { ValueWatch } from '../components/ValueWatch';
+import { DashboardHero } from '../components/DashboardHero';
+import { BiggestMovers, type Mover } from '../components/BiggestMovers';
+import { useValueMovers } from '../hooks/detail';
 import {
   calcWeightedPositionValue,
   buildPicksForRoster,
@@ -30,6 +33,7 @@ export default function Home() {
   const { data: playersMap } = usePlayerMap();
   const { data: playerValues } = usePlayerValuesList();
   const { rosters: tradeRosters, pickValues, tradedPicks } = useTradeData();
+  const { data: moverValues } = useValueMovers(30);
 
   const { data: rostersData } = useQuery({
     queryKey: ['home-rosters', league?.league_id],
@@ -250,6 +254,53 @@ export default function Home() {
     });
   }, [recentTrades, rostersData, playersMap, playerValues, resolveTeamName, pickValues]);
 
+  // ─── Derived: League pulse stats for hero ────────────────────────
+
+  const leagueValue = useMemo(
+    () => powerRankings.reduce((sum, t) => sum + t.totalValue, 0),
+    [powerRankings]
+  );
+
+  // ─── Derived: Biggest Movers (30-day value change, rostered players) ──
+
+  const movers = useMemo((): { risers: Mover[]; fallers: Mover[] } => {
+    if (!rostersData || !playerValues || !playersMap || !moverValues) {
+      return { risers: [], fallers: [] };
+    }
+    const ownerByPlayer = new Map<string, string>();
+    rostersData.rosters.forEach((r) => {
+      const team = resolveTeamName(r.owner_id || '');
+      (r.players || []).forEach((pid: string) => ownerByPlayer.set(pid, team));
+    });
+
+    const list: Mover[] = [];
+    for (const [pid, ownerTeam] of ownerByPlayer) {
+      // Delta is computed base-to-base from value history; the displayed value
+      // is the canonical TEP value used everywhere else in the app.
+      const curBase = moverValues.current.get(pid);
+      const past = moverValues.past.get(pid);
+      if (!curBase || !past) continue;
+      const delta = curBase - past;
+      if (Math.abs(delta) < 100) continue; // ignore day-to-day noise
+      const p = playersMap.get(pid);
+      if (!p) continue;
+      list.push({
+        playerId: pid,
+        name: p.full_name,
+        position: p.position,
+        team: p.team,
+        value: playerValues.get(pid) || curBase,
+        delta,
+        pct: (delta / past) * 100,
+        ownerTeam,
+      });
+    }
+
+    const risers = [...list].sort((a, b) => b.delta - a.delta).slice(0, 5);
+    const fallers = [...list].sort((a, b) => a.delta - b.delta).slice(0, 5);
+    return { risers, fallers };
+  }, [rostersData, playerValues, playersMap, moverValues, resolveTeamName]);
+
   // ─── Loading / Empty states ──────────────────────────────────────
 
   if (leagueLoading) {
@@ -327,7 +378,22 @@ export default function Home() {
 
   return (
     <div className="min-h-screen">
-    <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6 lg:space-y-8">
+
+      {/* ── Hero ── */}
+      <DashboardHero
+        leagueName={league.name}
+        season={league.season}
+        totalRosters={league.total_rosters ?? powerRankings.length}
+        status={league.status}
+        topTeam={powerRankings[0] ? { name: powerRankings[0].teamName, value: powerRankings[0].totalValue } : null}
+        topAsset={valueWatch[0] ? { name: valueWatch[0].name, value: valueWatch[0].value } : null}
+        leagueValue={leagueValue}
+        tradeCount={tradesWithTeams.length}
+      />
+
+      {/* ── Biggest Movers (30-day value change) ── */}
+      <BiggestMovers risers={movers.risers} fallers={movers.fallers} windowLabel="30d" />
 
       {/* ── Two-Column Layout ── */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 lg:gap-8">

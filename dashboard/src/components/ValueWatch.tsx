@@ -16,7 +16,7 @@ interface ValueWatchProps {
   players: ValueWatchPlayer[];
 }
 
-const rankAccentColors: Record<number, string> = {
+const rankMedalColors: Record<number, string> = {
   1: '#ffd700',
   2: '#c0c0c0',
   3: '#cd7f32',
@@ -37,47 +37,47 @@ export function ValueWatch({ players }: ValueWatchProps) {
         </Link>
       </div>
 
-      <div className="bg-[#141419] rounded-xl overflow-hidden">
-        <div className="divide-y divide-[#1b1b22]">
-          {players.slice(0, 10).map((player, idx) => {
-            const accentColor = rankAccentColors[player.rank];
-            return (
-              <div
-                key={player.playerId}
-                className={`flex items-center gap-2.5 px-3 py-2.5 hover:bg-[#1b1b22] transition-colors ${idx % 2 === 1 ? 'bg-[#101015]' : ''}`}
-                style={accentColor ? { borderLeft: `3px solid ${accentColor}` } : undefined}
+      <div className="bg-[#141419] rounded-2xl overflow-hidden border border-[#22222b]">
+        {players.slice(0, 10).map((player) => {
+          const medal = rankMedalColors[player.rank];
+          return (
+            <div
+              key={player.playerId}
+              className="group flex items-center gap-3 px-3 py-2.5 border-b border-[#1b1b22] last:border-b-0 hover:bg-[#1b1b22] transition-colors"
+            >
+              <span
+                className="font-display text-[13px] font-bold tabular-nums w-5 text-center shrink-0"
+                style={{ color: medal || '#60606a' }}
               >
-                <span
-                  className="text-[11px] font-bold tabular-nums w-5 text-right shrink-0"
-                  style={{ color: accentColor || '#75757f' }}
-                >
-                  {player.rank}
-                </span>
+                {player.rank}
+              </span>
 
-                <div className="w-7 h-7 rounded-full overflow-hidden bg-[#1b1b22] shrink-0">
-                  <img
-                    src={`https://sleepercdn.com/content/nfl/players/${player.playerId}.jpg`}
-                    alt=""
-                    className="w-full h-full object-cover"
-                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                  />
-                </div>
-
-                <div className="flex-1 min-w-0">
-                  <p className="text-[13px] font-semibold text-white truncate">{player.name}</p>
-                  <div className="flex items-center gap-1">
-                    <PositionBadge position={player.position} size="xs" />
-                    {player.team && <span className="text-[10px] text-[#75757f]">{player.team}</span>}
-                  </div>
-                </div>
-
-                <span className="font-display text-[13px] font-bold text-white tabular-nums shrink-0">
-                  {player.value.toLocaleString()}
-                </span>
+              <div className="w-9 h-9 rounded-full overflow-hidden bg-[#22222b] shrink-0 ring-1 ring-inset ring-white/5">
+                <img
+                  src={`https://sleepercdn.com/content/nfl/players/${player.playerId}.jpg`}
+                  alt=""
+                  className="w-full h-full object-cover"
+                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                />
               </div>
-            );
-          })}
-        </div>
+
+              <div className="flex-1 min-w-0">
+                <div className="flex items-baseline justify-between gap-2">
+                  <p className="text-[13px] font-semibold text-white truncate">{player.name}</p>
+                  <span className="font-display text-[13px] font-bold text-white tabular-nums shrink-0">
+                    {player.value.toLocaleString()}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5 mt-1">
+                  <PositionBadge position={player.position} size="xs" />
+                  {player.team && <span className="text-[10px] text-[#75757f]">{player.team}</span>}
+                  <span className="text-[#4c4c56]">·</span>
+                  <span className="text-[10px] text-[#75757f] truncate">{player.ownerTeam}</span>
+                </div>
+              </div>
+            </div>
+          );
+        })}
       </div>
     </section>
   );

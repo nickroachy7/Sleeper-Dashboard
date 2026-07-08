@@ -141,6 +141,53 @@ export function useRosterValueHistory(playerIds: string[] | undefined) {
   });
 }
 
+/** Latest value per player within a date window (most recent wins). */
+function latestPerPlayer(rows: { player_id: string; date: string; value: number }[]): Map<string, number> {
+  const map = new Map<string, number>();
+  for (const r of rows) if (!map.has(r.player_id)) map.set(r.player_id, r.value);
+  return map;
+}
+
+/**
+ * Current and ~`daysAgo`-old KTC values for every player, both read from
+ * player_value_history so the two endpoints share one basis (base superflex).
+ * This is what "biggest movers" compares — using the TEP player_values for the
+ * current end would make every TE look like a riser vs. the base history.
+ * Fetches two narrow date windows to stay well under the row cap.
+ */
+export function useValueMovers(daysAgo: number) {
+  return useQuery({
+    queryKey: ['value-movers', daysAgo],
+    staleTime: 30 * 60_000,
+    queryFn: async () => {
+      const fmt = (d: Date) => d.toISOString().slice(0, 10);
+      const now = new Date();
+      const recentLo = new Date(now); recentLo.setDate(recentLo.getDate() - 4);
+      const past = new Date(now); past.setDate(past.getDate() - daysAgo);
+      const pastLo = new Date(past); pastLo.setDate(pastLo.getDate() - 4);
+      const pastHi = new Date(past); pastHi.setDate(pastHi.getDate() + 3);
+
+      const win = (loStr: string, hiStr: string) =>
+        fetchAllRows<{ player_id: string; date: string; value: number }>((from, to) =>
+          supabase
+            .from('player_value_history')
+            .select('player_id, date, value')
+            .gte('date', loStr)
+            .lte('date', hiStr)
+            .order('date', { ascending: false })
+            .range(from, to)
+        );
+
+      const [recentRows, pastRows] = await Promise.all([
+        win(fmt(recentLo), fmt(now)),
+        win(fmt(pastLo), fmt(pastHi)),
+      ]);
+
+      return { current: latestPerPlayer(recentRows), past: latestPerPlayer(pastRows) };
+    },
+  });
+}
+
 /** All trades involving a roster, across every season. */
 export function useTeamTrades(rosterId: number | undefined) {
   return useQuery({

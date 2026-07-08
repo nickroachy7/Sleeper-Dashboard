@@ -13,6 +13,9 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
 import { LookupSearch } from './LookupSearch';
+import { TopBar } from './TopBar';
+import { openLookup } from '../lib/lookup';
+import { Search } from 'lucide-react';
 
 // ── Nav Configuration ───────────────────────────────────────────────
 
@@ -113,12 +116,19 @@ export default function Layout() {
     <div className="min-h-screen">
       {/* ── Mobile Header + Nav ── */}
       <header className="lg:hidden fixed top-0 left-0 right-0 z-40 bg-[#0d0d11]/90 backdrop-blur-xl border-b border-[#2a2a34]">
-        <div className="flex items-center justify-center h-12 px-4">
+        <div className="relative flex items-center justify-center h-12 px-4">
           <img
             src="/yapsports-logo.webp"
             alt="Sleeper Dashboard"
             className="h-7 w-auto"
           />
+          <button
+            onClick={openLookup}
+            aria-label="Search players and teams"
+            className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-lg flex items-center justify-center text-[#9c9ca7] hover:text-white hover:bg-[#1b1b22] transition-colors"
+          >
+            <Search className="h-[18px] w-[18px]" />
+          </button>
         </div>
         <nav className="flex items-center justify-around px-2">
           {mobileNav.map(({ to, icon: Icon, label }) => {
@@ -214,6 +224,7 @@ export default function Layout() {
 
       {/* ── Main Content ── */}
       <div className="sidebar-layout-main">
+        <TopBar />
         <main className="min-h-screen pt-[104px] lg:pt-0">
           <Outlet />
         </main>
