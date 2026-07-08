@@ -71,7 +71,7 @@ export function RecentTrades({ trades }: RecentTradesProps) {
           }));
 
           return (
-            <Link key={trade.id} to={`/trades/${trade.id}`} className="block group">
+            <Link key={trade.id} to={`/trades/${trade.id}`} className="block">
               <TradeCard
                 sides={sides}
                 date={trade.date}

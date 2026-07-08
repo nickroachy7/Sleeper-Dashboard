@@ -392,7 +392,7 @@ export default function Transactions() {
     });
 
     return (
-      <Link to={`/trades/${tx.transaction_id}`} className="block group">
+      <Link to={`/trades/${tx.transaction_id}`} className="block">
         <SharedTradeCard
           sides={sides}
           date={formatDate(tx)}

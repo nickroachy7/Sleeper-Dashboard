@@ -118,7 +118,7 @@ export function PlayerRow({
         <div className="flex items-baseline justify-between gap-2">
           <span className="flex items-center gap-1.5 min-w-0">
             {prefix}
-            <span className="text-[14px] font-semibold text-white truncate group-hover:text-accent-400 transition-colors">
+            <span className="text-[14px] font-medium text-white truncate group-hover:text-accent-400 transition-colors">
               {name}
             </span>
             {injuryStatus && (
