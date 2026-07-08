@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { useTradeDetail, useLeagueDirectory, useRosterValueHistory } from '../hooks/detail';
 import { usePlayerValues, usePickValues, usePlayers } from '../hooks/queries';
 import { playerMoves, txDraftPicks, lookupPickValue } from '../lib/trade-shared';
@@ -86,6 +86,7 @@ export default function TradeDetail() {
               value: pv?.value ?? latestValue?.get(res.playerId) ?? 0,
               name: `${season} ${slotLabel} → ${pv?.player.full_name || meta?.name || 'drafted pick'}`,
               subtitle: `via ${origTeam}`,
+              playerId: res.playerId,
             };
           }
           const tier = res?.tier;
@@ -172,10 +173,6 @@ export default function TradeDetail() {
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-3xl mx-auto space-y-4">
-      <Link to="/transactions" className="inline-flex items-center gap-1.5 text-[11px] text-[#75757f] hover:text-white transition-colors">
-        <ArrowLeft className="h-3 w-3" /> Transactions
-      </Link>
-
       {/* ── Full trade ── */}
       <TradeCard sides={built.sides} date={tradeDate} linkPlayers />
 

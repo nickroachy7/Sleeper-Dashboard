@@ -552,7 +552,7 @@ export default function Transactions() {
           return (
             <div key={tx.transaction_id}>
               {showDateHeader && (
-                <div className="sticky top-[calc(104px+env(safe-area-inset-top))] lg:top-12 z-[5] py-2 -mx-1 px-1">
+                <div className="sticky top-[calc(56px+env(safe-area-inset-top))] lg:top-12 z-[5] py-2 -mx-1 px-1">
                   <div className="flex items-center gap-3">
                     <span className="text-[10px] font-bold text-[#75757f] tracking-[2px] uppercase whitespace-nowrap">
                       {dateGroup}
