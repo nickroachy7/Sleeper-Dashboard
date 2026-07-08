@@ -11,6 +11,9 @@ interface TradeTimelineChartProps {
   series: TimelineSeries[];
   height?: number;
   formatValue?: (v: number) => string;
+  /** ISO date to mark with a vertical line (e.g. the day the trade was made). */
+  markerDate?: string;
+  markerLabel?: string;
 }
 
 const M = { top: 12, right: 16, bottom: 24, left: 46 };
@@ -37,7 +40,7 @@ function niceTicks(min: number, max: number): number[] {
  * overlays several lines (one per trade side) on a shared date/value scale with
  * a legend and a crosshair that reads every series at the hovered date.
  */
-export function TradeTimelineChart({ series, height = 260, formatValue = fmtDefault }: TradeTimelineChartProps) {
+export function TradeTimelineChart({ series, height = 260, formatValue = fmtDefault, markerDate, markerLabel }: TradeTimelineChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
   const [hoverDate, setHoverDate] = useState<string | null>(null);
@@ -81,6 +84,10 @@ export function TradeTimelineChart({ series, height = 260, formatValue = fmtDefa
       return { ...s, pts, linePath, areaPath };
     });
 
+    // Trade-date marker, only if it falls within the visible range.
+    const markerT = markerDate ? new Date(markerDate + 'T00:00:00').getTime() : null;
+    const markerX = markerT != null && markerT >= t0 && markerT <= t1 ? x(markerDate!) : null;
+
     // Shared, sorted union of dates for the crosshair to snap to.
     const unionDates = [...new Set(all.map((d) => d.date))].sort();
 
@@ -100,11 +107,11 @@ export function TradeTimelineChart({ series, height = 260, formatValue = fmtDefa
     }
 
     return {
-      w, h, lines, x, y, unionDates,
+      w, h, lines, x, y, unionDates, markerX,
       yTicks: niceTicks(vMin, vMax).map((v) => ({ v, py: y(v) })),
       xTicks,
     };
-  }, [series, width, height]);
+  }, [series, width, height, markerDate]);
 
   const onMove = useCallback((clientX: number) => {
     if (!plot) return;
@@ -173,6 +180,22 @@ export function TradeTimelineChart({ series, height = 260, formatValue = fmtDefa
                 {label}
               </text>
             ))}
+
+            {/* Trade-date marker */}
+            {plot.markerX != null && (
+              <g>
+                <line
+                  x1={plot.markerX} x2={plot.markerX} y1={M.top} y2={M.top + plot.h}
+                  stroke="#6b7280" strokeWidth={1} strokeDasharray="3 3"
+                />
+                <text
+                  x={Math.min(plot.markerX + 4, width - M.right - 2)} y={M.top + 9}
+                  fontSize={9} fill="#9c9ca7" style={{ fontWeight: 700 }}
+                >
+                  {markerLabel || 'Trade'}
+                </text>
+              </g>
+            )}
 
             {plot.lines.map((ln) => (
               <g key={ln.label}>

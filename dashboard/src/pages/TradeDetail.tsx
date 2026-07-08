@@ -75,21 +75,25 @@ export default function TradeDetail() {
           const season = String(p.season);
           const round = Number(p.round);
           const res = pickResolution?.get(`${season}-${round}-${p.roster_id}`);
+          const origTeam = directory.teamName(Number(p.roster_id), tx.league_id);
           if (res?.playerId) {
             const pv = playerValues.get(res.playerId);
             const meta = playerMeta.get(res.playerId);
             timelinePlayerIds.push(res.playerId);
+            const slotLabel = res.slot != null ? `${round}.${String(res.slot).padStart(2, '0')}` : ordinal(round);
             return {
               season, round,
               value: pv?.value ?? latestValue?.get(res.playerId) ?? 0,
-              name: `${season} ${ordinal(round)} → ${pv?.player.full_name || meta?.name || 'drafted pick'}`,
+              name: `${season} ${slotLabel} → ${pv?.player.full_name || meta?.name || 'drafted pick'}`,
+              subtitle: `via ${origTeam}`,
             };
           }
           const tier = res?.tier;
           return {
             season, round,
             value: pickValues ? lookupPickValue(pickValues, season, round, { tier: tier ?? 'Mid' }) : 0,
-            name: `${season} ${tier ? `${tier} ` : ''}${ordinal(round)} pick`,
+            name: `${season} ${ordinal(round)} pick`,
+            subtitle: `via ${origTeam}${tier ? ` · proj. ${tier}` : ''}`,
           };
         });
 
@@ -120,24 +124,28 @@ export default function TradeDetail() {
 
   const chart = useMemo(() => {
     if (!built || built.sides.length < 2) return null;
-    const series: TimelineSeries[] = [];
-    const feeds = [histA, histB];
-    built.sides.slice(0, 2).forEach((side, i) => {
-      const pts = feeds[i];
-      if (pts && pts.length) {
-        series.push({ label: side.teamName, color: SIDE_COLORS[i], points: pts });
-      }
-    });
-    if (series.length < 2) return null;
+    const feeds = [histA, histB].map((f) => f ?? []);
+    if (feeds.some((f) => f.length === 0)) return null;
 
-    // then → now readout per side
+    // Align both lines to a shared start so neither looks "cut off": begin where
+    // BOTH sides first have data (the later of the two first points).
+    const firstDates = feeds.map((f) => f[0].date);
+    const commonStart = [...firstDates].sort().reverse()[0];
+    const clip = (pts: { date: string; value: number }[]) => pts.filter((p) => p.date >= commonStart);
+
+    const series: TimelineSeries[] = built.sides.slice(0, 2).map((side, i) => ({
+      label: side.teamName, color: SIDE_COLORS[i], points: clip(feeds[i]),
+    }));
+    if (series.some((s) => s.points.length === 0)) return null;
+
+    // then → now readout per side (value at trade date vs latest)
     const readouts = built.sides.slice(0, 2).map((side, i) => {
-      const pts = feeds[i] || [];
+      const pts = feeds[i];
       const now = pts[pts.length - 1]?.value ?? null;
       const then = tradeIso ? valueAt(pts, tradeIso) : null;
       return { teamName: side.teamName, color: SIDE_COLORS[i], then, now };
     });
-    return { series, readouts };
+    return { series, readouts, markerDate: tradeIso };
   }, [built, histA, histB, tradeIso]);
 
   if (isLoading || !detail) {
@@ -181,7 +189,7 @@ export default function TradeDetail() {
 
         {chart ? (
           <>
-            <TradeTimelineChart series={chart.series} height={260} />
+            <TradeTimelineChart series={chart.series} height={260} markerDate={chart.markerDate ?? undefined} markerLabel="Trade" />
 
             {/* then → now per side */}
             <div className="grid grid-cols-2 gap-3 mt-4">

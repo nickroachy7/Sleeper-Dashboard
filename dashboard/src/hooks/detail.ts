@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
-import { playerMoves, txDraftPicks, getProjectedPickTier } from '../lib/trade-shared';
+import { playerMoves, txDraftPicks } from '../lib/trade-shared';
 import type { TransactionRow } from '../types/domain';
 
 // ── Detail-page data hooks (player / team deep dives) ──────────────
@@ -197,6 +197,9 @@ export function useValueMovers(daysAgo: number) {
  */
 export interface PickResolution {
   playerId?: string;
+  /** Exact draft slot the pick landed at (past picks) → "round.slot" display. */
+  slot?: number;
+  /** Projected Early/Mid/Late tier (future picks), from the owner's roster-value rank. */
   tier?: string;
   future: boolean;
 }
@@ -262,6 +265,24 @@ export function useTradeDetail(transactionId: string | undefined) {
         rosterRows.forEach((r) => { if (r.owner_id) userByRoster.set(`${r.league_id}-${r.roster_id}`, r.owner_id); });
         const currentRosters = rosterRows.filter((r) => r.league_id === currentLeagueId);
 
+        // Project future-pick tier from the ORIGINAL owner's total roster value,
+        // ranked against the league: weakest roster (lowest value) drafts earliest
+        // → "Early"; strongest → "Late".
+        const tierByRoster = new Map<number, string>();
+        if (currentRosters.length) {
+          const pvRows = (await supabase.from('player_values').select('player_id, value')).data || [];
+          const valMap = new Map(pvRows.map((v) => [v.player_id, v.value]));
+          const totals = currentRosters.map((r) => ({
+            rosterId: r.roster_id,
+            total: (r.players || []).reduce((s: number, pid: string) => s + (valMap.get(pid) || 0), 0),
+          }));
+          totals.sort((a, b) => a.total - b.total); // lowest value first → earliest pick
+          const n = totals.length;
+          totals.forEach((t, i) => {
+            tierByRoster.set(t.rosterId, i < n / 3 ? 'Early' : i < (2 * n) / 3 ? 'Mid' : 'Late');
+          });
+        }
+
         for (const p of picks) {
           const key = `${p.season}-${p.round}-${p.roster_id}`;
           const draft = draftBySeason.get(String(p.season));
@@ -269,11 +290,10 @@ export function useTradeDetail(transactionId: string | undefined) {
             const user = userByRoster.get(`${draft.league_id}-${p.roster_id}`);
             const slot = user ? draft.draft_order[user] : undefined;
             const playerId = slot != null ? board.get(`${draft.draft_id}-${p.round}-${slot}`) : undefined;
-            if (playerId) { pickResolution.set(key, { playerId, future: false }); continue; }
+            if (playerId) { pickResolution.set(key, { playerId, slot, future: false }); continue; }
           }
-          // Future / unresolved: project the tier from the original owner's current standing.
-          const tier = currentRosters.length ? getProjectedPickTier(Number(p.roster_id), currentRosters as never) : 'Mid';
-          pickResolution.set(key, { tier, future: true });
+          // Future / unresolved: project the tier from the owner's roster-value rank.
+          pickResolution.set(key, { tier: tierByRoster.get(Number(p.roster_id)) ?? 'Mid', future: true });
         }
       }
 
