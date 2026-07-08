@@ -131,7 +131,7 @@ export function TradeCard({
               {/* Assets */}
               <div className="py-1">
                 {side.players.map((p) => (
-                  <PlayerRow key={p.id} playerId={p.id} name={p.name} position={p.position} team={p.team} value={p.value} to={rowTo} />
+                  <PlayerRow key={p.id} playerId={p.id} name={p.name} position={p.position} team={p.team} value={p.value} to={rowTo} dim />
                 ))}
                 {side.picks.map((pick, i) => (
                   <PlayerRow
@@ -141,6 +141,7 @@ export function TradeCard({
                     value={pick.value}
                     meta={pick.subtitle}
                     to={pick.playerId ? rowTo : null}
+                    dim
                   />
                 ))}
                 {side.players.length === 0 && side.picks.length === 0 && (

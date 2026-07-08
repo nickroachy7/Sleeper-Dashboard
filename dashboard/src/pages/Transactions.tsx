@@ -13,7 +13,7 @@ import { FilterBar, FilterPills, SortSelect } from '../components/FilterBar';
 import { usePlayerMap } from '../hooks/useLeagueData';
 import { usePlayerValuesList, usePickValues } from '../hooks/queries';
 import { TradeCard as SharedTradeCard, type TradeSide } from '../components/TradeCard';
-import { AssetRow } from '../components/AssetRow';
+import { PlayerRow } from '../components/PlayerRow';
 import { analyzeTrade } from '../lib/trade-value-adjustment';
 import type { TradeAsset } from '../types/domain';
 import {
@@ -450,7 +450,7 @@ export default function Transactions() {
               const p = getPlayer(pid);
               const val = getPlayerValue(pid);
               return (
-                <AssetRow
+                <PlayerRow
                   key={pid}
                   playerId={pid}
                   name={p?.full_name || pid}
@@ -458,7 +458,7 @@ export default function Transactions() {
                   team={p?.team}
                   value={val}
                   prefix={<span className="text-accent-400 font-bold text-[13px]">+</span>}
-                  className="px-4"
+                  dim
                 />
               );
             })}
@@ -466,7 +466,7 @@ export default function Transactions() {
               const p = getPlayer(pid);
               const val = getPlayerValue(pid);
               return (
-                <AssetRow
+                <PlayerRow
                   key={pid}
                   playerId={pid}
                   name={p?.full_name || pid}
@@ -474,7 +474,7 @@ export default function Transactions() {
                   team={p?.team}
                   value={val}
                   prefix={<span className="text-red-400 font-bold text-[13px]">−</span>}
-                  className="px-4"
+                  dim
                 />
               );
             })}

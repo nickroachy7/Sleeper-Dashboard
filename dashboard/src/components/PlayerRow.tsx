@@ -39,6 +39,8 @@ export interface PlayerRowProps {
   size?: 'sm' | 'md';
   /** Bottom divider for stacked list rows (auto-removed on the last child). */
   divided?: boolean;
+  /** Dim the name/value (secondary rows, e.g. under a brighter team header). */
+  dim?: boolean;
   className?: string;
 }
 
@@ -64,11 +66,14 @@ export function PlayerRow({
   onClick,
   size = 'md',
   divided = false,
+  dim = false,
   className = '',
 }: PlayerRowProps) {
   const isPick = !playerId;
   const isSm = size === 'sm';
   const avatar = isSm ? 'w-8 h-8' : 'w-9 h-9';
+  const nameColor = dim ? 'text-[#9c9ca7]' : 'text-white';
+  const valueColor = dim ? 'text-[#9c9ca7]' : 'text-white';
 
   const target = to === undefined ? (playerId ? `/players/${playerId}` : null) : to;
   const interactive = Boolean(target || onClick);
@@ -118,7 +123,7 @@ export function PlayerRow({
         <div className="flex items-baseline justify-between gap-2">
           <span className="flex items-center gap-1.5 min-w-0">
             {prefix}
-            <span className="text-[14px] font-medium text-white truncate group-hover:text-accent-400 transition-colors">
+            <span className={`text-[14px] font-medium truncate group-hover:text-accent-400 transition-colors ${nameColor}`}>
               {name}
             </span>
             {injuryStatus && (
@@ -136,7 +141,7 @@ export function PlayerRow({
               {Math.abs(delta!).toLocaleString()}
             </span>
           ) : value !== undefined ? (
-            <span className="font-display text-[14px] font-bold text-white tabular-nums shrink-0">
+            <span className={`font-display text-[14px] font-bold tabular-nums shrink-0 ${valueColor}`}>
               {value > 0 ? value.toLocaleString() : '—'}
             </span>
           ) : null}
