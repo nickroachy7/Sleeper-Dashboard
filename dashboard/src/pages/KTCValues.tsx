@@ -352,7 +352,7 @@ function PlayersTab() {
         />
       </FilterBar>
 
-      <div className="bg-[#141419] rounded-xl overflow-hidden">
+      <div className="bg-[#141419] rounded-2xl overflow-hidden border border-[#22222b]">
         {paginatedValues.map((item, idx) => {
           const prevItem = idx > 0 ? paginatedValues[idx - 1] : null;
           const showTierHeader = sortField === 'rank' &&
