@@ -5,7 +5,7 @@ import {
   Clock,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { PageHeader } from '../components/PageHeader';
 import { Pagination } from '../components/Pagination';
 import { FilterBar, FilterPills, SortSelect } from '../components/FilterBar';
@@ -113,18 +113,24 @@ export default function Transactions() {
   });
 
   const transactions = txData?.transactions;
-  const leagueRosters = txData?.rosters || [];
+  const leagueRosters = useMemo(() => txData?.rosters || [], [txData]);
   const leagueSize = leagueRosters.length;
 
-  const getPlayer = (playerId: string) => players instanceof Map ? players.get(playerId) : undefined;
-  const getPlayerValue = (playerId: string): number => (playerValues instanceof Map ? playerValues.get(playerId) : 0) || 0;
+  const getPlayer = useCallback(
+    (playerId: string) => players instanceof Map ? players.get(playerId) : undefined,
+    [players]
+  );
+  const getPlayerValue = useCallback(
+    (playerId: string): number => (playerValues instanceof Map ? playerValues.get(playerId) : 0) || 0,
+    [playerValues]
+  );
 
   const currentDraftYear = new Date().getFullYear().toString();
 
   /** Resolve pick value and display name from roster standings.
    *  Only the current draft year gets slot-specific labels (e.g. "2026 Pick 1.03").
    *  Future years use tier labels (e.g. "2027 Early 1st"). */
-  const resolvePickSlotAndValue = (pick: TxDraftPick) => {
+  const resolvePickSlotAndValue = useCallback((pick: TxDraftPick) => {
     const isCurrentYear = pick.season === currentDraftYear;
     if (isCurrentYear && leagueSize > 0) {
       const slot = getProjectedPickSlot(pick.roster_id, leagueRosters);
@@ -136,7 +142,33 @@ export default function Transactions() {
     const value = lookupPickValue(pickValuesData || [], pick.season, pick.round);
     const name = `${pick.season} Round ${pick.round}`;
     return { value, name };
-  };
+  }, [currentDraftYear, leagueSize, leagueRosters, pickValuesData]);
+
+  /** Group a trade's adds and picks by receiving roster. */
+  const getTradeAssets = useCallback((tx: TransactionWithTeams) => {
+    const teamAssets: Record<number, { players: string[]; picks: TxDraftPick[]; value: number }> = {};
+
+    tx.teams?.forEach((team) => {
+      teamAssets[team.rosterId] = { players: [], picks: [], value: 0 };
+    });
+
+    Object.entries(playerMoves(tx.adds)).forEach(([playerId, rosterId]) => {
+      if (teamAssets[rosterId]) {
+        teamAssets[rosterId].players.push(playerId);
+        teamAssets[rosterId].value += getPlayerValue(playerId);
+      }
+    });
+
+    txDraftPicks(tx.draft_picks).forEach((pick) => {
+      if (pick.owner_id && teamAssets[pick.owner_id]) {
+        const resolved = resolvePickSlotAndValue(pick);
+        teamAssets[pick.owner_id].picks.push({ ...pick, resolvedValue: resolved.value, resolvedName: resolved.name });
+        teamAssets[pick.owner_id].value += resolved.value;
+      }
+    });
+
+    return teamAssets;
+  }, [getPlayerValue, resolvePickSlotAndValue]);
 
   // Stats
   const typeCounts = useMemo(() => {
@@ -222,7 +254,7 @@ export default function Transactions() {
         default: return 0;
       }
     });
-  }, [transactions, typeFilter, sortBy, playerValues, pickValuesData]);
+  }, [transactions, typeFilter, sortBy, playerValues, players, getTradeAssets, resolvePickSlotAndValue]);
 
   const totalPages = Math.ceil(filteredAndSortedTransactions.length / ITEMS_PER_PAGE);
   const paginatedTransactions = useMemo(() => {
@@ -294,31 +326,6 @@ export default function Transactions() {
 
   const getDateGroup = (tx: TransactionWithTeams) =>
     txDate(tx).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-
-  const getTradeAssets = (tx: TransactionWithTeams) => {
-    const teamAssets: Record<number, { players: string[]; picks: TxDraftPick[]; value: number }> = {};
-
-    tx.teams?.forEach((team) => {
-      teamAssets[team.rosterId] = { players: [], picks: [], value: 0 };
-    });
-
-    Object.entries(playerMoves(tx.adds)).forEach(([playerId, rosterId]) => {
-      if (teamAssets[rosterId]) {
-        teamAssets[rosterId].players.push(playerId);
-        teamAssets[rosterId].value += getPlayerValue(playerId);
-      }
-    });
-
-    txDraftPicks(tx.draft_picks).forEach((pick) => {
-      if (pick.owner_id && teamAssets[pick.owner_id]) {
-        const resolved = resolvePickSlotAndValue(pick);
-        teamAssets[pick.owner_id].picks.push({ ...pick, resolvedValue: resolved.value, resolvedName: resolved.name });
-        teamAssets[pick.owner_id].value += resolved.value;
-      }
-    });
-
-    return teamAssets;
-  };
 
   // ─── Trade Card (uses shared component) ────────────────────────────
 
@@ -488,9 +495,6 @@ export default function Transactions() {
 
   // ─── Render ────────────────────────────────────────────────────────
 
-  // Group by date for date headers
-  let lastDateGroup = '';
-
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto">
       <PageHeader
@@ -538,10 +542,10 @@ export default function Transactions() {
       </FilterBar>
 
       <div className="space-y-3">
-        {paginatedTransactions.map((tx) => {
+        {paginatedTransactions.map((tx, i) => {
           const dateGroup = getDateGroup(tx);
-          const showDateHeader = sortBy === 'recent' && dateGroup !== lastDateGroup;
-          if (showDateHeader) lastDateGroup = dateGroup;
+          const prevDateGroup = i > 0 ? getDateGroup(paginatedTransactions[i - 1]) : null;
+          const showDateHeader = sortBy === 'recent' && dateGroup !== prevDateGroup;
 
           return (
             <div key={tx.transaction_id}>

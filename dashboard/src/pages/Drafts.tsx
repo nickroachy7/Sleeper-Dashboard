@@ -17,6 +17,7 @@ import { Link } from 'react-router-dom';
 import { useState, useMemo } from 'react';
 import { PageHeader } from '../components/PageHeader';
 import { PositionBadge } from '../components/PositionBadge';
+import type { DraftPickRow } from '../types/domain';
 
 interface Player {
   player_id: string;
@@ -86,15 +87,15 @@ export default function Drafts() {
   const getPlayer = (playerId: string): Player | undefined => players?.get(playerId);
 
   const getTeamName = (rosterId: number, leagueId?: string) => {
-    const roster = data?.rosters.find((r: any) => r.roster_id === rosterId && (!leagueId || r.league_id === leagueId));
+    const roster = data?.rosters.find((r) => r.roster_id === rosterId && (!leagueId || r.league_id === leagueId));
     const leagueUser = data?.leagueUsers?.find((lu: LeagueUser) => lu.user_id === roster?.owner_id);
-    const user = data?.users.find((u: any) => u.user_id === roster?.owner_id);
+    const user = data?.users.find((u) => u.user_id === roster?.owner_id);
     return leagueUser?.team_name || leagueUser?.display_name || user?.display_name || user?.username || `Team ${rosterId}`;
   };
 
   const getTeamNameByUserId = (userId: string | null) => {
     if (!userId) return 'Unknown';
-    const user = data?.users.find((u: any) => u.user_id === userId);
+    const user = data?.users.find((u) => u.user_id === userId);
     return user?.display_name || user?.username || 'Unknown';
   };
 
@@ -112,7 +113,7 @@ export default function Drafts() {
 
   const picksByDraftAndRound = useMemo(() => {
     if (!data?.draftPicks) return {};
-    return data.draftPicks.reduce((acc: any, pick: any) => {
+    return data.draftPicks.reduce((acc: Record<string, Record<number, DraftPickRow[]>>, pick) => {
       if (!acc[pick.draft_id]) acc[pick.draft_id] = {};
       if (!acc[pick.draft_id][pick.round]) acc[pick.draft_id][pick.round] = [];
       acc[pick.draft_id][pick.round].push(pick);
@@ -214,7 +215,7 @@ export default function Drafts() {
     );
   }
 
-  const currentDraft = data.drafts.find((d: any) => d.draft_id === selectedDraft);
+  const currentDraft = data.drafts.find((d) => d.draft_id === selectedDraft);
   const currentDraftPicks = selectedDraft ? picksByDraftAndRound[selectedDraft] || {} : {};
   const rounds = Object.keys(currentDraftPicks).map(Number).sort((a, b) => a - b);
 
@@ -242,7 +243,7 @@ export default function Drafts() {
                 onChange={(e) => { setSelectedDraft(e.target.value); setExpandedRounds(new Set([1])); }}
                 className="px-3 py-2 bg-[#0a0a0a] border border-[#1e1e1e] rounded-lg text-xs font-medium text-white focus:outline-none focus:ring-2 focus:ring-accent-500/50"
               >
-                {data.drafts.map((draft: any) => (
+                {data.drafts.map((draft) => (
                   <option key={draft.draft_id} value={draft.draft_id}>
                     {draft.season} {draft.type} Draft
                   </option>
@@ -285,8 +286,8 @@ export default function Drafts() {
                     {isExpanded && (
                       <div className="border-t border-[#111111]">
                         <div className="divide-y divide-[#0d0d0d]">
-                          {picks.map((pick: any) => {
-                            const player = getPlayer(pick.player_id);
+                          {picks.map((pick) => {
+                            const player = pick.player_id ? getPlayer(pick.player_id) : undefined;
                             const pickDisplay = `${round}.${String(pick.pick_no - (round - 1) * 12).padStart(2, '0')}`;
 
                             return (

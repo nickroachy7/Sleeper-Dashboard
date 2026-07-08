@@ -453,10 +453,10 @@ function TeamsTab() {
     queryKey: ['team-avatars', currentLeagueId],
     queryFn: async () => {
       const res = await fetch(`https://api.sleeper.app/v1/league/${currentLeagueId}/users`);
-      const sleeperUsers = await res.json();
+      const sleeperUsers: { user_id?: string; metadata?: { avatar?: string } }[] = await res.json();
       const avatarMap = new Map<string, string>();
       if (Array.isArray(sleeperUsers)) {
-        sleeperUsers.forEach((u: any) => {
+        sleeperUsers.forEach((u) => {
           const teamAvatar = u.metadata?.avatar;
           if (teamAvatar && u.user_id) {
             avatarMap.set(u.user_id, teamAvatar);
@@ -466,7 +466,7 @@ function TeamsTab() {
       // Also fetch user avatars as fallback
       const { data: users } = await supabase.from('users').select('user_id, avatar');
       const userAvatars = new Map<string, string>();
-      (users || []).forEach((u: any) => {
+      (users || []).forEach((u) => {
         if (u.avatar) userAvatars.set(u.user_id, `https://sleepercdn.com/avatars/thumbs/${u.avatar}`);
       });
       return { teamAvatars: avatarMap, userAvatars };

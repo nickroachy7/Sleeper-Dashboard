@@ -4,7 +4,7 @@ import { useLeague, usePlayerValuesList } from '../hooks/queries';
 import { usePlayerMap, useTradeData } from '../hooks/useLeagueData';
 import { Zap, Scale, TrendingUp, FileText } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { PowerRankings } from '../components/PowerRankings';
 import { RecentTrades } from '../components/RecentTrades';
 import { ValueWatch } from '../components/ValueWatch';
@@ -38,12 +38,12 @@ export default function Home() {
       const { data: users } = await supabase.from('users').select('*');
 
       // Fetch team avatars from Sleeper API (metadata.avatar has custom team logos)
-      let teamAvatars = new Map<string, string>();
+      const teamAvatars = new Map<string, string>();
       try {
         const res = await fetch(`https://api.sleeper.app/v1/league/${league!.league_id}/users`);
-        const sleeperUsers = await res.json();
+        const sleeperUsers: { user_id?: string; metadata?: { avatar?: string } }[] = await res.json();
         if (Array.isArray(sleeperUsers)) {
-          sleeperUsers.forEach((u: any) => {
+          sleeperUsers.forEach((u) => {
             const teamAvatar = u.metadata?.avatar;
             if (teamAvatar && u.user_id) {
               teamAvatars.set(u.user_id, teamAvatar);
@@ -74,25 +74,18 @@ export default function Home() {
 
   // ─── Helper: resolve team name from roster ─────────────────────────
 
-  const resolveTeamName = useMemo(() => {
-    if (!rostersData) return () => 'Unknown';
-    const { users } = rostersData;
-    return (ownerId: string) => {
-      const owner = users.find((u: any) => u.user_id === ownerId);
-      return owner?.display_name || owner?.username || 'Unknown';
-    };
+  const resolveTeamName = useCallback((ownerId: string) => {
+    const owner = rostersData?.users.find((u) => u.user_id === ownerId);
+    return owner?.display_name || owner?.username || 'Unknown';
   }, [rostersData]);
 
-  const resolveTeamAvatar = useMemo(() => {
-    if (!rostersData) return () => null;
-    const { teamAvatars, users } = rostersData;
-    return (ownerId: string): string | null => {
-      // Prefer team avatar (custom logo), fall back to user avatar
-      const teamAvatar = teamAvatars.get(ownerId);
-      if (teamAvatar) return teamAvatar;
-      const owner = users.find((u: any) => u.user_id === ownerId);
-      return owner?.avatar ? `https://sleepercdn.com/avatars/thumbs/${owner.avatar}` : null;
-    };
+  const resolveTeamAvatar = useCallback((ownerId: string): string | null => {
+    if (!rostersData) return null;
+    // Prefer team avatar (custom logo), fall back to user avatar
+    const teamAvatar = rostersData.teamAvatars.get(ownerId);
+    if (teamAvatar) return teamAvatar;
+    const owner = rostersData.users.find((u) => u.user_id === ownerId);
+    return owner?.avatar ? `https://sleepercdn.com/avatars/thumbs/${owner.avatar}` : null;
   }, [rostersData]);
 
   // ─── Derived: Power Rankings ─────────────────────────────────────
@@ -102,8 +95,8 @@ export default function Home() {
     const { rosters } = rostersData;
 
     return rosters
-      .map((roster: any) => {
-        const teamName = resolveTeamName(roster.owner_id);
+      .map((roster) => {
+        const teamName = resolveTeamName(roster.owner_id || '');
         const playerIds: string[] = roster.players || [];
         let topPlayer: { name: string; value: number; position: string; playerId: string } | null = null;
 
@@ -134,11 +127,11 @@ export default function Home() {
           totalValue += pickAssets.reduce((sum, a) => sum + a.value, 0);
         }
 
-        const avatarUrl = resolveTeamAvatar(roster.owner_id);
+        const avatarUrl = resolveTeamAvatar(roster.owner_id || '');
         return { rosterId: roster.roster_id, teamName, totalValue, topPlayer, wins: roster.wins ?? 0, losses: roster.losses ?? 0, avatarUrl };
       })
-      .sort((a: any, b: any) => b.totalValue - a.totalValue)
-      .map((team: any, idx: number) => ({ ...team, rank: idx + 1 }));
+      .sort((a, b) => b.totalValue - a.totalValue)
+      .map((team, idx) => ({ ...team, rank: idx + 1 }));
   }, [rostersData, playerValues, playersMap, resolveTeamName, resolveTeamAvatar, tradeRosters, pickValues, tradedPicks]);
 
   // ─── Derived: Value Watch (Top 10 Assets) ────────────────────────
@@ -148,10 +141,10 @@ export default function Home() {
     const { rosters } = rostersData;
 
     const rosterToTeam = new Map<number, string>();
-    rosters.forEach((r: any) => rosterToTeam.set(r.roster_id, resolveTeamName(r.owner_id)));
+    rosters.forEach((r) => rosterToTeam.set(r.roster_id, resolveTeamName(r.owner_id || '')));
 
     const allPlayers: { playerId: string; name: string; position: string; team: string | null; value: number; ownerTeam: string }[] = [];
-    rosters.forEach((roster: any) => {
+    rosters.forEach((roster) => {
       const ownerTeam = rosterToTeam.get(roster.roster_id) || 'Unknown';
       (roster.players || []).forEach((pid: string) => {
         const p = playersMap.get(pid);
@@ -176,7 +169,7 @@ export default function Home() {
     const leagueSize = rosters.length;
 
     // Build lightweight Roster objects for slot projection
-    const rosterList = rosters.map((r: any) => ({
+    const rosterList = rosters.map((r) => ({
       roster_id: r.roster_id,
       owner_id: r.owner_id || '',
       players: r.players || [],
@@ -188,7 +181,7 @@ export default function Home() {
     }));
 
     const rosterToTeam = new Map<number, string>();
-    rosters.forEach((r: any) => rosterToTeam.set(r.roster_id, resolveTeamName(r.owner_id)));
+    rosters.forEach((r) => rosterToTeam.set(r.roster_id, resolveTeamName(r.owner_id || '')));
 
     const currentDraftYear = new Date().getFullYear().toString();
 

@@ -29,8 +29,14 @@ export function AssetDropdown({
     if (isOpen && inputRef.current) {
       setTimeout(() => inputRef.current?.focus(), 50);
     }
-    if (!isOpen) setSearch('');
   }, [isOpen]);
+
+  // Reset search when the dropdown closes (state-adjust-during-render pattern)
+  const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
+  if (isOpen !== prevIsOpen) {
+    setPrevIsOpen(isOpen);
+    if (!isOpen) setSearch('');
+  }
 
   const filteredItems = useMemo(() => {
     if (!search) return items;

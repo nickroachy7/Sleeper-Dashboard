@@ -151,7 +151,17 @@ async function populatePlayerValues() {
     }
     
     // Match and prepare values
-    const playerValues: any[] = [];
+    const playerValues: {
+      player_id: string;
+      value: number;
+      rank: number | null;
+      position_rank: number | null;
+      tier: number | null;
+      trend: number;
+      superflex: boolean;
+      source: string;
+      fetched_at: string;
+    }[] = [];
     const unmatchedPlayers: string[] = [];
     
     for (const ktcPlayer of ktcPlayers) {

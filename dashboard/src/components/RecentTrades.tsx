@@ -2,6 +2,7 @@ import { ChevronRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { TradeCard, type TradeSide } from './TradeCard';
 import type { Fairness } from '../types/domain';
+import type { TxDraftPick } from '../lib/trade-shared';
 
 interface TradePlayer {
   id: string;
@@ -14,7 +15,7 @@ interface TradePlayer {
 interface TradeSideAssets {
   teamName: string;
   players: TradePlayer[];
-  picks: any[];
+  picks: (TxDraftPick & { value: number })[];
   totalValue: number;
   adjustedValue?: number;
 }
@@ -49,7 +50,7 @@ export function RecentTrades({ trades }: RecentTradesProps) {
       <div className="space-y-3">
         {trades.slice(0, 3).map((trade) => {
           // Convert to TradeCard sides format
-          const sides: TradeSide[] = Object.entries(trade.teamAssets).map(([, assets]: [string, any]) => ({
+          const sides: TradeSide[] = Object.entries(trade.teamAssets).map(([, assets]) => ({
             teamName: assets.teamName,
             players: assets.players.map((p: TradePlayer) => ({
               id: p.id,
@@ -58,7 +59,7 @@ export function RecentTrades({ trades }: RecentTradesProps) {
               team: p.team,
               value: p.value,
             })),
-            picks: assets.picks.map((pick: any) => ({
+            picks: assets.picks.map((pick) => ({
               season: pick.season,
               round: pick.round,
               value: pick.value || 0,

@@ -84,10 +84,12 @@ async function fetchSyncLogs(): Promise<SyncLog[]> {
   return data || [];
 }
 
+// The sync.* views aren't in the generated public-schema types, so these two
+// queries cast the response shape explicitly.
 async function fetchCronJobs(): Promise<CronJob[]> {
-  const { data, error } = await supabase
-    .from('sync.cron_jobs' as any)
-    .select('*') as { data: CronJob[] | null; error: any };
+  const { data, error } = (await supabase
+    .from('sync.cron_jobs' as never)
+    .select('*')) as { data: CronJob[] | null; error: { message: string } | null };
   if (error) {
     console.warn('Could not fetch cron jobs:', error.message);
     return [];
@@ -96,10 +98,10 @@ async function fetchCronJobs(): Promise<CronJob[]> {
 }
 
 async function fetchCronRuns(): Promise<CronRun[]> {
-  const { data, error } = await supabase
-    .from('sync.recent_runs' as any)
+  const { data, error } = (await supabase
+    .from('sync.recent_runs' as never)
     .select('*')
-    .limit(10) as { data: CronRun[] | null; error: any };
+    .limit(10)) as { data: CronRun[] | null; error: { message: string } | null };
   if (error) {
     console.warn('Could not fetch cron runs:', error.message);
     return [];
@@ -158,11 +160,11 @@ export default function Settings() {
   const { data: league, isLoading } = useQuery({
     queryKey: ['league'],
     queryFn: async () => {
-      const { data, error } = await (supabase
+      const { data, error } = await supabase
         .from('leagues')
         .select('*')
         .order('created_at', { ascending: false })
-        .limit(1) as any);
+        .limit(1);
       if (error) throw error;
       return data?.[0] || null;
     },
@@ -180,12 +182,12 @@ export default function Settings() {
         supabase.from('traded_picks').select('*', { count: 'exact', head: true }),
       ]);
       return {
-        users: (users as any).count || 0,
-        rosters: (rosters as any).count || 0,
-        transactions: (transactions as any).count || 0,
-        drafts: (drafts as any).count || 0,
-        draftPicks: (draftPicks as any).count || 0,
-        tradedPicks: (tradedPicks as any).count || 0,
+        users: users.count || 0,
+        rosters: rosters.count || 0,
+        transactions: transactions.count || 0,
+        drafts: drafts.count || 0,
+        draftPicks: draftPicks.count || 0,
+        tradedPicks: tradedPicks.count || 0,
       };
     },
   });
@@ -328,12 +330,21 @@ export default function Settings() {
                   <div>
                     <h4 className="text-xs font-medium text-[#888888] uppercase tracking-wide mb-3">Key Settings</h4>
                     <div className="space-y-0">
-                      {[
-                        { label: 'Playoff Teams', value: league.settings?.playoff_teams || 6 },
-                        { label: 'Trade Deadline', value: `Week ${league.settings?.trade_deadline || 'N/A'}` },
-                        { label: 'Waiver Budget', value: `$${league.settings?.waiver_budget || 100}` },
-                        { label: 'Taxi Slots', value: league.settings?.taxi_slots || 0 },
-                      ].map(({ label, value }, i, arr) => (
+                      {(() => {
+                        // Sleeper's league settings JSON blob
+                        const settings = (league.settings ?? {}) as {
+                          playoff_teams?: number;
+                          trade_deadline?: number;
+                          waiver_budget?: number;
+                          taxi_slots?: number;
+                        };
+                        return [
+                          { label: 'Playoff Teams', value: settings.playoff_teams || 6 },
+                          { label: 'Trade Deadline', value: `Week ${settings.trade_deadline || 'N/A'}` },
+                          { label: 'Waiver Budget', value: `$${settings.waiver_budget || 100}` },
+                          { label: 'Taxi Slots', value: settings.taxi_slots || 0 },
+                        ];
+                      })().map(({ label, value }, i, arr) => (
                         <div
                           key={label}
                           className={`flex justify-between items-center py-2 ${i < arr.length - 1 ? 'border-b border-[#151515]' : ''}`}

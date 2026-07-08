@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from 'react';
+import { useEffect } from 'react';
 import type { Player, PlayerValue, PickValue, Roster, TradedPick, TradeAsset, Fairness, TransactionRow } from '../types/domain';
 export type { Player, PlayerValue, PickValue, Roster, TradedPick, TradeAsset, Fairness } from '../types/domain';
 
@@ -408,16 +408,15 @@ export function getPickSlotDisplayName(year: string, round: number, slot: number
 // ── Hooks ──────────────────────────────────────────────────────────
 
 export function useClickOutside(ref: React.RefObject<HTMLElement | null>, callback: () => void) {
-  const stableCallback = useCallback(callback, [callback]);
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (ref.current && !ref.current.contains(event.target as Node)) {
-        stableCallback();
+        callback();
       }
     }
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [ref, stableCallback]);
+  }, [ref, callback]);
 }
 
 // ── Roster Data Fetching Helpers ───────────────────────────────────
