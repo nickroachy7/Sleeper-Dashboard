@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
-import { playerMoves, txDraftPicks } from '../lib/trade-shared';
+import { playerMoves } from '../lib/trade-shared';
 import type { TransactionRow } from '../types/domain';
 
 // ── Detail-page data hooks (player / team deep dives) ──────────────
@@ -189,18 +189,18 @@ export function useValueMovers(daysAgo: number) {
 }
 
 /**
- * A single trade by transaction_id, plus resolution of any draft picks that
- * have since been used into the actual player selected. Resolution only fires
- * for completed *linear* drafts (this league's rookie format), where the pick
- * number is deterministic from (round, original-owner slot); anything uncertain
- * is left unresolved so a pick just shows as a pick.
+ * A single trade by transaction_id, plus `latestValue`: the most-recent
+ * player_value_history value per player involved, used as a fallback when a
+ * player is missing from the (TEP) player_values table so trade rows and side
+ * totals still show a number.
+ *
+ * Note on picks: we intentionally do NOT resolve a traded pick to the player
+ * eventually drafted with it. That requires a reliable draft slot → original
+ * owner map, and the synced draft data doesn't have one — `slot_to_roster_id`
+ * is null and `draft_order` is incomplete for past drafts — so any attribution
+ * would be partial and could be wrong. Picks render as picks until the draft
+ * sync is fixed to populate slot_to_roster_id.
  */
-export interface ResolvedPick {
-  playerId: string;
-  pickNo: number;
-  season: string;
-}
-
 export function useTradeDetail(transactionId: string | undefined) {
   return useQuery({
     queryKey: ['trade-detail', transactionId],
@@ -212,59 +212,26 @@ export function useTradeDetail(transactionId: string | undefined) {
         .eq('transaction_id', transactionId!)
         .maybeSingle();
 
-      const resolution = new Map<string, ResolvedPick>();
-      if (!transaction) return { transaction: null, resolution };
+      const latestValue = new Map<string, number>();
+      if (!transaction) return { transaction: null, latestValue };
 
-      const picks = txDraftPicks((transaction as TransactionRow).draft_picks);
-      const seasons = [...new Set(picks.map((p) => String(p.season)))];
-      if (seasons.length === 0) return { transaction: transaction as TransactionRow, resolution };
+      const tx = transaction as TransactionRow;
 
-      // Pull the drafts for those seasons and their selections.
-      const { data: drafts } = await supabase
-        .from('drafts')
-        .select('draft_id, season, type, status, slot_to_roster_id')
-        .in('season', seasons);
-
-      const usableDrafts = (drafts || []).filter(
-        (d) => d.status === 'complete' && d.type === 'linear' && d.slot_to_roster_id
-      );
-      if (usableDrafts.length === 0) return { transaction: transaction as TransactionRow, resolution };
-
-      const draftIds = usableDrafts.map((d) => d.draft_id);
-      const { data: draftPickRows } = await supabase
-        .from('draft_picks')
-        .select('draft_id, round, pick_no, player_id')
-        .in('draft_id', draftIds);
-
-      // Index selections by (draft_id, pick_no) for O(1) lookup.
-      const byDraftPickNo = new Map<string, string>();
-      (draftPickRows || []).forEach((r) => {
-        if (r.player_id) byDraftPickNo.set(`${r.draft_id}-${r.pick_no}`, r.player_id);
-      });
-
-      for (const pick of picks) {
-        // One draft per season in this league; take the first usable match.
-        const draft = usableDrafts.find((d) => String(d.season) === String(pick.season));
-        if (!draft) continue;
-        const slotMap = draft.slot_to_roster_id as Record<string, number>;
-        const slots = Object.keys(slotMap);
-        const numSlots = slots.length;
-        // Find the draft slot that belongs to the pick's ORIGINAL owner.
-        const slotEntry = slots.find((s) => Number(slotMap[s]) === Number(pick.roster_id));
-        if (!slotEntry || numSlots === 0) continue;
-        const slot = Number(slotEntry);
-        // Linear draft: pick number is deterministic.
-        const pickNo = (Number(pick.round) - 1) * numSlots + slot;
-        const playerId = byDraftPickNo.get(`${draft.draft_id}-${pickNo}`);
-        if (!playerId) continue;
-        resolution.set(`${pick.season}-${pick.round}-${pick.roster_id}`, {
-          playerId,
-          pickNo,
-          season: String(pick.season),
-        });
+      // Latest history value per involved player (fallback for missing values).
+      const involved = new Set<string>(Object.keys(playerMoves(tx.adds)));
+      if (involved.size > 0) {
+        const rows = await fetchAllRows<{ player_id: string; value: number; date: string }>((from, to) =>
+          supabase
+            .from('player_value_history')
+            .select('player_id, value, date')
+            .in('player_id', [...involved])
+            .order('date', { ascending: false })
+            .range(from, to)
+        );
+        for (const r of rows) if (!latestValue.has(r.player_id)) latestValue.set(r.player_id, r.value);
       }
 
-      return { transaction: transaction as TransactionRow, resolution };
+      return { transaction: tx, latestValue };
     },
   });
 }

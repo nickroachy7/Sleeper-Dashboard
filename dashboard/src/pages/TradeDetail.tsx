@@ -41,7 +41,7 @@ export default function TradeDetail() {
   }, [players]);
 
   const tx = detail?.transaction ?? null;
-  const resolution = detail?.resolution;
+  const latestValue = detail?.latestValue;
 
   // ── Build each side (received players + received picks) ──
   const built = useMemo(() => {
@@ -61,35 +61,19 @@ export default function TradeDetail() {
           name: pv?.player.full_name || meta?.name || 'Unknown',
           position: pv?.player.position || meta?.position || '',
           team: pv?.player.team ?? meta?.team ?? null,
-          value: pv?.value ?? 0,
+          value: pv?.value ?? latestValue?.get(pid) ?? 0,
         };
       });
 
-      // Received picks — resolve to the drafted player when the draft has happened
-      const timelinePlayerIds = [...playerIds];
+      // Received picks (shown at current KTC value; not charted over time)
       const sidePicks = picks
         .filter((p) => Number(p.owner_id) === Number(rosterId))
-        .map((p) => {
-          const key = `${p.season}-${p.round}-${p.roster_id}`;
-          const resolved = resolution?.get(key);
-          if (resolved) {
-            const rpv = playerValues.get(resolved.playerId);
-            timelinePlayerIds.push(resolved.playerId);
-            return {
-              season: String(p.season),
-              round: Number(p.round),
-              value: rpv?.value ?? 0,
-              name: `${p.season} ${ordinal(Number(p.round))} → ${rpv?.player.full_name || 'drafted pick'}`,
-              resolvedPlayerId: resolved.playerId,
-            };
-          }
-          return {
-            season: String(p.season),
-            round: Number(p.round),
-            value: pickValues ? lookupPickValue(pickValues, String(p.season), Number(p.round), { tier: 'Mid' }) : 0,
-            name: `${p.season} ${ordinal(Number(p.round))} pick`,
-          };
-        });
+        .map((p) => ({
+          season: String(p.season),
+          round: Number(p.round),
+          value: pickValues ? lookupPickValue(pickValues, String(p.season), Number(p.round), { tier: 'Mid' }) : 0,
+          name: `${p.season} ${ordinal(Number(p.round))} pick`,
+        }));
 
       const totalValue =
         players.reduce((s, p) => s + p.value, 0) + sidePicks.reduce((s, p) => s + (p.value || 0), 0);
@@ -100,13 +84,13 @@ export default function TradeDetail() {
         players,
         picks: sidePicks,
         totalValue,
-        timelinePlayerIds,
+        timelinePlayerIds: playerIds,
       };
       return side;
     });
 
     return { sides };
-  }, [tx, directory, playerValues, pickValues, resolution, playerMeta]);
+  }, [tx, directory, playerValues, pickValues, playerMeta, latestValue]);
 
   // Two-sided value history (hooks must run unconditionally → always call twice)
   const sideAIds = built?.sides[0]?.timelinePlayerIds ?? [];
@@ -173,8 +157,8 @@ export default function TradeDetail() {
       <div className="bg-[#141419] rounded-xl p-4 sm:p-5 border border-[#22222b]">
         <h2 className="text-xs font-bold text-white uppercase tracking-wider mb-1">Value since the trade</h2>
         <p className="text-[10px] text-[#75757f] mb-4">
-          KTC value of what each side received, over time. Picks already used are tracked as the player drafted;
-          future picks aren&apos;t charted (no historical value).
+          KTC value of the players each side received, over time. Draft picks are shown in the trade above at
+          their current value but aren&apos;t charted (picks have no historical value).
         </p>
 
         {chart ? (
