@@ -368,6 +368,7 @@ export default function Transactions() {
       const assets = teamAssets[team.rosterId] || { players: [], picks: [], value: 0 };
       const sideResult = analysis ? (idx === 0 ? analysis.side1 : analysis.side2) : null;
       return {
+        rosterId: team.rosterId,
         teamName: team.teamName,
         players: assets.players.map((playerId: string) => {
           const player = getPlayer(playerId);

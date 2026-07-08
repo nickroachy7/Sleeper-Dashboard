@@ -50,7 +50,8 @@ export function RecentTrades({ trades }: RecentTradesProps) {
       <div className="space-y-3">
         {trades.slice(0, 3).map((trade) => {
           // Convert to TradeCard sides format
-          const sides: TradeSide[] = Object.entries(trade.teamAssets).map(([, assets]) => ({
+          const sides: TradeSide[] = Object.entries(trade.teamAssets).map(([rosterId, assets]) => ({
+            rosterId: Number(rosterId),
             teamName: assets.teamName,
             players: assets.players.map((p: TradePlayer) => ({
               id: p.id,
