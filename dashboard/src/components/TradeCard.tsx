@@ -1,7 +1,7 @@
 import { Clock } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { AssetRow } from './AssetRow';
-import { FAIRNESS_CONFIG } from '../lib/trade-shared';
+import { FAIRNESS_CONFIG, getPlayerImageUrl } from '../lib/trade-shared';
 import type { Fairness } from '../types/domain';
 
 interface TradePlayer {
@@ -19,6 +19,8 @@ interface TradePick {
   name?: string;
   /** Secondary line, e.g. "via Team X · proj. Early". */
   subtitle?: string;
+  /** If the pick has been used, the drafted player's id — shows their photo + links. */
+  playerId?: string;
 }
 
 export interface TradeSide {
@@ -170,27 +172,43 @@ export function TradeCard({
                     <div key={p.id}>{row}</div>
                   );
                 })}
-                {side.picks.map((pick, pickIdx) => (
-                  <div
-                    key={pickIdx}
-                    className={`flex items-center gap-2.5 py-2 border-t border-[#1b1b22] ${isCompact ? 'px-3' : 'px-4 sm:px-5'}`}
-                  >
-                    <div className="w-8 h-8 rounded-full bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center shrink-0">
-                      <span className="text-[9px] font-bold text-cyan-400/70">PK</span>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[13px] font-semibold text-white truncate">
-                        {pick.name || `${pick.season} Round ${pick.round}`}
-                      </p>
-                      {pick.subtitle && <p className="text-[11px] text-[#75757f] truncate mt-0.5">{pick.subtitle}</p>}
-                    </div>
-                    {pick.value !== undefined && (
-                      <span className="font-display text-sm font-bold text-white tabular-nums shrink-0">
-                        {pick.value > 0 ? pick.value.toLocaleString() : '—'}
-                      </span>
-                    )}
-                  </div>
-                ))}
+                {side.picks.map((pick, pickIdx) => {
+                  const pickRow = (
+                    <>
+                      {pick.playerId ? (
+                        <img
+                          src={getPlayerImageUrl(pick.playerId)}
+                          alt=""
+                          className="w-8 h-8 rounded-full object-cover bg-[#22222b] shrink-0 ring-1 ring-inset ring-white/5"
+                          onError={(e) => { (e.target as HTMLImageElement).style.visibility = 'hidden'; }}
+                        />
+                      ) : (
+                        <div className="w-8 h-8 rounded-full bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center shrink-0">
+                          <span className="text-[9px] font-bold text-cyan-400/70">PK</span>
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[13px] font-semibold text-white truncate">
+                          {pick.name || `${pick.season} Round ${pick.round}`}
+                        </p>
+                        {pick.subtitle && <p className="text-[11px] text-[#75757f] truncate mt-0.5">{pick.subtitle}</p>}
+                      </div>
+                      {pick.value !== undefined && (
+                        <span className="font-display text-sm font-bold text-white tabular-nums shrink-0">
+                          {pick.value > 0 ? pick.value.toLocaleString() : '—'}
+                        </span>
+                      )}
+                    </>
+                  );
+                  const pickCls = `flex items-center gap-2.5 py-2 border-t border-[#1b1b22] ${isCompact ? 'px-3' : 'px-4 sm:px-5'}`;
+                  return linkPlayers && pick.playerId ? (
+                    <Link key={pickIdx} to={`/players/${pick.playerId}`} className={`${pickCls} hover:bg-[#1b1b22] active:bg-[#22222b] transition-colors`}>
+                      {pickRow}
+                    </Link>
+                  ) : (
+                    <div key={pickIdx} className={pickCls}>{pickRow}</div>
+                  );
+                })}
                 {side.players.length === 0 && side.picks.length === 0 && (
                   <div className={`flex items-center gap-2.5 py-2 border-t border-[#1b1b22] ${isCompact ? 'px-3' : 'px-4 sm:px-5'}`}>
                     <div className="w-8 h-8 rounded-full bg-[#1b1b22] shrink-0" />

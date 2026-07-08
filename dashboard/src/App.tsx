@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './components/Layout';
+import { ScrollManager } from './components/ScrollManager';
 import Home from './pages/Home';
 import Settings from './pages/Settings';
 import Transactions from './pages/Transactions';
@@ -13,6 +14,8 @@ import Chat from './pages/Chat';
 
 function App() {
   return (
+    <>
+    <ScrollManager />
     <Routes>
       <Route path="/" element={<Layout />}>
         <Route index element={<Home />} />
@@ -40,6 +43,7 @@ function App() {
         <Route path="minigames" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>
+    </>
   );
 }
 

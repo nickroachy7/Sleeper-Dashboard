@@ -1,6 +1,6 @@
 import { useParams, Link } from 'react-router-dom';
 import { useMemo } from 'react';
-import { ArrowLeft, TrendingUp, TrendingDown, Minus, ChevronRight } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus, ChevronRight } from 'lucide-react';
 import { ValueChart } from '../components/charts/ValueChart';
 import { PositionBadge } from '../components/PositionBadge';
 import { usePlayerDetail, useLeagueDirectory } from '../hooks/detail';
@@ -132,10 +132,6 @@ export default function PlayerDetail() {
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto space-y-4">
-      <Link to="/ktc-values" className="inline-flex items-center gap-1.5 text-[11px] text-[#75757f] hover:text-white active:text-white transition-colors">
-        <ArrowLeft className="h-3 w-3" /> Values
-      </Link>
-
       {/* ── Header ── */}
       <section className="relative overflow-hidden rounded-2xl border border-[#22222b] bg-gradient-to-br from-[#16161c] via-[#141419] to-[#111116]">
         <div className="pointer-events-none absolute -top-20 -right-12 h-48 w-48 rounded-full bg-accent-500/10 blur-3xl" />
