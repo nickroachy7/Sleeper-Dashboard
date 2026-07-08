@@ -70,8 +70,14 @@ export function TradeCard({
     if (rosterId == null || !directory) return null;
     const roster = directory.rosters.find((r) => r.roster_id === rosterId && r.league_id === directory.currentLeagueId)
       || directory.rosters.find((r) => r.roster_id === rosterId);
-    const user = directory.users.find((u) => u.user_id === roster?.owner_id);
-    return user?.avatar ? `https://sleepercdn.com/avatars/thumbs/${user.avatar}` : null;
+    if (!roster?.owner_id) return null;
+    // Prefer the manager's team avatar for this league; fall back to their user avatar.
+    const lu = directory.leagueUsers.find((u) => u.user_id === roster.owner_id && u.league_id === directory.currentLeagueId)
+      || directory.leagueUsers.find((u) => u.user_id === roster.owner_id);
+    const raw = (lu as { avatar?: string | null } | undefined)?.avatar
+      || directory.users.find((u) => u.user_id === roster.owner_id)?.avatar;
+    if (!raw) return null;
+    return raw.startsWith('http') ? raw : `https://sleepercdn.com/avatars/thumbs/${raw}`;
   };
 
   const val0 = sides[0].adjustedValue ?? sides[0].totalValue;

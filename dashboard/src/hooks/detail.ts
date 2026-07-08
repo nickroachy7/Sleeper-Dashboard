@@ -41,7 +41,7 @@ export function useLeagueDirectory() {
           supabase.from('leagues').select('league_id, season, name').order('season', { ascending: false }),
           supabase.from('rosters').select('league_id, roster_id, owner_id, players, wins, losses, ties, fpts, fpts_against'),
           supabase.from('users').select('user_id, display_name, username, avatar'),
-          supabase.from('league_users').select('league_id, user_id, team_name, display_name'),
+          supabase.from('league_users').select('league_id, user_id, team_name, display_name, avatar'),
         ]);
 
       const seasonByLeague = new Map<string, string>();

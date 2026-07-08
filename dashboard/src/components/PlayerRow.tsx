@@ -118,7 +118,7 @@ export function PlayerRow({
         <div className="flex items-baseline justify-between gap-2">
           <span className="flex items-center gap-1.5 min-w-0">
             {prefix}
-            <span className="text-[13px] font-semibold text-white truncate group-hover:text-accent-400 transition-colors">
+            <span className="text-[14px] font-semibold text-white truncate group-hover:text-accent-400 transition-colors">
               {name}
             </span>
             {injuryStatus && (
@@ -136,7 +136,7 @@ export function PlayerRow({
               {Math.abs(delta!).toLocaleString()}
             </span>
           ) : value !== undefined ? (
-            <span className="font-display text-[13px] font-bold text-white tabular-nums shrink-0">
+            <span className="font-display text-[14px] font-bold text-white tabular-nums shrink-0">
               {value > 0 ? value.toLocaleString() : '—'}
             </span>
           ) : null}
@@ -145,11 +145,11 @@ export function PlayerRow({
         {(position || team || meta || (showDelta && value !== undefined)) && (
           <div className="flex items-center gap-1.5 mt-1">
             {position && <PositionBadge position={position} size="xs" />}
-            {team && <span className="text-[10px] text-[#75757f]">{team}</span>}
+            {team && <span className="text-[11px] text-[#9c9ca7] font-medium">{team}</span>}
             {meta !== undefined && meta !== null && meta !== '' && (
               <>
                 {(position || team) && <span className="text-[#4c4c56]">·</span>}
-                <span className="text-[10px] text-[#75757f] truncate">{meta}</span>
+                <span className="text-[11px] text-[#9c9ca7] truncate">{meta}</span>
               </>
             )}
             {showDelta && value !== undefined && (
