@@ -112,6 +112,16 @@ body {
   border-radius: 4px;
 }
 
+/* Text fields already show a caret — don't wrap them in the green focus box */
+input:focus,
+input:focus-visible,
+textarea:focus,
+textarea:focus-visible,
+select:focus,
+select:focus-visible {
+  outline: none;
+}
+
 /* Sidebar layout fix - ensure main content doesn't overlap with fixed sidebar */
 @media (min-width: 1024px) {
   .sidebar-layout-main {
