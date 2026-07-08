@@ -386,8 +386,8 @@ export default function Home() {
         season={league.season}
         totalRosters={league.total_rosters ?? powerRankings.length}
         status={league.status}
-        topTeam={powerRankings[0] ? { name: powerRankings[0].teamName, value: powerRankings[0].totalValue } : null}
-        topAsset={valueWatch[0] ? { name: valueWatch[0].name, value: valueWatch[0].value } : null}
+        topTeam={powerRankings[0] ? { name: powerRankings[0].teamName, value: powerRankings[0].totalValue, to: `/teams/${powerRankings[0].rosterId}` } : null}
+        topAsset={valueWatch[0] ? { name: valueWatch[0].name, value: valueWatch[0].value, to: `/players/${valueWatch[0].playerId}` } : null}
         leagueValue={leagueValue}
         tradeCount={tradesWithTeams.length}
       />

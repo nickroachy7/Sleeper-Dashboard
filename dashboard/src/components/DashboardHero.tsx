@@ -1,4 +1,5 @@
 import { Trophy, Flame, Coins, ArrowLeftRight } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 interface PulseStat {
   icon: typeof Trophy;
@@ -6,6 +7,7 @@ interface PulseStat {
   value: string;
   sub?: string;
   accent: string;
+  to?: string;
 }
 
 interface DashboardHeroProps {
@@ -13,8 +15,8 @@ interface DashboardHeroProps {
   season: string;
   totalRosters: number;
   status?: string | null;
-  topTeam?: { name: string; value: number } | null;
-  topAsset?: { name: string; value: number } | null;
+  topTeam?: { name: string; value: number; to?: string } | null;
+  topAsset?: { name: string; value: number; to?: string } | null;
   leagueValue?: number;
   tradeCount?: number;
 }
@@ -52,6 +54,7 @@ export function DashboardHero({
       value: topTeam.name,
       sub: `${topTeam.value.toLocaleString()} pts`,
       accent: '#ffd700',
+      to: topTeam.to,
     });
   }
   if (topAsset) {
@@ -61,6 +64,7 @@ export function DashboardHero({
       value: topAsset.name,
       sub: `${topAsset.value.toLocaleString()} KTC`,
       accent: '#f97316',
+      to: topAsset.to,
     });
   }
   if (leagueValue) {
@@ -107,24 +111,29 @@ export function DashboardHero({
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 mt-5">
             {stats.map((s) => {
               const Icon = s.icon;
-              return (
-                <div
-                  key={s.label}
-                  className="rounded-xl border border-[#22222b] bg-[#101015]/60 px-3.5 py-3 backdrop-blur-sm"
-                >
+              const inner = (
+                <>
                   <div className="flex items-center gap-1.5 mb-2">
                     <Icon className="h-3.5 w-3.5" style={{ color: s.accent }} />
                     <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#75757f]">
                       {s.label}
                     </span>
                   </div>
-                  <p className="font-display text-[15px] font-bold text-white truncate leading-tight">
+                  <p className="font-display text-[15px] font-bold text-white truncate leading-tight group-hover:text-accent-400 transition-colors">
                     {s.value}
                   </p>
                   {s.sub && (
                     <p className="text-[11px] text-[#75757f] tabular-nums mt-0.5 truncate">{s.sub}</p>
                   )}
-                </div>
+                </>
+              );
+              const cls = 'block rounded-xl border border-[#22222b] bg-[#101015]/60 px-3.5 py-3 backdrop-blur-sm';
+              return s.to ? (
+                <Link key={s.label} to={s.to} className={`group ${cls} hover:border-[#363641] active:bg-[#1b1b22] transition-colors`}>
+                  {inner}
+                </Link>
+              ) : (
+                <div key={s.label} className={cls}>{inner}</div>
               );
             })}
           </div>
