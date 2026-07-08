@@ -57,6 +57,20 @@ const BATCH_SIZE = 100;
 const MIN_EXPECTED_PLAYERS = 100;
 const MAX_EXPECTED_PLAYERS = 800;
 
+// KTC uses different team abbreviations than Sleeper for several teams. Without
+// mapping these, the position+team fuzzy fallback can never fire for players on
+// these teams whose names don't match exactly (e.g. KTC "Kenneth Gainwell" TBB
+// vs Sleeper "Kenny Gainwell" TB), silently dropping real, valued players.
+const KTC_TEAM_TO_SLEEPER: Record<string, string> = {
+  GBP: "GB", JAC: "JAX", KCC: "KC", LVR: "LV",
+  NEP: "NE", NOS: "NO", SFO: "SF", TBB: "TB",
+};
+
+function normalizeTeam(team: string | null | undefined): string {
+  const t = (team || "").toUpperCase();
+  return KTC_TEAM_TO_SLEEPER[t] || t;
+}
+
 // Parse pick name from KTC to extract year, round, and tier
 function parsePickName(name: string): { year: string; round: number; tier: string | null } | null {
   const match = name.match(/(\d{4})\s+(Early|Mid|Late)?\s*(1st|2nd|3rd|4th)/i);
@@ -96,10 +110,11 @@ function findMatch(ktcPlayer: KTCPlayer, sleeperPlayers: SleeperPlayer[]): Sleep
     }
   }
 
-  // Match with same position and team (fuzzy)
+  // Match with same position and team (fuzzy) — teams normalized across sources
+  const ktcTeam = normalizeTeam(ktcPlayer.team);
   for (const sp of sleeperPlayers) {
     const spNormalized = normalizeName(sp.full_name);
-    if (sp.position === ktcPlayer.position && sp.team === ktcPlayer.team) {
+    if (sp.position === ktcPlayer.position && normalizeTeam(sp.team) === ktcTeam) {
       const ktcParts = ktcNormalized.split(" ");
       const spParts = spNormalized.split(" ");
       if (ktcParts.length >= 2 && spParts.length >= 2) {
@@ -148,13 +163,29 @@ Deno.serve(async (req) => {
     const supabase = createServiceClient();
     const syncLog = await startSyncLog(supabase, "ktc_values");
 
-    // Fetch data from both sources
-    const [ktcPlayers, { data: sleeperPlayers, error: playersError }] = await Promise.all([
-      fetchKTCData(),
-      supabase.from("players").select("player_id, full_name, position, team"),
-    ]);
+    // Fetch data from both sources. The players table is fetched with paging —
+    // PostgREST caps a single select at 1000 rows, and the table has more, so an
+    // unpaged fetch hid ~15% of players from the matcher.
+    const fetchAllPlayers = async (): Promise<SleeperPlayer[]> => {
+      const pageSize = 1000;
+      const all: SleeperPlayer[] = [];
+      for (let from = 0; ; from += pageSize) {
+        const { data, error } = await supabase
+          .from("players")
+          .select("player_id, full_name, position, team")
+          .range(from, from + pageSize - 1);
+        if (error) throw error;
+        if (!data?.length) break;
+        all.push(...(data as SleeperPlayer[]));
+        if (data.length < pageSize) break;
+      }
+      return all;
+    };
 
-    if (playersError) throw playersError;
+    const [ktcPlayers, sleeperPlayers] = await Promise.all([
+      fetchKTCData(),
+      fetchAllPlayers(),
+    ]);
 
     // Validate parsed data before deleting existing values
     const playerCount = ktcPlayers.filter(
