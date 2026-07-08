@@ -100,11 +100,12 @@ Deno.serve(async (req) => {
 
     console.log(`Syncing ${allLeagueIds.length} league seasons`);
 
-    // 3. Sync ALL data for each league season
+    // 3. FIRST PASS: sync users + league_users for EVERY season before any
+    // FK-dependent data. Transactions reference creators who may have left
+    // the league mid-season — they only appear in an OLDER season's users
+    // endpoint, so the full multi-season user set must exist up front or
+    // whole transaction batches fail on the creator FK.
     for (const leagueId of allLeagueIds) {
-      const isCurrentSeason = leagueId === currentLeagueId;
-
-      // 3a. Sync League Users for this season (must happen before rosters for FK)
       try {
         const leagueUsers = await fetchWithRetry(`${SLEEPER_API}/league/${leagueId}/users`);
         if (leagueUsers?.length) {
@@ -138,12 +139,18 @@ Deno.serve(async (req) => {
             ignoreDuplicates: false,
           });
           if (!error) result.leagueUsers += leagueUserRows.length;
+          else console.error(`League users upsert error for ${leagueId}: ${JSON.stringify(error)}`);
         }
       } catch (e) {
         console.error(`Error syncing league users for ${leagueId}:`, e);
       }
+    }
 
-      // 3b. Sync Rosters for this season
+    // 4. SECOND PASS: per-season data
+    for (const leagueId of allLeagueIds) {
+      const isCurrentSeason = leagueId === currentLeagueId;
+
+      // 4a. Sync Rosters for this season
       try {
         const rosters = await fetchWithRetry(`${SLEEPER_API}/league/${leagueId}/rosters`);
         if (rosters?.length) {
@@ -228,7 +235,7 @@ Deno.serve(async (req) => {
         console.error(`Error syncing rosters for ${leagueId}:`, e);
       }
 
-      // 3c. Sync Transactions — current season: last 4 weeks, historical: all 18 weeks
+      // 4b. Sync Transactions — current season: last 4 weeks, historical: all 18 weeks
       try {
         const startWeek = isCurrentSeason ? Math.max(0, currentWeek - 4) : 0;
         const endWeek = isCurrentSeason ? currentWeek : 18;
@@ -262,13 +269,14 @@ Deno.serve(async (req) => {
               ignoreDuplicates: false,
             });
             if (!error) result.transactions += txRows.length;
+            else console.error(`Transactions upsert error for ${leagueId} week ${week}: ${JSON.stringify(error)}`);
           }
         }
       } catch (e) {
         console.error(`Error syncing transactions for ${leagueId}:`, e);
       }
 
-      // 3d. Sync Traded Picks for this season
+      // 4c. Sync Traded Picks for this season
       try {
         const tradedPicks = await fetchWithRetry(`${SLEEPER_API}/league/${leagueId}/traded_picks`);
         if (tradedPicks?.length) {
@@ -291,7 +299,7 @@ Deno.serve(async (req) => {
         console.error(`Error syncing traded picks for ${leagueId}:`, e);
       }
 
-      // 3e. Sync Matchups — current season: current week, historical: all 18 weeks
+      // 4d. Sync Matchups — current season: current week, historical: all 18 weeks
       try {
         const matchupStartWeek = isCurrentSeason ? currentWeek : 1;
         const matchupEndWeek = isCurrentSeason ? currentWeek : 18;
@@ -324,7 +332,7 @@ Deno.serve(async (req) => {
         console.error(`Error syncing matchups for ${leagueId}:`, e);
       }
 
-      // 3f. Sync Drafts and Draft Picks for this season
+      // 4e. Sync Drafts and Draft Picks for this season
       try {
         const drafts = await fetchWithRetry(`${SLEEPER_API}/league/${leagueId}/drafts`);
         if (!drafts?.length) continue;
