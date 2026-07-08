@@ -173,12 +173,9 @@ export default function TradeDetail() {
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-3xl mx-auto space-y-4">
-      {/* ── Full trade ── */}
-      <TradeCard sides={built.sides} date={tradeDate} linkPlayers />
-
-      {/* ── Value over time ── */}
-      <div className="bg-[#141419] rounded-xl p-4 sm:p-5 border border-[#22222b]">
-        <h2 className="text-xs font-bold text-white uppercase tracking-wider mb-1">Value since the trade</h2>
+      {/* ── Value over time (on top) ── */}
+      <div className="bg-[#141419] rounded-2xl p-4 sm:p-5 border border-[#22222b]">
+        <p className="text-[11px] font-bold text-accent-500 tracking-[0.18em] uppercase mb-0.5">Value Since The Trade</p>
         <p className="text-[10px] text-[#75757f] mb-4">
           KTC value of what each side received, over time. Picks that have been used are tracked as the player
           drafted; future picks are valued at their projected tier but aren&apos;t charted.
@@ -226,6 +223,9 @@ export default function TradeDetail() {
           </p>
         )}
       </div>
+
+      {/* ── Full trade ── */}
+      <TradeCard sides={built.sides} date={tradeDate} linkPlayers />
     </div>
   );
 }
