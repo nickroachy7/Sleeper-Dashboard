@@ -1,6 +1,30 @@
 import { useEffect, useCallback } from 'react';
-import type { Player, PlayerValue, PickValue, Roster, TradedPick, TradeAsset, Fairness } from '../types/domain';
+import type { Player, PlayerValue, PickValue, Roster, TradedPick, TradeAsset, Fairness, TransactionRow } from '../types/domain';
 export type { Player, PlayerValue, PickValue, Roster, TradedPick, TradeAsset, Fairness } from '../types/domain';
+
+// ── Transaction JSON boundaries ────────────────────────────────────
+// Sleeper stores adds/drops and draft picks as untyped JSON columns.
+// These helpers are the single place where that JSON gets a shape.
+
+/** Sleeper's draft-pick object inside transactions.draft_picks JSON */
+export interface TxDraftPick {
+  season: string;
+  round: number;
+  roster_id: number;
+  owner_id: number;
+  previous_owner_id: number;
+  resolvedValue?: number;
+  resolvedName?: string;
+}
+
+/** adds/drops are stored as {player_id: roster_id} JSON maps */
+export function playerMoves(j: TransactionRow['adds']): Record<string, number> {
+  return (j && typeof j === 'object' && !Array.isArray(j) ? j : {}) as Record<string, number>;
+}
+
+export function txDraftPicks(j: TransactionRow['draft_picks']): TxDraftPick[] {
+  return (Array.isArray(j) ? j : []) as unknown as TxDraftPick[];
+}
 
 // ── Positional Weighting (Superflex Calibration) ──────────────────
 // Starter counts per position in a Superflex league (QB+SF, 2RB+flex, 3WR+flex, 1TE).
@@ -504,38 +528,23 @@ export function buildPlayersForRoster(
 
 export const FAIRNESS_CONFIG: Record<Fairness, {
   label: string;
-  border: string;
-  text: string;
   badge: string;
-  barColor: string;
 }> = {
   fair: {
     label: 'Fair Trade',
-    border: 'border-emerald-500/30',
-    text: 'text-emerald-400',
     badge: 'bg-emerald-500/15 text-emerald-400',
-    barColor: 'bg-emerald-500',
   },
   slight: {
     label: 'Slightly Uneven',
-    border: 'border-blue-500/30',
-    text: 'text-blue-400',
     badge: 'bg-blue-500/15 text-blue-400',
-    barColor: 'bg-blue-500',
   },
   unfair: {
     label: 'Unfair',
-    border: 'border-amber-500/30',
-    text: 'text-amber-400',
     badge: 'bg-amber-500/15 text-amber-400',
-    barColor: 'bg-amber-500',
   },
   lopsided: {
     label: 'Lopsided',
-    border: 'border-red-500/30',
-    text: 'text-red-400',
     badge: 'bg-red-500/15 text-red-400',
-    barColor: 'bg-red-500',
   },
 };
 

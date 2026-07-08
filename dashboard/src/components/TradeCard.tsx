@@ -55,7 +55,10 @@ export function TradeCard({
   const actualWinnerIdx = winnerId !== null && winnerId !== undefined ? winnerId : winnerIndex;
   const isActuallyEven = isEvenTrade ?? diff === 0;
   const hasZeroSide = sides.some(s => (s.adjustedValue ?? s.totalValue) === 0);
-  const isNearEven = !hasZeroSide && (fairness === 'fair' || isActuallyEven || diff < 500);
+  // Scale the near-even threshold with trade size (same rule as TradeEvaluator):
+  // 300 floor for small trades, 3% of the larger side for big packages.
+  const nearEvenThreshold = Math.max(300, Math.round(Math.max(val0, val1) * 0.03));
+  const isNearEven = !hasZeroSide && (fairness === 'fair' || isActuallyEven || diff < nearEvenThreshold);
 
   const isCompact = variant === 'compact';
 

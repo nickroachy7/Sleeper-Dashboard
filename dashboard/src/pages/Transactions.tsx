@@ -16,14 +16,23 @@ import { TradeCard as SharedTradeCard, type TradeSide } from '../components/Trad
 import { AssetRow } from '../components/AssetRow';
 import { analyzeTrade } from '../lib/trade-value-adjustment';
 import type { TradeAsset } from '../types/domain';
-import { lookupPickValue, getProjectedPickSlot, getPickSlotDisplayName } from '../lib/trade-shared';
-import type { Roster } from '../types/domain';
+import {
+  lookupPickValue,
+  getProjectedPickSlot,
+  getPickSlotDisplayName,
+  playerMoves,
+  txDraftPicks,
+  type TxDraftPick,
+} from '../lib/trade-shared';
+import type { Roster, TransactionRow } from '../types/domain';
 
-interface LeagueUser {
-  user_id: string;
-  team_name: string | null;
-  display_name: string | null;
+interface TradeTeam {
+  rosterId: number;
+  teamName: string;
+  ownerName: string;
 }
+
+type TransactionWithTeams = TransactionRow & { teams: TradeTeam[] };
 
 const ITEMS_PER_PAGE = 50;
 
@@ -39,7 +48,7 @@ export default function Transactions() {
   const { data: txData, isLoading } = useQuery({
     queryKey: ['transactions'],
     queryFn: async () => {
-      let allTransactions: any[] = [];
+      let allTransactions: TransactionRow[] = [];
       let from = 0;
       const pageSize = 1000;
 
@@ -60,10 +69,10 @@ export default function Transactions() {
       const { data: rosters } = await supabase.from('rosters').select('*');
       const { data: leagueUsers } = await supabase.from('league_users').select('user_id, team_name, display_name');
 
-      if (!allTransactions.length) return { transactions: [] as any[], rosters: [] as Roster[] };
+      if (!allTransactions.length) return { transactions: [] as TransactionWithTeams[], rosters: [] as Roster[] };
 
       const rosterToOwner = new Map<number, string>();
-      const rosterList: Roster[] = (rosters as any[] || []).map((r: any) => ({
+      const rosterList: Roster[] = (rosters || []).map((r) => ({
         roster_id: r.roster_id,
         owner_id: r.owner_id || '',
         players: r.players || [],
@@ -73,15 +82,15 @@ export default function Transactions() {
         ownerName: '',
         teamName: null,
       }));
-      (rosters as any[])?.forEach((r: any) => {
-        rosterToOwner.set(r.roster_id, r.owner_id);
+      rosters?.forEach((r) => {
+        if (r.owner_id) rosterToOwner.set(r.roster_id, r.owner_id);
       });
 
-      const txList = allTransactions.map((tx: any) => {
-        const rosterOwners = tx.roster_ids?.map((rosterId: number) => {
+      const txList = allTransactions.map((tx): TransactionWithTeams => {
+        const rosterOwners = tx.roster_ids?.map((rosterId) => {
           const ownerId = rosterToOwner.get(rosterId);
-          const owner = (users as any[])?.find((u: any) => u.user_id === ownerId);
-          const leagueUser = (leagueUsers as LeagueUser[])?.find((lu: LeagueUser) => lu.user_id === ownerId);
+          const owner = users?.find((u) => u.user_id === ownerId);
+          const leagueUser = leagueUsers?.find((lu) => lu.user_id === ownerId);
           return {
             rosterId,
             teamName: leagueUser?.team_name || leagueUser?.display_name || owner?.display_name || `Team ${rosterId}`,
@@ -90,8 +99,8 @@ export default function Transactions() {
         }) || [];
 
         return { ...tx, teams: rosterOwners };
-      }).sort((a: any, b: any) => {
-        const getTimestamp = (tx: any): number => {
+      }).sort((a, b) => {
+        const getTimestamp = (tx: TransactionWithTeams): number => {
           if (tx.created) return tx.created;
           if (tx.status_updated) return tx.status_updated;
           if (tx.created_at) return new Date(tx.created_at).getTime();
@@ -115,7 +124,7 @@ export default function Transactions() {
   /** Resolve pick value and display name from roster standings.
    *  Only the current draft year gets slot-specific labels (e.g. "2026 Pick 1.03").
    *  Future years use tier labels (e.g. "2027 Early 1st"). */
-  const resolvePickSlotAndValue = (pick: any) => {
+  const resolvePickSlotAndValue = (pick: TxDraftPick) => {
     const isCurrentYear = pick.season === currentDraftYear;
     if (isCurrentYear && leagueSize > 0) {
       const slot = getProjectedPickSlot(pick.roster_id, leagueRosters);
@@ -133,21 +142,21 @@ export default function Transactions() {
   const typeCounts = useMemo(() => {
     if (!transactions) return { trades: 0, waivers: 0, freeAgent: 0 };
     return {
-      trades: transactions.filter((t: any) => t.type === 'trade').length,
-      waivers: transactions.filter((t: any) => t.type === 'waiver').length,
-      freeAgent: transactions.filter((t: any) => t.type === 'free_agent').length,
+      trades: transactions.filter((t) => t.type === 'trade').length,
+      waivers: transactions.filter((t) => t.type === 'waiver').length,
+      freeAgent: transactions.filter((t) => t.type === 'free_agent').length,
     };
   }, [transactions]);
 
   const filteredAndSortedTransactions = useMemo(() => {
     if (!transactions) return [];
 
-    const getTransactionValueMetrics = (tx: any) => {
+    const getTransactionValueMetrics = (tx: TransactionWithTeams) => {
       if (tx.type === 'trade') {
         // Build TradeAsset arrays per side for adjusted analysis
         const teams = tx.teams || [];
         const tradeAssets = getTradeAssets(tx);
-        const sideAssetArrays: TradeAsset[][] = teams.map((team: any) => {
+        const sideAssetArrays: TradeAsset[][] = teams.map((team) => {
           const assets = tradeAssets[team.rosterId] || { players: [], picks: [], value: 0 };
           const result: TradeAsset[] = [];
           assets.players.forEach((playerId: string) => {
@@ -161,7 +170,7 @@ export default function Transactions() {
               team: player?.team || null,
             });
           });
-          assets.picks.forEach((pick: any) => {
+          assets.picks.forEach((pick) => {
             const resolved = resolvePickSlotAndValue(pick);
             result.push({
               id: `pick-${pick.season}-${pick.round}-${pick.roster_id}`,
@@ -181,8 +190,8 @@ export default function Transactions() {
 
         return { totalValue: 0, valueDiff: 0, maxTeamGain: 0 };
       } else {
-        const adds = tx.adds ? Object.keys(tx.adds) : [];
-        const drops = tx.drops ? Object.keys(tx.drops) : [];
+        const adds = Object.keys(playerMoves(tx.adds));
+        const drops = Object.keys(playerMoves(tx.drops));
 
         const addedValue = adds.reduce((sum: number, playerId: string) => sum + (playerValues?.get(playerId) || 0), 0);
         const droppedValue = drops.reduce((sum: number, playerId: string) => sum + (playerValues?.get(playerId) || 0), 0);
@@ -195,13 +204,13 @@ export default function Transactions() {
       }
     };
 
-    let filtered = typeFilter === 'all'
+    const filtered = typeFilter === 'all'
       ? transactions
-      : transactions.filter((tx: any) => tx.type === typeFilter);
+      : transactions.filter((tx) => tx.type === typeFilter);
 
     if (sortBy === 'recent') return filtered;
 
-    return [...filtered].sort((a: any, b: any) => {
+    return [...filtered].sort((a, b) => {
       const metricsA = getTransactionValueMetrics(a);
       const metricsB = getTransactionValueMetrics(b);
 
@@ -275,56 +284,51 @@ export default function Transactions() {
     );
   }
 
-  const formatDate = (tx: any) => {
+  const txDate = (tx: TransactionWithTeams) => {
     const timestamp = tx.created || tx.status_updated;
-    const date = timestamp ? new Date(timestamp) : new Date(tx.created_at);
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    return timestamp ? new Date(timestamp) : new Date(tx.created_at ?? 0);
   };
 
-  const getDateGroup = (tx: any) => {
-    const timestamp = tx.created || tx.status_updated;
-    const date = timestamp ? new Date(timestamp) : new Date(tx.created_at);
-    return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-  };
+  const formatDate = (tx: TransactionWithTeams) =>
+    txDate(tx).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 
-  const getTradeAssets = (tx: any) => {
-    const teamAssets: Record<number, { players: string[]; picks: any[]; value: number }> = {};
+  const getDateGroup = (tx: TransactionWithTeams) =>
+    txDate(tx).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
-    tx.teams?.forEach((team: any) => {
+  const getTradeAssets = (tx: TransactionWithTeams) => {
+    const teamAssets: Record<number, { players: string[]; picks: TxDraftPick[]; value: number }> = {};
+
+    tx.teams?.forEach((team) => {
       teamAssets[team.rosterId] = { players: [], picks: [], value: 0 };
     });
 
-    if (tx.adds) {
-      Object.entries(tx.adds).forEach(([playerId, rosterId]) => {
-        if (teamAssets[rosterId as number]) {
-          teamAssets[rosterId as number].players.push(playerId);
-          teamAssets[rosterId as number].value += getPlayerValue(playerId);
-        }
-      });
-    }
+    Object.entries(playerMoves(tx.adds)).forEach(([playerId, rosterId]) => {
+      if (teamAssets[rosterId]) {
+        teamAssets[rosterId].players.push(playerId);
+        teamAssets[rosterId].value += getPlayerValue(playerId);
+      }
+    });
 
-    if (tx.draft_picks && Array.isArray(tx.draft_picks)) {
-      tx.draft_picks.forEach((pick: any) => {
-        if (pick.owner_id && teamAssets[pick.owner_id]) {
-          const resolved = resolvePickSlotAndValue(pick);
-          teamAssets[pick.owner_id].picks.push({ ...pick, resolvedValue: resolved.value, resolvedName: resolved.name });
-          teamAssets[pick.owner_id].value += resolved.value;
-        }
-      });
-    }
+    txDraftPicks(tx.draft_picks).forEach((pick) => {
+      if (pick.owner_id && teamAssets[pick.owner_id]) {
+        const resolved = resolvePickSlotAndValue(pick);
+        teamAssets[pick.owner_id].picks.push({ ...pick, resolvedValue: resolved.value, resolvedName: resolved.name });
+        teamAssets[pick.owner_id].value += resolved.value;
+      }
+    });
 
     return teamAssets;
   };
 
   // ─── Trade Card (uses shared component) ────────────────────────────
 
-  const TradeCard = ({ tx }: { tx: any }) => {
+  const TradeCard = ({ tx }: { tx: TransactionWithTeams }) => {
     const teamAssets = getTradeAssets(tx);
     const teams = tx.teams || [];
     if (teams.length < 2) return null;
 
     // Build TradeAsset arrays for value adjustment analysis
-    const sideAssets: TradeAsset[][] = teams.map((team: any) => {
+    const sideAssets: TradeAsset[][] = teams.map((team) => {
       const assets = teamAssets[team.rosterId] || { players: [], picks: [], value: 0 };
       const tradeAssets: TradeAsset[] = [];
       assets.players.forEach((playerId: string) => {
@@ -338,7 +342,7 @@ export default function Transactions() {
           team: player?.team || null,
         });
       });
-      assets.picks.forEach((pick: any) => {
+      assets.picks.forEach((pick) => {
         tradeAssets.push({
           id: `pick-${pick.season}-${pick.round}-${pick.roster_id}`,
           type: 'pick',
@@ -353,7 +357,7 @@ export default function Transactions() {
     const analysis = sideAssets.length >= 2 ? analyzeTrade(sideAssets[0], sideAssets[1]) : null;
 
     // Convert to shared TradeSide format with adjusted values
-    const sides: TradeSide[] = teams.map((team: any, idx: number) => {
+    const sides: TradeSide[] = teams.map((team, idx) => {
       const assets = teamAssets[team.rosterId] || { players: [], picks: [], value: 0 };
       const sideResult = analysis ? (idx === 0 ? analysis.side1 : analysis.side2) : null;
       return {
@@ -368,7 +372,7 @@ export default function Transactions() {
             value: getPlayerValue(playerId),
           };
         }),
-        picks: assets.picks.map((pick: any) => ({
+        picks: assets.picks.map((pick) => ({
           season: pick.season,
           round: pick.round,
           name: pick.resolvedName,
@@ -390,10 +394,10 @@ export default function Transactions() {
 
   // ─── Roster Move Card (compact) ──────────────────────────────────
 
-  const RosterMoveCard = ({ tx }: { tx: any }) => {
+  const RosterMoveCard = ({ tx }: { tx: TransactionWithTeams }) => {
     const team = tx.teams?.[0];
-    const adds = tx.adds ? Object.keys(tx.adds) : [];
-    const drops = tx.drops ? Object.keys(tx.drops) : [];
+    const adds = Object.keys(playerMoves(tx.adds));
+    const drops = Object.keys(playerMoves(tx.drops));
 
     const addedValue = adds.reduce((sum, playerId) => sum + getPlayerValue(playerId), 0);
     const droppedValue = drops.reduce((sum, playerId) => sum + getPlayerValue(playerId), 0);
