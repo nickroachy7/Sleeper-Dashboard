@@ -444,6 +444,41 @@ export type Database = {
           },
         ]
       }
+      player_value_history: {
+        Row: {
+          id: string
+          player_id: string
+          value: number
+          rank: number | null
+          date: string
+          source: string
+        }
+        Insert: {
+          id?: string
+          player_id: string
+          value: number
+          rank?: number | null
+          date?: string
+          source?: string
+        }
+        Update: {
+          id?: string
+          player_id?: string
+          value?: number
+          rank?: number | null
+          date?: string
+          source?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "player_value_history_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["player_id"]
+          },
+        ]
+      }
       player_values: {
         Row: {
           created_at: string | null

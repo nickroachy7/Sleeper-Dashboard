@@ -118,9 +118,6 @@ function findMatch(ktcPlayer: KTCPlayer, sleeperPlayers: SleeperPlayer[]): Sleep
 }
 
 async function fetchKTCData(): Promise<KTCPlayer[]> {
-  const response = await fetchWithRetry("https://keeptradecut.com/dynasty-rankings");
-  // fetchWithRetry returns parsed JSON, but KTC returns HTML
-  // We need raw HTML, so fetch directly with retry logic
   let html: string;
   for (let i = 0; i < 3; i++) {
     try {
@@ -221,28 +218,44 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Only delete existing values after we've confirmed we have good replacement data
-    await Promise.all([
-      supabase.from("player_values").delete().neq("player_id", ""),
-      supabase.from("pick_values").delete().neq("pick_type", ""),
-    ]);
-
-    // Insert player values in batches
+    // Upsert player values in batches (no delete — atomic updates via unique constraint)
     let insertedPlayers = 0;
     for (let i = 0; i < playerValues.length; i += BATCH_SIZE) {
       const batch = playerValues.slice(i, i + BATCH_SIZE);
-      const { error } = await supabase.from("player_values").insert(batch);
+      const { error } = await supabase.from("player_values").upsert(batch, {
+        onConflict: "player_id,source,superflex",
+        ignoreDuplicates: false,
+      });
       if (!error) insertedPlayers += batch.length;
       else console.error(`Player values batch error at ${i}:`, error.message);
     }
 
-    // Insert pick values in batches
+    // Upsert pick values in batches
     let insertedPicks = 0;
     for (let i = 0; i < pickValues.length; i += BATCH_SIZE) {
       const batch = pickValues.slice(i, i + BATCH_SIZE);
-      const { error } = await supabase.from("pick_values").insert(batch);
+      const { error } = await supabase.from("pick_values").upsert(batch, {
+        onConflict: "pick_year,pick_round,pick_tier",
+        ignoreDuplicates: false,
+      });
       if (!error) insertedPicks += batch.length;
       else console.error(`Pick values batch error at ${i}:`, error.message);
+    }
+
+    // Record daily snapshot in player_value_history
+    const historyRows = playerValues.map((pv: any) => ({
+      player_id: pv.player_id,
+      value: pv.value,
+      rank: pv.rank,
+      date: new Date().toISOString().split("T")[0],
+      source: "keeptradecut",
+    }));
+    for (let i = 0; i < historyRows.length; i += BATCH_SIZE) {
+      const batch = historyRows.slice(i, i + BATCH_SIZE);
+      await supabase.from("player_value_history").upsert(batch, {
+        onConflict: "player_id,date,source",
+        ignoreDuplicates: true, // skip if already recorded today
+      });
     }
 
     console.log(

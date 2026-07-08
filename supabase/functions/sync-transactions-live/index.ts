@@ -42,9 +42,10 @@ Deno.serve(async (req) => {
 
     // 2. Sync league users first (transactions have FK to users table)
     try {
-      const leagueUsers = await fetchWithRetry(`${SLEEPER_API}/league/${leagueId}/users`);
-      if (leagueUsers?.length) {
-        const userRows = leagueUsers.map((u: any) => ({
+      const sleeperUsers = await fetchWithRetry(`${SLEEPER_API}/league/${leagueId}/users`);
+      if (sleeperUsers?.length) {
+        // Upsert base users (for FK)
+        const userRows = sleeperUsers.map((u: any) => ({
           user_id: u.user_id,
           username: u.display_name || u.user_id,
           display_name: u.display_name || u.user_id,
@@ -54,6 +55,22 @@ Deno.serve(async (req) => {
         }));
         await supabase.from("users").upsert(userRows, {
           onConflict: "user_id",
+          ignoreDuplicates: false,
+        });
+
+        // Upsert league_users with team names
+        const leagueUserRows = sleeperUsers.map((u: any) => ({
+          league_id: leagueId,
+          user_id: u.user_id,
+          display_name: u.display_name || u.user_id,
+          team_name: u.metadata?.team_name || null,
+          avatar: u.avatar || null,
+          is_owner: u.is_owner || false,
+          is_co_owner: u.is_co_owner || false,
+          updated_at: new Date().toISOString(),
+        }));
+        await supabase.from("league_users").upsert(leagueUserRows, {
+          onConflict: "league_id,user_id",
           ignoreDuplicates: false,
         });
       }
@@ -143,20 +160,23 @@ Deno.serve(async (req) => {
       console.error("Error refreshing rosters:", e);
     }
 
-    // 6. Also refresh traded picks so trade finder stays current
+    // 6. Also refresh traded picks so trade finder stays current (UPSERT, no delete)
     try {
       const tradedPicks = await fetchWithRetry(`${SLEEPER_API}/league/${leagueId}/traded_picks`);
       if (tradedPicks?.length) {
-        await supabase.from("traded_picks").delete().eq("league_id", leagueId);
-        const picksToInsert = tradedPicks.map((pick: any) => ({
+        const picksToUpsert = tradedPicks.map((pick: any) => ({
           league_id: leagueId,
           season: pick.season,
           round: pick.round,
           roster_id: pick.roster_id,
           previous_owner_id: pick.previous_owner_id,
           owner_id: pick.owner_id,
+          updated_at: new Date().toISOString(),
         }));
-        await supabase.from("traded_picks").insert(picksToInsert);
+        await supabase.from("traded_picks").upsert(picksToUpsert, {
+          onConflict: "league_id,season,round,roster_id",
+          ignoreDuplicates: false,
+        });
       }
     } catch (e) {
       console.error("Error refreshing traded picks:", e);
