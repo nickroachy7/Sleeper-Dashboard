@@ -1,6 +1,6 @@
 import { useParams, Link } from 'react-router-dom';
 import { useMemo } from 'react';
-import { ArrowLeft, TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { ArrowLeft, TrendingUp, TrendingDown, Minus, ChevronRight } from 'lucide-react';
 import { ValueChart } from '../components/charts/ValueChart';
 import { PositionBadge } from '../components/PositionBadge';
 import { usePlayerDetail, useLeagueDirectory } from '../hooks/detail';
@@ -15,6 +15,7 @@ interface TimelineEvent {
   headline: string;
   detail?: string;
   teamRosterId?: number;
+  transactionId?: string;
 }
 
 function txKind(type: string): TimelineEvent['kind'] {
@@ -27,9 +28,9 @@ function txKind(type: string): TimelineEvent['kind'] {
 const KIND_BADGE: Record<TimelineEvent['kind'], { label: string; cls: string }> = {
   draft: { label: 'DRAFTED', cls: 'bg-amber-500/15 text-amber-400' },
   trade: { label: 'TRADE', cls: 'bg-white text-black' },
-  waiver: { label: 'WAIVER', cls: 'bg-amber-500 text-black' },
-  free_agent: { label: 'FREE AGENT', cls: 'bg-emerald-500 text-black' },
-  commissioner: { label: 'COMMISH', cls: 'bg-[#555555] text-black' },
+  waiver: { label: 'WAIVER', cls: 'bg-amber-500/90 text-black' },
+  free_agent: { label: 'FREE AGENT', cls: 'bg-emerald-500/90 text-black' },
+  commissioner: { label: 'COMMISH', cls: 'bg-[#4c4c56] text-white' },
 };
 
 export default function PlayerDetail() {
@@ -83,7 +84,7 @@ export default function PlayerDetail() {
       let detail: string | undefined;
       if (kind === 'trade') {
         const others = Object.keys(adds).filter((p) => p !== playerId).length + txDraftPicks(tx.draft_picks).length;
-        if (others > 0) detail = `Part of a ${others + 1}-asset trade`;
+        if (others > 0) detail = `Part of a ${others + 1}-asset trade · tap to see value`;
       } else if (kind === 'waiver') {
         const bid = (tx.settings as { waiver_bid?: number } | null)?.waiver_bid;
         if (bid !== undefined) detail = `$${bid} FAAB`;
@@ -97,6 +98,7 @@ export default function PlayerDetail() {
         headline,
         detail,
         teamRosterId: toRoster ?? fromRoster,
+        transactionId: kind === 'trade' ? tx.transaction_id : undefined,
       });
     });
 
@@ -105,10 +107,10 @@ export default function PlayerDetail() {
 
   if (isLoading || !data) {
     return (
-      <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto space-y-4 mt-8">
-        <div className="skeleton h-24 w-full rounded-xl" />
-        <div className="skeleton h-64 w-full rounded-xl" />
-        <div className="skeleton h-40 w-full rounded-xl" />
+      <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto space-y-4">
+        <div className="skeleton h-32 w-full rounded-2xl" />
+        <div className="skeleton h-64 w-full rounded-2xl" />
+        <div className="skeleton h-40 w-full rounded-2xl" />
       </div>
     );
   }
@@ -116,7 +118,7 @@ export default function PlayerDetail() {
   if (!data.player) {
     return (
       <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto text-center py-16">
-        <p className="text-sm text-[#666666]">Player not found.</p>
+        <p className="text-sm text-[#9c9ca7]">Player not found.</p>
         <Link to="/" className="text-xs text-accent-400 mt-2 inline-block">Back to Home</Link>
       </div>
     );
@@ -125,111 +127,127 @@ export default function PlayerDetail() {
   const { player, value, history } = data;
   const trend = value?.trend || 0;
 
+  const dateStr = (ts: number) =>
+    new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto">
-      <Link to="/ktc-values" className="inline-flex items-center gap-1.5 text-[11px] text-[#555555] hover:text-white transition-colors mb-4">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto space-y-4">
+      <Link to="/ktc-values" className="inline-flex items-center gap-1.5 text-[11px] text-[#75757f] hover:text-white active:text-white transition-colors">
         <ArrowLeft className="h-3 w-3" /> Values
       </Link>
 
       {/* ── Header ── */}
-      <div className="bg-[#0a0a0a] rounded-xl p-4 sm:p-5 mb-4">
-        <div className="flex items-center gap-4">
-          <img
-            src={getPlayerImageUrl(player.player_id)}
-            alt=""
-            className="w-16 h-16 rounded-full bg-[#161616] object-cover shrink-0"
-            onError={(e) => { (e.target as HTMLImageElement).style.visibility = 'hidden'; }}
-          />
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight truncate">
-                {player.full_name}
-              </h1>
-              <PositionBadge position={player.position || '?'} />
+      <section className="relative overflow-hidden rounded-2xl border border-[#22222b] bg-gradient-to-br from-[#16161c] via-[#141419] to-[#111116]">
+        <div className="pointer-events-none absolute -top-20 -right-12 h-48 w-48 rounded-full bg-accent-500/10 blur-3xl" />
+        <div className="relative p-4 sm:p-6">
+          <div className="flex items-center gap-4">
+            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full overflow-hidden bg-[#22222b] shrink-0 ring-1 ring-inset ring-white/10">
+              <img
+                src={getPlayerImageUrl(player.player_id)}
+                alt=""
+                className="w-full h-full object-cover"
+                onError={(e) => { (e.target as HTMLImageElement).style.visibility = 'hidden'; }}
+              />
             </div>
-            <p className="text-[11px] text-[#666666] mt-1">
-              {player.team || 'Free Agent'}
-              {player.age ? ` · ${player.age} yrs` : ''}
-              {player.years_exp != null ? ` · ${player.years_exp === 0 ? 'Rookie' : `${player.years_exp} yr exp`}` : ''}
-              {currentOwner && (
-                <>
-                  {' · owned by '}
-                  <Link to={`/teams/${currentOwner.rosterId}`} className="text-accent-400 hover:text-accent-300 font-medium">
-                    {currentOwner.name}
-                  </Link>
-                </>
-              )}
-              {!currentOwner && ' · unowned in league'}
-            </p>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="font-display text-xl sm:text-3xl font-bold text-white tracking-tight truncate">
+                  {player.full_name}
+                </h1>
+                <PositionBadge position={player.position || '?'} size="sm" />
+              </div>
+              <p className="text-[12px] text-[#9c9ca7] mt-1">
+                {player.team || 'Free Agent'}
+                {player.age ? ` · ${player.age} yrs` : ''}
+                {player.years_exp != null ? ` · ${player.years_exp === 0 ? 'Rookie' : `${player.years_exp} yr exp`}` : ''}
+              </p>
+              <p className="text-[12px] text-[#75757f] mt-0.5">
+                {currentOwner ? (
+                  <>
+                    Owned by{' '}
+                    <Link to={`/teams/${currentOwner.rosterId}`} className="text-accent-400 hover:text-accent-300 font-semibold">
+                      {currentOwner.name}
+                    </Link>
+                  </>
+                ) : 'Unowned in league'}
+              </p>
+            </div>
           </div>
-        </div>
 
-        {/* Stat tiles */}
-        <div className="grid grid-cols-3 gap-3 mt-4">
-          <div className="bg-[#111111] rounded-lg px-3 py-2.5">
-            <p className="text-[10px] text-[#555555] uppercase tracking-wider">KTC value</p>
-            <p className="text-lg font-semibold text-white">{value ? value.value.toLocaleString() : '—'}</p>
-          </div>
-          <div className="bg-[#111111] rounded-lg px-3 py-2.5">
-            <p className="text-[10px] text-[#555555] uppercase tracking-wider">Rank</p>
-            <p className="text-lg font-semibold text-white">
-              {value?.rank ? `#${value.rank}` : '—'}
-              {value?.position_rank && <span className="text-[11px] text-[#666666] ml-1.5">{player.position}{value.position_rank}</span>}
-            </p>
-          </div>
-          <div className="bg-[#111111] rounded-lg px-3 py-2.5">
-            <p className="text-[10px] text-[#555555] uppercase tracking-wider">Trend</p>
-            <p className={`text-lg font-semibold flex items-center gap-1 ${trend > 0 ? 'text-emerald-400' : trend < 0 ? 'text-red-400' : 'text-[#888888]'}`}>
-              {trend > 0 ? <TrendingUp className="h-4 w-4" /> : trend < 0 ? <TrendingDown className="h-4 w-4" /> : <Minus className="h-4 w-4" />}
-              {trend > 0 ? '+' : ''}{trend.toLocaleString()}
-            </p>
+          {/* Stat tiles */}
+          <div className="grid grid-cols-3 gap-2.5 mt-4 sm:mt-5">
+            <div className="rounded-xl border border-[#22222b] bg-[#101015]/60 px-3 py-2.5">
+              <p className="text-[10px] text-[#75757f] uppercase tracking-[0.12em] font-bold">KTC value</p>
+              <p className="font-display text-xl font-bold text-white tabular-nums mt-0.5">{value ? value.value.toLocaleString() : '—'}</p>
+            </div>
+            <div className="rounded-xl border border-[#22222b] bg-[#101015]/60 px-3 py-2.5">
+              <p className="text-[10px] text-[#75757f] uppercase tracking-[0.12em] font-bold">Rank</p>
+              <p className="font-display text-xl font-bold text-white tabular-nums mt-0.5">
+                {value?.rank ? `#${value.rank}` : '—'}
+                {value?.position_rank && <span className="text-[11px] text-[#75757f] ml-1.5 font-sans">{player.position}{value.position_rank}</span>}
+              </p>
+            </div>
+            <div className="rounded-xl border border-[#22222b] bg-[#101015]/60 px-3 py-2.5">
+              <p className="text-[10px] text-[#75757f] uppercase tracking-[0.12em] font-bold">30d trend</p>
+              <p className={`font-display text-xl font-bold flex items-center gap-1 tabular-nums mt-0.5 ${trend > 0 ? 'text-accent-500' : trend < 0 ? 'text-red-400' : 'text-[#75757f]'}`}>
+                {trend > 0 ? <TrendingUp className="h-4 w-4" /> : trend < 0 ? <TrendingDown className="h-4 w-4" /> : <Minus className="h-4 w-4" />}
+                {trend > 0 ? '+' : ''}{trend.toLocaleString()}
+              </p>
+            </div>
           </div>
         </div>
-      </div>
+      </section>
 
       {/* ── Value history ── */}
-      <div className="bg-[#0a0a0a] rounded-xl p-4 sm:p-5 mb-4">
-        <h2 className="text-xs font-bold text-white uppercase tracking-wider mb-1">Value history</h2>
-        <p className="text-[10px] text-[#555555] mb-3">KTC superflex value · weekly before the last 90 days, daily after</p>
+      <section className="bg-[#141419] rounded-2xl p-4 sm:p-5 border border-[#22222b]">
+        <p className="text-[11px] font-bold text-accent-500 tracking-[0.18em] uppercase mb-0.5">Value History</p>
+        <p className="text-[10px] text-[#75757f] mb-3">KTC superflex value · weekly before the last 90 days, daily after</p>
         <ValueChart data={history} height={240} />
-      </div>
+      </section>
 
-      {/* ── Ownership timeline ── */}
-      <div className="bg-[#0a0a0a] rounded-xl p-4 sm:p-5">
-        <h2 className="text-xs font-bold text-white uppercase tracking-wider mb-3">League history</h2>
+      {/* ── League history ── */}
+      <section className="bg-[#141419] rounded-2xl border border-[#22222b] overflow-hidden">
+        <div className="px-4 sm:px-5 pt-4 pb-2">
+          <p className="text-[11px] font-bold text-accent-500 tracking-[0.18em] uppercase">League History</p>
+        </div>
         {timeline.length === 0 ? (
-          <p className="text-[11px] text-[#555555] py-4">
+          <p className="text-[12px] text-[#75757f] px-4 sm:px-5 pb-5">
             No league events for this player — never drafted, traded, or moved on waivers.
           </p>
         ) : (
-          <div className="space-y-0">
-            {timeline.map((ev, i) => (
-              <div key={ev.key} className={`flex items-start gap-3 py-3 ${i > 0 ? 'border-t border-[#111111]' : ''}`}>
-                <span className={`px-2 py-0.5 text-[9px] font-extrabold tracking-[1px] rounded-sm shrink-0 mt-0.5 ${KIND_BADGE[ev.kind].cls}`}>
-                  {KIND_BADGE[ev.kind].label}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="text-[13px] text-white font-medium">
-                    {ev.teamRosterId !== undefined ? (
-                      <Link to={`/teams/${ev.teamRosterId}`} className="hover:text-accent-400 transition-colors">
-                        {ev.headline}
-                      </Link>
-                    ) : ev.headline}
-                  </p>
-                  {ev.detail && <p className="text-[11px] text-[#666666] mt-0.5">{ev.detail}</p>}
-                </div>
-                <span className="text-[10px] text-[#555555] shrink-0 tabular-nums">
-                  {ev.kind === 'draft'
-                    ? ev.season
-                    : ev.timestamp
-                      ? new Date(ev.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-                      : ev.season}
-                </span>
-              </div>
-            ))}
+          <div>
+            {timeline.map((ev) => {
+              const inner = (
+                <>
+                  <span className={`px-2 py-0.5 text-[9px] font-extrabold tracking-[1px] rounded shrink-0 mt-0.5 ${KIND_BADGE[ev.kind].cls}`}>
+                    {KIND_BADGE[ev.kind].label}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[13px] text-white font-medium leading-snug">{ev.headline}</p>
+                    {ev.detail && <p className="text-[11px] text-[#75757f] mt-0.5">{ev.detail}</p>}
+                  </div>
+                  <span className="text-[10px] text-[#60606a] shrink-0 tabular-nums mt-0.5">
+                    {ev.kind === 'draft' ? ev.season : ev.timestamp ? dateStr(ev.timestamp) : ev.season}
+                  </span>
+                  {ev.transactionId && <ChevronRight className="h-4 w-4 text-[#4c4c56] group-hover:text-accent-400 shrink-0 mt-0.5 transition-colors" />}
+                </>
+              );
+              const rowCls = 'group flex items-start gap-3 px-4 sm:px-5 py-3 border-t border-[#1b1b22] transition-colors';
+              return ev.transactionId ? (
+                <Link key={ev.key} to={`/trades/${ev.transactionId}`} className={`${rowCls} hover:bg-[#1b1b22] active:bg-[#22222b]`}>
+                  {inner}
+                </Link>
+              ) : ev.teamRosterId !== undefined ? (
+                <Link key={ev.key} to={`/teams/${ev.teamRosterId}`} className={`${rowCls} hover:bg-[#1b1b22] active:bg-[#22222b]`}>
+                  {inner}
+                </Link>
+              ) : (
+                <div key={ev.key} className={rowCls}>{inner}</div>
+              );
+            })}
           </div>
         )}
-      </div>
+      </section>
     </div>
   );
 }
