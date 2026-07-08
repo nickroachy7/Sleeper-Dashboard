@@ -418,17 +418,12 @@ export default function Transactions() {
       : tx.type === 'free_agent'
       ? 'bg-emerald-500 text-black'
       : 'bg-[#75757f] text-black';
-    const headerBg = tx.type === 'waiver'
-      ? 'bg-amber-500/[0.07]'
-      : tx.type === 'free_agent'
-      ? 'bg-emerald-500/[0.07]'
-      : 'bg-white/[0.03]';
     return (
-      <div className="bg-[#141419] rounded-xl overflow-hidden animate-smooth border border-[#22222b] hover:border-[#2e2e38]">
+      <div className="bg-[#141419] rounded-2xl overflow-hidden animate-smooth border border-[#22222b] card-hover">
         {/* Header */}
-        <div className={`flex items-center justify-between px-4 sm:px-5 py-3 sm:py-4 ${headerBg}`}>
+        <div className="flex items-center justify-between px-4 sm:px-5 py-3 border-b border-[#1b1b22]">
           <div className="flex items-center gap-2">
-            <span className={`px-2 py-0.5 text-[10px] font-extrabold tracking-[1px] rounded-sm ${typeBadgeClass}`}>
+            <span className={`px-2 py-0.5 text-[10px] font-extrabold tracking-[1px] rounded ${typeBadgeClass}`}>
               {typeLabel}
             </span>
             <span className="text-[11px] text-[#75757f] flex items-center gap-1">
@@ -437,26 +432,26 @@ export default function Transactions() {
             </span>
           </div>
           {(addedValue > 0 || droppedValue > 0) && (
-            <span className={`text-[10px] font-semibold tabular-nums ${
-              netValue > 0 ? 'text-emerald-400' : netValue < 0 ? 'text-red-400' : 'text-[#75757f]'
+            <span className={`text-[10px] font-bold tabular-nums px-1.5 py-0.5 rounded leading-none ${
+              netValue > 0 ? 'text-accent-400 bg-accent-500/10' : netValue < 0 ? 'text-red-400 bg-red-500/10' : 'text-[#75757f] bg-white/5'
             }`}>
-              {netValue > 0 ? '+' : ''}{netValue.toLocaleString()} KTC
+              {netValue > 0 ? '+' : netValue < 0 ? '−' : ''}{Math.abs(netValue).toLocaleString()}
             </span>
           )}
         </div>
 
         {/* Team + Assets */}
         <div>
-          <div className="flex items-center justify-between border-t border-[#26262f] bg-[#1b1b22] px-4 sm:px-5 py-2.5">
+          <div className="flex items-center justify-between bg-[#17171d] px-4 sm:px-5 py-2.5">
             <div className="flex items-center gap-2">
-              <span className="text-sm font-bold text-white">{team?.teamName || 'Unknown'}</span>
-              <span className="text-[10px] text-[#75757f]">
+              <span className="font-display text-[13px] sm:text-sm font-bold text-white truncate">{team?.teamName || 'Unknown'}</span>
+              <span className="text-[10px] text-[#60606a]">
                 {adds.length + drops.length} move{adds.length + drops.length !== 1 ? 's' : ''}
               </span>
             </div>
           </div>
 
-          <div style={{ borderLeft: '3px solid #2e2e38' }}>
+          <div>
             {adds.map((pid) => {
               const p = getPlayer(pid);
               const val = getPlayerValue(pid);
