@@ -6,8 +6,13 @@
 
 import { createClient } from '@supabase/supabase-js';
 
-const SUPABASE_URL = 'https://ieviegvkitwwtttgrcso.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlldmllZ3ZraXR3d3R0dGdyY3NvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUyMDk1ODEsImV4cCI6MjA4MDc4NTU4MX0.8rESwDRKJIDqu5uhr5HV36wqTmJ0cTIZO8NkfLQiI3c';
+const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
+const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY;
+
+if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+  console.error('Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY (see dashboard/.env)');
+  process.exit(1);
+}
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
