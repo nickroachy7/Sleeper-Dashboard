@@ -41,12 +41,12 @@ export function AssetRow({
           <span className="text-[9px] font-bold text-cyan-400/70">PK</span>
         </div>
       ) : imgFailed ? (
-        <div className="w-8 h-8 rounded-full bg-[#111111] shrink-0" />
+        <div className="w-8 h-8 rounded-full bg-[#1b1b22] shrink-0" />
       ) : (
         <img
           src={getPlayerImageUrl(playerId)}
           alt=""
-          className="w-8 h-8 rounded-full object-cover bg-[#111111] shrink-0"
+          className="w-8 h-8 rounded-full object-cover bg-[#1b1b22] shrink-0"
           onError={() => setImgFailed(true)}
         />
       )}
@@ -59,13 +59,13 @@ export function AssetRow({
         </div>
         <div className="flex items-center gap-1.5 mt-0.5">
           {position && <PositionBadge position={position} size="xs" />}
-          {team && <span className="text-[11px] text-[#666666]">{team}</span>}
+          {team && <span className="text-[11px] text-[#80808c]">{team}</span>}
         </div>
       </div>
 
       {/* Value */}
       {value !== undefined && (
-        <span className="text-sm font-bold text-white tabular-nums shrink-0">
+        <span className="font-display text-sm font-bold text-white tabular-nums shrink-0">
           {value > 0 ? value.toLocaleString() : '—'}
         </span>
       )}

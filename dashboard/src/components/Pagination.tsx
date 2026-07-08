@@ -42,7 +42,7 @@ export function Pagination({
   return (
     <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
       {showItemCount && (
-        <p className="text-xs text-[#555555] order-2 sm:order-1">
+        <p className="text-xs text-[#75757f] order-2 sm:order-1">
           Showing {startItem}–{endItem} of {totalItems}
         </p>
       )}
@@ -50,24 +50,24 @@ export function Pagination({
         <button
           onClick={() => onPageChange(1)}
           disabled={currentPage === 1}
-          className="p-2 rounded-md border border-[#151515] bg-[#0a0a0a] hover:bg-[#111111] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="p-2 rounded-md border border-[#1f1f27] bg-[#141419] hover:bg-[#1b1b22] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
-          <svg className="h-4 w-4 text-[#888888]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg className="h-4 w-4 text-[#9c9ca7]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
           </svg>
         </button>
         <button
           onClick={() => onPageChange(Math.max(1, currentPage - 1))}
           disabled={currentPage === 1}
-          className="p-2 rounded-md border border-[#151515] bg-[#0a0a0a] hover:bg-[#111111] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="p-2 rounded-md border border-[#1f1f27] bg-[#141419] hover:bg-[#1b1b22] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
-          <ChevronLeft className="h-4 w-4 text-[#888888]" />
+          <ChevronLeft className="h-4 w-4 text-[#9c9ca7]" />
         </button>
 
         <div className="hidden sm:flex items-center gap-1">
           {pages.map((page, idx) => {
             if (page === '...') {
-              return <span key={`ellipsis-${idx}`} className="px-2 text-[#555555] text-xs">…</span>;
+              return <span key={`ellipsis-${idx}`} className="px-2 text-[#75757f] text-xs">…</span>;
             }
             return (
               <button
@@ -76,7 +76,7 @@ export function Pagination({
                 className={`min-w-[36px] h-9 px-3 rounded-md text-sm font-medium transition-colors ${
                   currentPage === page
                     ? 'bg-accent-500 text-white'
-                    : 'bg-[#0a0a0a] border border-[#151515] text-[#888888] hover:bg-[#111111]'
+                    : 'bg-[#141419] border border-[#1f1f27] text-[#9c9ca7] hover:bg-[#1b1b22]'
                 }`}
               >
                 {page}
@@ -85,23 +85,23 @@ export function Pagination({
           })}
         </div>
 
-        <span className="sm:hidden text-xs text-[#888888] min-w-[40px] text-center">
+        <span className="sm:hidden text-xs text-[#9c9ca7] min-w-[40px] text-center">
           {currentPage}/{totalPages}
         </span>
 
         <button
           onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
           disabled={currentPage === totalPages}
-          className="p-2 rounded-md border border-[#151515] bg-[#0a0a0a] hover:bg-[#111111] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="p-2 rounded-md border border-[#1f1f27] bg-[#141419] hover:bg-[#1b1b22] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
-          <ChevronRight className="h-4 w-4 text-[#888888]" />
+          <ChevronRight className="h-4 w-4 text-[#9c9ca7]" />
         </button>
         <button
           onClick={() => onPageChange(totalPages)}
           disabled={currentPage === totalPages}
-          className="p-2 rounded-md border border-[#151515] bg-[#0a0a0a] hover:bg-[#111111] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="p-2 rounded-md border border-[#1f1f27] bg-[#141419] hover:bg-[#1b1b22] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
-          <svg className="h-4 w-4 text-[#888888]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg className="h-4 w-4 text-[#9c9ca7]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
           </svg>
         </button>

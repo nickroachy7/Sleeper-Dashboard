@@ -43,7 +43,7 @@ interface TradedPick {
 
 const roundColors: Record<number, string> = {
   1: 'bg-amber-500/15 text-amber-400 border-amber-500/25',
-  2: 'bg-[#161616] text-[#888888] border-[#2a2a2a]',
+  2: 'bg-[#22222b] text-[#9c9ca7] border-[#363641]',
   3: 'bg-orange-500/15 text-orange-400 border-orange-500/25',
   4: 'bg-stone-500/15 text-stone-400 border-stone-500/25',
 };
@@ -74,7 +74,7 @@ export default function Drafts() {
       const { data: users } = await supabase.from('users').select('*');
       const { data: rosters } = await supabase.from('rosters').select('*');
       const { data: leagueUsers } = await supabase.from('league_users').select('user_id, team_name, display_name');
-      const { data: league } = await supabase.from('leagues').select('*').limit(1);
+      const { data: league } = await supabase.from('leagues').select('*').order('season', { ascending: false }).limit(1);
 
       return {
         drafts: drafts || [], draftPicks: draftPicks || [], tradedPicks: tradedPicks || [],
@@ -197,11 +197,11 @@ export default function Drafts() {
     return (
       <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto">
         <div className="flex flex-col items-center justify-center py-16 text-center">
-          <div className="w-14 h-14 bg-[#111111] rounded-2xl flex items-center justify-center mb-4">
-            <FileText className="h-7 w-7 text-[#555555]" />
+          <div className="w-14 h-14 bg-[#1b1b22] rounded-2xl flex items-center justify-center mb-4">
+            <FileText className="h-7 w-7 text-[#75757f]" />
           </div>
           <h3 className="text-lg font-bold text-white mb-2">No Draft Data</h3>
-          <p className="text-sm text-[#666666] max-w-sm mb-6">
+          <p className="text-sm text-[#80808c] max-w-sm mb-6">
             Connect and sync your league to see draft history and traded picks
           </p>
           <Link
@@ -241,7 +241,7 @@ export default function Drafts() {
               <select
                 value={selectedDraft || ''}
                 onChange={(e) => { setSelectedDraft(e.target.value); setExpandedRounds(new Set([1])); }}
-                className="px-3 py-2 bg-[#0a0a0a] border border-[#1e1e1e] rounded-lg text-xs font-medium text-white focus:outline-none focus:ring-2 focus:ring-accent-500/50"
+                className="px-3 py-2 bg-[#141419] border border-[#2a2a34] rounded-lg text-xs font-medium text-white focus:outline-none focus:ring-2 focus:ring-accent-500/50"
               >
                 {data.drafts.map((draft) => (
                   <option key={draft.draft_id} value={draft.draft_id}>
@@ -266,10 +266,10 @@ export default function Drafts() {
                 const isExpanded = expandedRounds.has(round);
 
                 return (
-                  <div key={round} className="bg-[#0a0a0a] rounded-xl overflow-hidden">
+                  <div key={round} className="bg-[#141419] rounded-xl overflow-hidden">
                     <button
                       onClick={() => toggleRound(round)}
-                      className="w-full px-4 py-3 flex items-center justify-between hover:bg-[#0d0d0d] transition-colors"
+                      className="w-full px-4 py-3 flex items-center justify-between hover:bg-[#17171d] transition-colors"
                     >
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 bg-accent-500/15 rounded-lg flex items-center justify-center">
@@ -277,29 +277,29 @@ export default function Drafts() {
                         </div>
                         <div className="text-left">
                           <h3 className="font-semibold text-sm text-white">Round {round}</h3>
-                          <p className="text-[10px] text-[#555555]">{picks.length} picks</p>
+                          <p className="text-[10px] text-[#75757f]">{picks.length} picks</p>
                         </div>
                       </div>
-                      <ChevronRight className={`h-4 w-4 text-[#555555] transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
+                      <ChevronRight className={`h-4 w-4 text-[#75757f] transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
                     </button>
 
                     {isExpanded && (
-                      <div className="border-t border-[#111111]">
-                        <div className="divide-y divide-[#0d0d0d]">
+                      <div className="border-t border-[#1b1b22]">
+                        <div className="divide-y divide-[#17171d]">
                           {picks.map((pick) => {
                             const player = pick.player_id ? getPlayer(pick.player_id) : undefined;
                             const pickDisplay = `${round}.${String(pick.pick_no - (round - 1) * 12).padStart(2, '0')}`;
 
                             return (
-                              <div key={pick.pick_no} className="flex items-center gap-3 px-4 py-2.5 hover:bg-[#0d0d0d] transition-colors">
-                                <span className="font-mono text-xs font-bold text-[#444444] w-8 shrink-0">
+                              <div key={pick.pick_no} className="flex items-center gap-3 px-4 py-2.5 hover:bg-[#17171d] transition-colors">
+                                <span className="font-mono text-xs font-bold text-[#60606a] w-8 shrink-0">
                                   {pickDisplay}
                                 </span>
                                 {player && (
                                   <img
                                     src={`https://sleepercdn.com/content/nfl/players/${pick.player_id}.jpg`}
                                     alt=""
-                                    className="w-7 h-7 rounded-full object-cover bg-[#111111] shrink-0"
+                                    className="w-7 h-7 rounded-full object-cover bg-[#1b1b22] shrink-0"
                                     onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                                   />
                                 )}
@@ -307,8 +307,8 @@ export default function Drafts() {
                                   <span className="text-sm font-medium text-white">{player?.full_name || 'Unknown'}</span>
                                 </div>
                                 {player?.position && <PositionBadge position={player.position} size="xs" />}
-                                <span className="text-xs text-[#555555] hidden sm:block">{player?.team || '—'}</span>
-                                <span className="text-xs text-[#444444] hidden sm:block w-24 text-right truncate">
+                                <span className="text-xs text-[#75757f] hidden sm:block">{player?.team || '—'}</span>
+                                <span className="text-xs text-[#60606a] hidden sm:block w-24 text-right truncate">
                                   {getTeamNameByUserId(pick.picked_by)}
                                 </span>
                               </div>
@@ -322,12 +322,12 @@ export default function Drafts() {
               })}
             </div>
           ) : (
-            <div className="bg-[#0a0a0a] rounded-xl p-12 text-center">
-              <div className="w-12 h-12 bg-[#111111] rounded-xl flex items-center justify-center mx-auto mb-3">
-                <FileText className="h-6 w-6 text-[#555555]" />
+            <div className="bg-[#141419] rounded-xl p-12 text-center">
+              <div className="w-12 h-12 bg-[#1b1b22] rounded-xl flex items-center justify-center mx-auto mb-3">
+                <FileText className="h-6 w-6 text-[#75757f]" />
               </div>
               <h3 className="text-base font-bold text-white mb-1">No Picks Yet</h3>
-              <p className="text-sm text-[#555555]">This draft hasn't started or has no recorded picks</p>
+              <p className="text-sm text-[#75757f]">This draft hasn't started or has no recorded picks</p>
             </div>
           )}
         </div>
@@ -346,7 +346,7 @@ export default function Drafts() {
                   className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
                     selectedSeason === season
                       ? 'bg-purple-500/15 text-purple-400 ring-1 ring-purple-500/30'
-                      : 'bg-[#111111] text-[#888888] hover:bg-[#1a1a1a]'
+                      : 'bg-[#1b1b22] text-[#9c9ca7] hover:bg-[#26262f]'
                   }`}
                 >
                   {season}
@@ -355,7 +355,7 @@ export default function Drafts() {
             </div>
             <button
               onClick={() => setShowLegend(!showLegend)}
-              className="flex items-center gap-1 text-[11px] text-[#555555] hover:text-[#888888] transition-colors"
+              className="flex items-center gap-1 text-[11px] text-[#75757f] hover:text-[#9c9ca7] transition-colors"
             >
               <Info className="h-3.5 w-3.5" />
               Legend
@@ -364,9 +364,9 @@ export default function Drafts() {
 
           {/* Collapsible Legend */}
           {showLegend && (
-            <div className="rounded-xl p-3 bg-[#0a0a0a] flex flex-wrap gap-4 text-xs">
+            <div className="rounded-xl p-3 bg-[#141419] flex flex-wrap gap-4 text-xs">
               <div className="flex items-center gap-2">
-                <span className="text-[#666666]">Rounds:</span>
+                <span className="text-[#80808c]">Rounds:</span>
                 {[1, 2, 3, 4].map(round => (
                   <span key={round} className={`px-2 py-0.5 rounded border text-[10px] font-medium ${roundColors[round]}`}>
                     {round === 1 ? '1st' : round === 2 ? '2nd' : round === 3 ? '3rd' : '4th'}
@@ -374,9 +374,9 @@ export default function Drafts() {
                 ))}
               </div>
               <div className="flex items-center gap-3">
-                <div className="flex items-center gap-1 text-[11px]"><CircleDot className="h-3 w-3 text-[#888888]" /><span className="text-[#888888]">Own</span></div>
-                <div className="flex items-center gap-1 text-[11px]"><ArrowRightLeft className="h-3 w-3 text-emerald-500" /><span className="text-[#888888]">Acquired</span></div>
-                <div className="flex items-center gap-1 text-[11px]"><MinusCircle className="h-3 w-3 text-red-400" /><span className="text-[#888888]">Traded</span></div>
+                <div className="flex items-center gap-1 text-[11px]"><CircleDot className="h-3 w-3 text-[#9c9ca7]" /><span className="text-[#9c9ca7]">Own</span></div>
+                <div className="flex items-center gap-1 text-[11px]"><ArrowRightLeft className="h-3 w-3 text-emerald-500" /><span className="text-[#9c9ca7]">Acquired</span></div>
+                <div className="flex items-center gap-1 text-[11px]"><MinusCircle className="h-3 w-3 text-red-400" /><span className="text-[#9c9ca7]">Traded</span></div>
               </div>
             </div>
           )}
@@ -389,20 +389,20 @@ export default function Drafts() {
               return (
                 <div
                   key={rosterId}
-                  className={`bg-[#0a0a0a] rounded-xl border overflow-hidden animate-smooth hover:border-[#2a2a2a] ${
+                  className={`bg-[#141419] rounded-xl border overflow-hidden animate-smooth hover:border-[#363641] ${
                     index === 0 ? 'border-amber-500/40 card-glow-gold' :
                     index === sortedTeams.length - 1 ? 'border-red-500/20' :
-                    'border-[#1e1e1e]'
+                    'border-[#2a2a34]'
                   }`}
                 >
-                  <div className="p-4 border-b border-[#111111]">
+                  <div className="p-4 border-b border-[#1b1b22]">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold ${
                           index === 0 ? 'bg-amber-500/20 text-amber-400' :
                           index === 1 ? 'bg-zinc-500/20 text-zinc-300' :
                           index === 2 ? 'bg-orange-500/20 text-orange-400' :
-                          'bg-[#111111] text-[#555555]'
+                          'bg-[#1b1b22] text-[#75757f]'
                         }`}>
                           #{index + 1}
                         </div>
@@ -412,7 +412,7 @@ export default function Drafts() {
                           <div className="flex items-center gap-1.5 mt-0.5">
                             {countByRound.map((count, rIdx) => (
                               <span key={rIdx} className={`text-[9px] font-bold ${
-                                count === 0 ? 'text-red-400/60' : count >= 2 ? 'text-emerald-400' : 'text-[#555555]'
+                                count === 0 ? 'text-red-400/60' : count >= 2 ? 'text-emerald-400' : 'text-[#75757f]'
                               }`}>
                                 {rIdx + 1}st:{count}
                               </span>
@@ -430,7 +430,7 @@ export default function Drafts() {
                           ) : extraPicks < 4 - picks.filter(p => p.originalOwner === rosterId).length ? (
                             <TrendingDown className="h-3.5 w-3.5 text-red-400" />
                           ) : (
-                            <Minus className="h-3.5 w-3.5 text-[#555555]" />
+                            <Minus className="h-3.5 w-3.5 text-[#75757f]" />
                           )}
                           <span className="text-lg font-bold text-white">{totalValue}</span>
                         </div>
@@ -438,11 +438,11 @@ export default function Drafts() {
                     </div>
 
                     {/* Stacked bar chart */}
-                    <div className="mt-2 h-1.5 bg-[#111111] rounded-full overflow-hidden flex">
+                    <div className="mt-2 h-1.5 bg-[#1b1b22] rounded-full overflow-hidden flex">
                       {[1, 2, 3, 4].map(round => {
                         const count = countByRound[round - 1];
                         if (count === 0) return null;
-                        const colors = { 1: '#f59e0b', 2: '#888888', 3: '#f97316', 4: '#78716c' };
+                        const colors = { 1: '#f59e0b', 2: '#9c9ca7', 3: '#f97316', 4: '#78716c' };
                         return (
                           <div
                             key={round}
@@ -458,7 +458,7 @@ export default function Drafts() {
                     </div>
                   </div>
 
-                  <div className="p-3 bg-[#070707]">
+                  <div className="p-3 bg-[#101015]">
                     <div className="flex flex-wrap gap-1.5">
                       {picks.length > 0 ? (
                         picks.map((pick, idx) => {
@@ -482,7 +482,7 @@ export default function Drafts() {
                           );
                         })
                       ) : (
-                        <span className="text-xs text-[#555555] italic">No picks</span>
+                        <span className="text-xs text-[#75757f] italic">No picks</span>
                       )}
                     </div>
                   </div>

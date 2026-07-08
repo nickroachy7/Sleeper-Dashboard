@@ -56,34 +56,34 @@ export function AssetDropdown({
       <div className="fixed inset-0 bg-black/60 z-40" onClick={onClose} />
       <div
         ref={dropdownRef}
-        className="fixed z-50 left-4 right-4 top-1/2 -translate-y-1/2 max-w-md mx-auto bg-[#0a0a0a] border border-[#222222] rounded-xl shadow-2xl overflow-hidden"
+        className="fixed z-50 left-4 right-4 top-1/2 -translate-y-1/2 max-w-md mx-auto bg-[#141419] border border-[#2e2e38] rounded-xl shadow-2xl overflow-hidden"
       >
-        <div className="px-4 py-3 border-b border-[#151515] flex items-center justify-between">
+        <div className="px-4 py-3 border-b border-[#1f1f27] flex items-center justify-between">
           <span className="text-sm font-semibold text-white">{title}</span>
-          <button onClick={onClose} className="p-1.5 hover:bg-[#151515] rounded-lg transition-colors">
-            <X className="h-4 w-4 text-[#666666]" />
+          <button onClick={onClose} className="p-1.5 hover:bg-[#1f1f27] rounded-lg transition-colors">
+            <X className="h-4 w-4 text-[#80808c]" />
           </button>
         </div>
 
-        <div className="p-3 border-b border-[#151515]">
+        <div className="p-3 border-b border-[#1f1f27]">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#555555]" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#75757f]" />
             <input
               ref={inputRef}
               type="text"
               placeholder="Search..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-9 pr-4 py-2.5 text-sm bg-[#111111] border border-[#222222] rounded-lg text-white placeholder-[#555555] focus:outline-none focus:border-accent-500/50 transition-colors"
+              className="w-full pl-9 pr-4 py-2.5 text-sm bg-[#1b1b22] border border-[#2e2e38] rounded-lg text-white placeholder-[#75757f] focus:outline-none focus:border-accent-500/50 transition-colors"
             />
           </div>
         </div>
 
         <div className="max-h-80 overflow-y-auto overscroll-contain">
           {filteredItems.length === 0 ? (
-            <div className="p-8 text-sm text-[#555555] text-center">{emptyMessage}</div>
+            <div className="p-8 text-sm text-[#75757f] text-center">{emptyMessage}</div>
           ) : (
-            <div className="divide-y divide-[#111111]">
+            <div className="divide-y divide-[#1b1b22]">
               {filteredItems.map((item) => (
                 <button
                   key={item.id}
@@ -91,26 +91,26 @@ export function AssetDropdown({
                     onSelect(item);
                     onClose();
                   }}
-                  className="w-full px-4 py-3 hover:bg-[#111111] transition-colors flex items-center justify-between gap-3"
+                  className="w-full px-4 py-3 hover:bg-[#1b1b22] transition-colors flex items-center justify-between gap-3"
                 >
                   <div className="flex items-center gap-2.5 min-w-0">
                     {item.type === 'player' ? (
                       <img
                         src={getPlayerImageUrl(item.id.replace('player-', ''))}
                         alt=""
-                        className="w-5 h-5 rounded-full object-cover bg-[#111111] flex-shrink-0"
+                        className="w-5 h-5 rounded-full object-cover bg-[#1b1b22] flex-shrink-0"
                         onError={(e) => {
                           (e.target as HTMLImageElement).style.display = 'none';
                         }}
                       />
                     ) : (
-                      <div className="w-5 h-5 rounded-full bg-[#111111] flex items-center justify-center flex-shrink-0">
-                        <span className="text-[8px] font-bold text-[#555555]">PK</span>
+                      <div className="w-5 h-5 rounded-full bg-[#1b1b22] flex items-center justify-center flex-shrink-0">
+                        <span className="text-[8px] font-bold text-[#75757f]">PK</span>
                       </div>
                     )}
                     <span className="text-sm text-white truncate">{item.name}</span>
                     {item.type === 'player' && (
-                      <span className="text-[#444444] text-[13px] shrink-0">
+                      <span className="text-[#60606a] text-[13px] shrink-0">
                         ({item.position || '?'}
                         {item.team ? `, ${item.team}` : ''})
                       </span>

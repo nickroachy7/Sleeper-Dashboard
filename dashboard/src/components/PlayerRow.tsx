@@ -38,7 +38,7 @@ export function PlayerRow({
 
   return (
     <div
-      className={`flex items-center gap-2 ${rowPadding} group animate-smooth ${isFeatured ? 'hover:bg-[#111111] rounded-lg px-2 -mx-2' : ''}`}
+      className={`flex items-center gap-2 ${rowPadding} group animate-smooth ${isFeatured ? 'hover:bg-[#1b1b22] rounded-lg px-2 -mx-2' : ''}`}
       style={accentColor ? { borderLeft: `3px solid ${accentColor}`, paddingLeft: '8px' } : undefined}
     >
       {showAvatar && (
@@ -46,19 +46,19 @@ export function PlayerRow({
           <img
             src={getPlayerImageUrl(playerId)}
             alt=""
-            className={`${avatarSize} rounded-full object-cover bg-[#111111] flex-shrink-0`}
+            className={`${avatarSize} rounded-full object-cover bg-[#1b1b22] flex-shrink-0`}
             onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
           />
         ) : (
-          <div className={`${avatarSize} rounded-full bg-[#111111] flex items-center justify-center flex-shrink-0`}>
-            <span className="text-[8px] font-bold text-[#555555]">PK</span>
+          <div className={`${avatarSize} rounded-full bg-[#1b1b22] flex items-center justify-center flex-shrink-0`}>
+            <span className="text-[8px] font-bold text-[#75757f]">PK</span>
           </div>
         )
       )}
 
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5">
-          <span className={`${nameSize} text-[#cccccc] truncate`}>{name}</span>
+          <span className={`${nameSize} text-[#d6d6de] truncate`}>{name}</span>
           {injuryStatus && (
             <span className="px-1 py-0.5 text-[9px] bg-red-500/20 text-red-400 rounded font-bold leading-none">
               {injuryStatus}
@@ -68,11 +68,11 @@ export function PlayerRow({
         {(position || team) && !isCompact && (
           <div className="flex items-center gap-1.5 mt-0.5">
             {position && <PositionBadge position={position} size="xs" />}
-            {team && <span className="text-[11px] text-[#444444]">{team}</span>}
+            {team && <span className="text-[11px] text-[#60606a]">{team}</span>}
           </div>
         )}
         {isCompact && (position || team) && (
-          <span className="text-[11px] text-[#444444]">
+          <span className="text-[11px] text-[#60606a]">
             {position}{team ? ` · ${team}` : ''}
           </span>
         )}
@@ -81,7 +81,7 @@ export function PlayerRow({
       {rightContent}
 
       {value !== undefined && (
-        <span className={`tabular-nums shrink-0 ${isFeatured ? 'text-sm font-bold text-white' : 'text-[11px] text-[#555555]'}`}>
+        <span className={`tabular-nums shrink-0 ${isFeatured ? 'text-sm font-bold text-white' : 'text-[11px] text-[#75757f]'}`}>
           {value > 0 ? value.toLocaleString() : '—'}
         </span>
       )}

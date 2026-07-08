@@ -239,12 +239,12 @@ export const POSITION_COLORS: Record<string, { bg: string; text: string; dot: st
 
 export function getPositionBadgeClass(position: string): string {
   const colors = POSITION_COLORS[position];
-  if (!colors) return 'bg-[#111111] text-[#555555]';
+  if (!colors) return 'bg-[#1b1b22] text-[#75757f]';
   return `${colors.bg} ${colors.text}`;
 }
 
 export function getPositionColor(position: string): string {
-  return POSITION_COLORS[position]?.dot || 'bg-[#555555]';
+  return POSITION_COLORS[position]?.dot || 'bg-[#75757f]';
 }
 
 // ── Pick Utilities ─────────────────────────────────────────────────

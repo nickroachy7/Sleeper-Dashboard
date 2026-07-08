@@ -14,18 +14,18 @@ const accentBorderColors: Record<string, string> = {
   gold: 'border-l-amber-400',
   blue: 'border-l-blue-500',
   purple: 'border-l-purple-500',
-  default: 'border-l-[#2a2a2a]',
+  default: 'border-l-[#363641]',
 };
 
 export function StatCard({ label, value, trend, trendLabel, icon: Icon, accentColor = 'default' }: StatCardProps) {
   return (
-    <div className={`bg-[#0a0a0a] rounded-xl p-4 border-l-[3px] ${accentBorderColors[accentColor]} animate-smooth hover:bg-[#0d0d0d]`}>
+    <div className={`bg-[#141419] rounded-xl p-4 border-l-[3px] ${accentBorderColors[accentColor]} animate-smooth hover:bg-[#17171d]`}>
       <div className="flex items-start justify-between mb-2">
-        <span className="text-[10px] font-bold text-[#555555] tracking-[2px] uppercase leading-none">
+        <span className="text-[10px] font-bold text-[#75757f] tracking-[2px] uppercase leading-none">
           {label}
         </span>
         {Icon && (
-          <Icon className="h-3.5 w-3.5 text-[#333333]" />
+          <Icon className="h-3.5 w-3.5 text-[#4c4c56]" />
         )}
       </div>
       <div className="flex items-end justify-between gap-2">

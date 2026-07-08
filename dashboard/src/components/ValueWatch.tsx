@@ -29,32 +29,32 @@ export function ValueWatch({ players }: ValueWatchProps) {
     <section>
       <div className="flex items-center justify-between mb-3">
         <div>
-          <p className="text-[10px] font-bold text-[#555555] tracking-[3px] uppercase mb-1">VALUE WATCH</p>
-          <h2 className="text-lg font-extrabold text-white tracking-tight">Top 10 Assets</h2>
+          <p className="text-[11px] font-bold text-accent-500 tracking-[0.2em] uppercase mb-1">VALUE WATCH</p>
+          <h2 className="font-display text-lg font-bold text-white tracking-tight">Top 10 Assets</h2>
         </div>
-        <Link to="/ktc-values" className="text-[11px] text-[#555555] hover:text-accent-400 transition-colors flex items-center gap-0.5">
+        <Link to="/ktc-values" className="text-[11px] text-[#9c9ca7] hover:text-accent-400 transition-colors flex items-center gap-0.5">
           Full Rankings <ChevronRight className="h-3 w-3" />
         </Link>
       </div>
 
-      <div className="bg-[#0a0a0a] rounded-xl overflow-hidden">
-        <div className="divide-y divide-[#111111]">
+      <div className="bg-[#141419] rounded-xl overflow-hidden">
+        <div className="divide-y divide-[#1b1b22]">
           {players.slice(0, 10).map((player, idx) => {
             const accentColor = rankAccentColors[player.rank];
             return (
               <div
                 key={player.playerId}
-                className={`flex items-center gap-2.5 px-3 py-2 hover:bg-[#0d0d0d] transition-colors ${idx % 2 === 1 ? 'bg-[#070707]' : ''}`}
+                className={`flex items-center gap-2.5 px-3 py-2.5 hover:bg-[#1b1b22] transition-colors ${idx % 2 === 1 ? 'bg-[#101015]' : ''}`}
                 style={accentColor ? { borderLeft: `3px solid ${accentColor}` } : undefined}
               >
                 <span
                   className="text-[11px] font-bold tabular-nums w-5 text-right shrink-0"
-                  style={{ color: accentColor || '#555555' }}
+                  style={{ color: accentColor || '#75757f' }}
                 >
                   {player.rank}
                 </span>
 
-                <div className="w-7 h-7 rounded-full overflow-hidden bg-[#111111] shrink-0">
+                <div className="w-7 h-7 rounded-full overflow-hidden bg-[#1b1b22] shrink-0">
                   <img
                     src={`https://sleepercdn.com/content/nfl/players/${player.playerId}.jpg`}
                     alt=""
@@ -64,14 +64,14 @@ export function ValueWatch({ players }: ValueWatchProps) {
                 </div>
 
                 <div className="flex-1 min-w-0">
-                  <p className="text-[12px] font-semibold text-white truncate">{player.name}</p>
+                  <p className="text-[13px] font-semibold text-white truncate">{player.name}</p>
                   <div className="flex items-center gap-1">
                     <PositionBadge position={player.position} size="xs" />
-                    {player.team && <span className="text-[10px] text-[#444444]">{player.team}</span>}
+                    {player.team && <span className="text-[10px] text-[#75757f]">{player.team}</span>}
                   </div>
                 </div>
 
-                <span className="text-[12px] font-bold text-white tabular-nums shrink-0">
+                <span className="font-display text-[13px] font-bold text-white tabular-nums shrink-0">
                   {player.value.toLocaleString()}
                 </span>
               </div>

@@ -163,7 +163,7 @@ export default function Settings() {
       const { data, error } = await supabase
         .from('leagues')
         .select('*')
-        .order('created_at', { ascending: false })
+        .order('season', { ascending: false })
         .limit(1);
       if (error) throw error;
       return data?.[0] || null;
@@ -240,7 +240,7 @@ export default function Settings() {
       <div className="min-h-screen">
         <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto">
           <div className="flex items-center justify-center h-64">
-            <div className="flex items-center gap-3 text-[#888888]">
+            <div className="flex items-center gap-3 text-[#9c9ca7]">
               <Loader2 className="h-4 w-4 sm:h-5 sm:w-5 animate-spin" />
               <span className="text-sm">Loading settings...</span>
             </div>
@@ -266,8 +266,8 @@ export default function Settings() {
             {/* ══════════════════════════════════════════════════════════════ */}
 
             <div className="flex items-center gap-2 mb-5">
-              <Settings2 className="h-4 w-4 text-[#555555]" />
-              <p className="text-[10px] font-bold text-[#555555] tracking-[3px] uppercase">LEAGUE</p>
+              <Settings2 className="h-4 w-4 text-[#75757f]" />
+              <p className="text-[10px] font-bold text-[#75757f] tracking-[3px] uppercase">LEAGUE</p>
             </div>
 
             {/* ── League Connection ──────────────────────────────────────── */}
@@ -283,10 +283,6 @@ export default function Settings() {
 
                     <div className="mt-3 flex flex-wrap gap-3">
                       <div className="flex items-center gap-1.5 text-xs text-slate-300">
-                        <Trophy className="h-3.5 w-3.5 text-amber-500" />
-                        <span>{league.name}</span>
-                      </div>
-                      <div className="flex items-center gap-1.5 text-xs text-slate-300">
                         <Calendar className="h-3.5 w-3.5 text-blue-500" />
                         <span>{league.season} Season</span>
                       </div>
@@ -300,8 +296,8 @@ export default function Settings() {
                       </div>
                     </div>
 
-                    <div className="mt-3 text-xs text-[#555555]">
-                      League ID: <code className="bg-[#111111] px-1.5 py-0.5 rounded text-[#888888]">{league.league_id}</code>
+                    <div className="mt-3 text-xs text-[#75757f]">
+                      League ID: <code className="bg-[#1b1b22] px-1.5 py-0.5 rounded text-[#9c9ca7]">{league.league_id}</code>
                     </div>
                   </div>
                 </div>
@@ -310,14 +306,14 @@ export default function Settings() {
 
             {/* ── League Settings ────────────────────────────────────────── */}
             <section className="mb-8">
-              <div className="rounded-xl bg-[#0a0a0a] p-5">
+              <div className="rounded-xl bg-[#141419] p-5">
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   <div>
-                    <h4 className="text-xs font-medium text-[#888888] uppercase tracking-wide mb-3">Roster Positions</h4>
+                    <h4 className="text-xs font-medium text-[#9c9ca7] uppercase tracking-wide mb-3">Roster Positions</h4>
                     <div className="flex flex-wrap gap-1.5">
                       {league.roster_positions?.map((pos: string, i: number) => (
                         pos === 'BN' ? (
-                          <span key={i} className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#111111] text-[#888888]">
+                          <span key={i} className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#1b1b22] text-[#9c9ca7]">
                             Bench
                           </span>
                         ) : (
@@ -328,7 +324,7 @@ export default function Settings() {
                   </div>
 
                   <div>
-                    <h4 className="text-xs font-medium text-[#888888] uppercase tracking-wide mb-3">Key Settings</h4>
+                    <h4 className="text-xs font-medium text-[#9c9ca7] uppercase tracking-wide mb-3">Key Settings</h4>
                     <div className="space-y-0">
                       {(() => {
                         // Sleeper's league settings JSON blob
@@ -340,16 +336,23 @@ export default function Settings() {
                         };
                         return [
                           { label: 'Playoff Teams', value: settings.playoff_teams || 6 },
-                          { label: 'Trade Deadline', value: `Week ${settings.trade_deadline || 'N/A'}` },
+                          // Sleeper uses week 99 to mean "no trade deadline"
+                          {
+                            label: 'Trade Deadline',
+                            value:
+                              !settings.trade_deadline || settings.trade_deadline >= 99
+                                ? 'None'
+                                : `Week ${settings.trade_deadline}`,
+                          },
                           { label: 'Waiver Budget', value: `$${settings.waiver_budget || 100}` },
                           { label: 'Taxi Slots', value: settings.taxi_slots || 0 },
                         ];
                       })().map(({ label, value }, i, arr) => (
                         <div
                           key={label}
-                          className={`flex justify-between items-center py-2 ${i < arr.length - 1 ? 'border-b border-[#151515]' : ''}`}
+                          className={`flex justify-between items-center py-2 ${i < arr.length - 1 ? 'border-b border-[#1f1f27]' : ''}`}
                         >
-                          <span className="text-sm text-[#666666]">{label}</span>
+                          <span className="text-sm text-[#80808c]">{label}</span>
                           <span className="text-sm text-white font-semibold">{value}</span>
                         </div>
                       ))}
@@ -367,14 +370,14 @@ export default function Settings() {
               onClick={() => setShowAdvanced(!showAdvanced)}
               className="flex items-center gap-2 mb-5 group cursor-pointer"
             >
-              <Shield className="h-4 w-4 text-[#555555] group-hover:text-[#888888] transition-colors" />
-              <span className="text-[10px] font-bold text-[#555555] tracking-[3px] uppercase group-hover:text-[#888888] transition-colors">
+              <Shield className="h-4 w-4 text-[#75757f] group-hover:text-[#9c9ca7] transition-colors" />
+              <span className="text-[10px] font-bold text-[#75757f] tracking-[3px] uppercase group-hover:text-[#9c9ca7] transition-colors">
                 ADMIN
               </span>
               {showAdvanced ? (
-                <ChevronDown className="h-3.5 w-3.5 text-[#555555] group-hover:text-[#888888] transition-colors" />
+                <ChevronDown className="h-3.5 w-3.5 text-[#75757f] group-hover:text-[#9c9ca7] transition-colors" />
               ) : (
-                <ChevronRight className="h-3.5 w-3.5 text-[#555555] group-hover:text-[#888888] transition-colors" />
+                <ChevronRight className="h-3.5 w-3.5 text-[#75757f] group-hover:text-[#9c9ca7] transition-colors" />
               )}
             </button>
 
@@ -382,7 +385,7 @@ export default function Settings() {
               <div className="animate-smooth">
                 {/* ── Sync Operations ──────────────────────────────────── */}
                 <section className="mb-8">
-                  <p className="text-[10px] font-bold text-[#444444] tracking-[2px] uppercase mb-4">DATA SYNC</p>
+                  <p className="text-[10px] font-bold text-[#60606a] tracking-[2px] uppercase mb-4">DATA SYNC</p>
 
                   <div className="grid grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3">
                     {[
@@ -398,7 +401,7 @@ export default function Settings() {
                       const Icon = config?.icon || Database;
 
                       return (
-                        <div key={job.name} className="bg-[#0a0a0a] rounded-xl p-3 sm:p-4 transition-colors">
+                        <div key={job.name} className="bg-[#141419] rounded-xl p-3 sm:p-4 transition-colors">
                           <div className="flex items-center justify-between mb-1.5">
                             <div className="flex items-center gap-1.5">
                               <Icon className={`w-3.5 h-3.5 ${config?.color || 'text-slate-400'}`} />
@@ -411,7 +414,7 @@ export default function Settings() {
                             )}
                           </div>
 
-                          <p className="text-[10px] text-[#555555] mb-1 hidden sm:block">
+                          <p className="text-[10px] text-[#75757f] mb-1 hidden sm:block">
                             {CRON_DESCRIPTIONS[job.name] || cronJob?.schedule}
                           </p>
 
@@ -420,14 +423,14 @@ export default function Settings() {
                             {lastSync ? (
                               <>
                                 {getStatusIcon(lastSync.status)}
-                                <span className="text-[10px] text-[#666666]">
+                                <span className="text-[10px] text-[#80808c]">
                                   {lastSync.completed_at ? formatRelativeTime(lastSync.completed_at) : 'running...'}
                                 </span>
                               </>
                             ) : (
                               <>
-                                <Clock className="w-3 h-3 text-[#333333]" />
-                                <span className="text-[10px] text-[#444444]">No runs yet</span>
+                                <Clock className="w-3 h-3 text-[#4c4c56]" />
+                                <span className="text-[10px] text-[#60606a]">No runs yet</span>
                               </>
                             )}
                           </div>
@@ -453,27 +456,27 @@ export default function Settings() {
                 {/* ── Recent Sync Logs ─────────────────────────────────── */}
                 {syncLogs && syncLogs.length > 0 && (
                   <section className="mb-8">
-                    <p className="text-[10px] font-bold text-[#444444] tracking-[2px] uppercase mb-4">RECENT SYNC LOG</p>
+                    <p className="text-[10px] font-bold text-[#60606a] tracking-[2px] uppercase mb-4">RECENT SYNC LOG</p>
 
-                    <div className="rounded-xl bg-[#0a0a0a] overflow-hidden">
+                    <div className="rounded-xl bg-[#141419] overflow-hidden">
                       <div className="overflow-x-auto">
                         <table className="w-full">
                           <thead>
-                            <tr className="bg-[#0a0a0a]">
-                              <th className="px-3 py-2.5 text-left text-[10px] font-medium text-[#555555]">Type</th>
-                              <th className="px-3 py-2.5 text-left text-[10px] font-medium text-[#555555]">Status</th>
-                              <th className="hidden sm:table-cell px-3 py-2.5 text-left text-[10px] font-medium text-[#555555]">Started</th>
-                              <th className="px-3 py-2.5 text-right text-[10px] font-medium text-[#555555]">Duration</th>
-                              <th className="hidden sm:table-cell px-3 py-2.5 text-right text-[10px] font-medium text-[#555555]">Records</th>
+                            <tr className="bg-[#141419]">
+                              <th className="px-3 py-2.5 text-left text-[10px] font-medium text-[#75757f]">Type</th>
+                              <th className="px-3 py-2.5 text-left text-[10px] font-medium text-[#75757f]">Status</th>
+                              <th className="hidden sm:table-cell px-3 py-2.5 text-left text-[10px] font-medium text-[#75757f]">Started</th>
+                              <th className="px-3 py-2.5 text-right text-[10px] font-medium text-[#75757f]">Duration</th>
+                              <th className="hidden sm:table-cell px-3 py-2.5 text-right text-[10px] font-medium text-[#75757f]">Records</th>
                             </tr>
                           </thead>
-                          <tbody className="divide-y divide-[#111111]">
+                          <tbody className="divide-y divide-[#1b1b22]">
                             {syncLogs.map((log) => {
                               const config = SYNC_TYPE_CONFIG[log.sync_type];
                               const LogIcon = config?.icon || Database;
 
                               return (
-                                <tr key={log.id} className="hover:bg-[#0a0a0a] transition-colors">
+                                <tr key={log.id} className="hover:bg-[#141419] transition-colors">
                                   <td className="px-3 py-2">
                                     <div className="flex items-center gap-1.5">
                                       <LogIcon className={`w-3 h-3 ${config?.color || 'text-slate-400'}`} />
@@ -483,13 +486,13 @@ export default function Settings() {
                                   <td className="px-3 py-2">
                                     <div className="flex items-center gap-1.5">
                                       {getStatusIcon(log.status)}
-                                      <span className="text-[#888888] capitalize text-xs hidden sm:inline">{log.status}</span>
+                                      <span className="text-[#9c9ca7] capitalize text-xs hidden sm:inline">{log.status}</span>
                                     </div>
                                   </td>
-                                  <td className="hidden sm:table-cell px-3 py-2 text-[#888888] text-xs">
+                                  <td className="hidden sm:table-cell px-3 py-2 text-[#9c9ca7] text-xs">
                                     {log.started_at ? formatTime(log.started_at) : '-'}
                                   </td>
-                                  <td className="px-3 py-2 text-right text-[#888888] text-xs">
+                                  <td className="px-3 py-2 text-right text-[#9c9ca7] text-xs">
                                     {log.started_at ? formatDuration(log.started_at, log.completed_at) : '-'}
                                   </td>
                                   <td className="hidden sm:table-cell px-3 py-2 text-right">
@@ -510,22 +513,22 @@ export default function Settings() {
                 {/* ── Cron Runs ─────────────────────────────────────────── */}
                 {cronRuns && cronRuns.length > 0 && (
                   <section className="mb-8">
-                    <p className="text-[10px] font-bold text-[#444444] tracking-[2px] uppercase mb-4">CRON EXECUTIONS</p>
+                    <p className="text-[10px] font-bold text-[#60606a] tracking-[2px] uppercase mb-4">CRON EXECUTIONS</p>
 
-                    <div className="rounded-xl bg-[#0a0a0a] overflow-hidden">
+                    <div className="rounded-xl bg-[#141419] overflow-hidden">
                       <div className="overflow-x-auto">
                         <table className="w-full">
                           <thead>
-                            <tr className="bg-[#0a0a0a]">
-                              <th className="px-3 py-2.5 text-left text-[10px] font-medium text-[#555555]">Job</th>
-                              <th className="px-3 py-2.5 text-left text-[10px] font-medium text-[#555555]">Status</th>
-                              <th className="hidden sm:table-cell px-3 py-2.5 text-left text-[10px] font-medium text-[#555555]">Started</th>
-                              <th className="px-3 py-2.5 text-right text-[10px] font-medium text-[#555555]">Duration</th>
+                            <tr className="bg-[#141419]">
+                              <th className="px-3 py-2.5 text-left text-[10px] font-medium text-[#75757f]">Job</th>
+                              <th className="px-3 py-2.5 text-left text-[10px] font-medium text-[#75757f]">Status</th>
+                              <th className="hidden sm:table-cell px-3 py-2.5 text-left text-[10px] font-medium text-[#75757f]">Started</th>
+                              <th className="px-3 py-2.5 text-right text-[10px] font-medium text-[#75757f]">Duration</th>
                             </tr>
                           </thead>
-                          <tbody className="divide-y divide-[#111111]">
+                          <tbody className="divide-y divide-[#1b1b22]">
                             {cronRuns.map((run) => (
-                              <tr key={run.runid} className="hover:bg-[#0a0a0a] transition-colors">
+                              <tr key={run.runid} className="hover:bg-[#141419] transition-colors">
                                 <td className="px-3 py-2 text-white text-xs">{run.jobname}</td>
                                 <td className="px-3 py-2">
                                   <span className={`px-1.5 py-0.5 text-[10px] rounded font-medium ${
@@ -536,10 +539,10 @@ export default function Settings() {
                                     {run.status}
                                   </span>
                                 </td>
-                                <td className="hidden sm:table-cell px-3 py-2 text-[#888888] text-xs">
+                                <td className="hidden sm:table-cell px-3 py-2 text-[#9c9ca7] text-xs">
                                   {formatTime(run.start_time)}
                                 </td>
-                                <td className="px-3 py-2 text-right text-[#888888] text-xs">
+                                <td className="px-3 py-2 text-right text-[#9c9ca7] text-xs">
                                   {run.duration_seconds ? `${run.duration_seconds.toFixed(1)}s` : '-'}
                                 </td>
                               </tr>
@@ -554,7 +557,7 @@ export default function Settings() {
                 {/* ── Database Statistics ────────────────────────────────── */}
                 {stats && (
                   <section className="mb-8">
-                    <p className="text-[10px] font-bold text-[#444444] tracking-[2px] uppercase mb-4">DATABASE</p>
+                    <p className="text-[10px] font-bold text-[#60606a] tracking-[2px] uppercase mb-4">DATABASE</p>
 
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
                       <StatCard label="Users" value={stats.users} icon={Users} accentColor="purple" />
@@ -584,7 +587,7 @@ export default function Settings() {
               </div>
               <div>
                 <h3 className="font-semibold text-white">No League Data</h3>
-                <p className="text-sm text-[#888888] mt-1">
+                <p className="text-sm text-[#9c9ca7] mt-1">
                   No league data found in the database. Please contact the administrator to populate the data.
                 </p>
               </div>

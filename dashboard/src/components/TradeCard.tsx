@@ -63,7 +63,7 @@ export function TradeCard({
   const isCompact = variant === 'compact';
 
   return (
-    <div className="bg-[#0a0a0a] rounded-xl overflow-hidden card-hover">
+    <div className="bg-[#141419] rounded-xl overflow-hidden card-hover">
       {/* Header */}
       {showHeader && (
         <div className={`flex items-center justify-between bg-white/[0.05] ${isCompact ? 'px-3 py-3' : 'px-4 sm:px-5 py-3 sm:py-4'}`}>
@@ -72,7 +72,7 @@ export function TradeCard({
               TRADE
             </span>
             {date && (
-              <span className="text-[11px] text-[#555555] flex items-center gap-1">
+              <span className="text-[11px] text-[#75757f] flex items-center gap-1">
                 <Clock className="h-3 w-3" />
                 {date}
               </span>
@@ -94,7 +94,7 @@ export function TradeCard({
           return (
             <div key={idx}>
               {/* Team header */}
-              <div className={`flex items-center justify-between border-t border-[#1a1a1a] bg-[#111111] ${isCompact ? 'px-3 py-2.5' : 'px-4 sm:px-5 py-2.5'}`}>
+              <div className={`flex items-center justify-between border-t border-[#26262f] bg-[#1b1b22] ${isCompact ? 'px-3 py-2.5' : 'px-4 sm:px-5 py-2.5'}`}>
                 <div className="flex items-center gap-2">
                   <span className={`font-bold text-white ${isCompact ? 'text-[13px]' : 'text-sm'}`}>
                     {side.teamName}
@@ -114,7 +114,7 @@ export function TradeCard({
                       </span>
                     )
                   )}
-                  <span className="text-[10px] text-[#555555]">
+                  <span className="text-[10px] text-[#75757f]">
                     {assetCount} asset{assetCount !== 1 ? 's' : ''}
                   </span>
                 </div>
@@ -124,15 +124,15 @@ export function TradeCard({
                   const net = Math.round(sideVal - otherTotal);
                   if (net === 0) {
                     return (
-                      <span className="text-[11px] text-[#555555] font-medium tabular-nums">
+                      <span className="text-[11px] text-[#75757f] font-medium tabular-nums">
                         {sideVal.toLocaleString()} KTC
                       </span>
                     );
                   }
-                  const color = isNearEven ? 'text-[#555555]' : net > 0 ? 'text-emerald-400' : 'text-red-400';
+                  const color = isNearEven ? 'text-[#75757f]' : net > 0 ? 'text-emerald-400' : 'text-red-400';
                   return (
                     <div className="flex items-center gap-2">
-                      <span className="text-[11px] text-[#444444] font-medium tabular-nums">
+                      <span className="text-[11px] text-[#60606a] font-medium tabular-nums">
                         {sideVal.toLocaleString()}
                       </span>
                       <span className={`text-[11px] font-semibold tabular-nums ${color}`}>
@@ -144,7 +144,7 @@ export function TradeCard({
               </div>
 
               {/* Assets */}
-              <div style={{ borderLeft: `3px solid ${isWinner ? '#10b981' : '#222222'}` }}>
+              <div style={{ borderLeft: `3px solid ${isWinner ? '#10b981' : '#2e2e38'}` }}>
                 {side.players.map((p) => (
                   <AssetRow
                     key={p.id}
@@ -153,7 +153,7 @@ export function TradeCard({
                     position={p.position}
                     team={p.team}
                     value={p.value}
-                    className={`border-t border-[#111111] ${isCompact ? 'px-3' : 'px-4 sm:px-5'}`}
+                    className={`border-t border-[#1b1b22] ${isCompact ? 'px-3' : 'px-4 sm:px-5'}`}
                   />
                 ))}
                 {side.picks.map((pick, pickIdx) => (
@@ -162,13 +162,13 @@ export function TradeCard({
                     name={pick.name || `${pick.season} Round ${pick.round}`}
                     position="PICK"
                     value={pick.value}
-                    className={`border-t border-[#111111] ${isCompact ? 'px-3' : 'px-4 sm:px-5'}`}
+                    className={`border-t border-[#1b1b22] ${isCompact ? 'px-3' : 'px-4 sm:px-5'}`}
                   />
                 ))}
                 {side.players.length === 0 && side.picks.length === 0 && (
-                  <div className={`flex items-center gap-2.5 py-2 border-t border-[#111111] ${isCompact ? 'px-3' : 'px-4 sm:px-5'}`}>
-                    <div className="w-8 h-8 rounded-full bg-[#111111] shrink-0" />
-                    <p className="text-[13px] font-medium text-[#555555]">Zip, nothing, nada.</p>
+                  <div className={`flex items-center gap-2.5 py-2 border-t border-[#1b1b22] ${isCompact ? 'px-3' : 'px-4 sm:px-5'}`}>
+                    <div className="w-8 h-8 rounded-full bg-[#1b1b22] shrink-0" />
+                    <p className="text-[13px] font-medium text-[#75757f]">Zip, nothing, nada.</p>
                   </div>
                 )}
                 {/* Value Adjustment line */}
@@ -177,8 +177,8 @@ export function TradeCard({
                   const adj = side.adjustedValue - side.totalValue;
                   if (adj === 0) return null;
                   return (
-                    <div className={`flex items-center justify-between py-2 border-t border-dashed border-[#1a1a1a] ${isCompact ? 'px-3' : 'px-4 sm:px-5'}`}>
-                      <span className="text-[11px] text-[#666666] italic">Value Adjustment</span>
+                    <div className={`flex items-center justify-between py-2 border-t border-dashed border-[#26262f] ${isCompact ? 'px-3' : 'px-4 sm:px-5'}`}>
+                      <span className="text-[11px] text-[#80808c] italic">Value Adjustment</span>
                       <span className={`text-[11px] font-semibold tabular-nums ${adj > 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                         {adj > 0 ? '+' : ''}{adj.toLocaleString()}
                       </span>

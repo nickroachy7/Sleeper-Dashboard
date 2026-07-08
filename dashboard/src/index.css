@@ -1,11 +1,14 @@
 @import "tailwindcss";
 
 /* Design System - Sleeper League Dashboard */
-/* Inspired by Dynasty Reloaded Newsletter Design Spec */
-/* Dark-mode only editorial aesthetic */
+/* Graphite dark theme with editorial green accent */
 
 /* Custom Theme Properties */
 @theme {
+  /* Typography */
+  --font-sans: "Inter", system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-display: "Space Grotesk", "Inter", system-ui, sans-serif;
+
   /* Newsletter Green Accent */
   --color-accent-50: #052e16;
   --color-accent-100: #064e2a;
@@ -43,43 +46,50 @@ html {
 }
 
 body {
-  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: #000000;
+  background-color: #0d0d11;
   color: #ffffff;
 }
 
-/* Dark-only theme tokens — 5-tier background scale for visual layering */
+/* Graphite surface ramp — cool-tinted neutrals with real separation */
 :root {
-  --bg-base: #000000;
-  --bg-surface: #0a0a0a;
-  --bg-elevated: #111111;
-  --bg-overlay: #161616;
-  --bg-interactive: #1a1a1a;
+  --bg-base: #0d0d11;
+  --bg-surface: #141419;
+  --bg-elevated: #1b1b22;
+  --bg-overlay: #22222b;
+  --bg-interactive: #26262f;
 
   /* Legacy aliases (keep for existing code) */
-  --bg-primary: #000000;
-  --bg-secondary: #0a0a0a;
-  --bg-tertiary: #111111;
-  --bg-card: #0a0a0a;
-  --bg-card-hover: #111111;
+  --bg-primary: #0d0d11;
+  --bg-secondary: #141419;
+  --bg-tertiary: #1b1b22;
+  --bg-card: #141419;
+  --bg-card-hover: #1b1b22;
 
-  /* Borders — strengthened for visibility */
-  --border-default: #1e1e1e;
-  --border-subtle: #151515;
-  --border-emphasis: #2a2a2a;
-  --border-primary: #1e1e1e;
-  --border-secondary: #151515;
+  /* Borders */
+  --border-default: #2a2a34;
+  --border-subtle: #1f1f27;
+  --border-emphasis: #363641;
+  --border-primary: #2a2a34;
+  --border-secondary: #1f1f27;
 
   /* Text */
   --text-primary: #ffffff;
-  --text-secondary: #cccccc;
-  --text-tertiary: #888888;
-  --text-muted: #555555;
-  --text-faint: #444444;
-  --text-ghost: #333333;
+  --text-secondary: #d6d6de;
+  --text-tertiary: #9c9ca7;
+  --text-muted: #75757f;
+  --text-faint: #60606a;
+  --text-ghost: #4c4c56;
   --shadow-color: rgba(0, 0, 0, 0.5);
+}
+
+/* Visible keyboard focus without hurting mouse UX */
+:focus-visible {
+  outline: 2px solid rgba(34, 197, 94, 0.6);
+  outline-offset: 2px;
+  border-radius: 4px;
 }
 
 /* Sidebar layout fix - ensure main content doesn't overlap with fixed sidebar */
@@ -96,95 +106,21 @@ body {
 }
 
 ::-webkit-scrollbar-track {
-  background: #0a0a0a;
+  background: #141419;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #333333;
+  background: #363641;
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #444444;
+  background: #44444f;
 }
 
-/* Table styling utilities */
-.table-header {
-  @apply border-b border-[#151515];
-}
-
-.table-row {
-  @apply border-b border-[#111111] hover:bg-[#111111] transition-colors;
-}
-
-/* Card styling utilities */
-.card {
-  @apply bg-transparent rounded-md shadow-none;
-}
-
-.card-header {
-  @apply px-5 py-4 border-b border-[#151515];
-}
-
-/* Position badge colors */
-.pos-badge-qb {
-  @apply bg-red-500/20 text-red-400 border border-red-500/30;
-}
-
-.pos-badge-rb {
-  @apply bg-emerald-500/20 text-emerald-400 border border-emerald-500/30;
-}
-
-.pos-badge-wr {
-  @apply bg-blue-500/20 text-blue-400 border border-blue-500/30;
-}
-
-.pos-badge-te {
-  @apply bg-orange-500/20 text-orange-400 border border-orange-500/30;
-}
-
-.pos-badge-pick {
-  @apply bg-cyan-500/20 text-cyan-400 border border-cyan-500/30;
-}
-
-.pos-badge-k {
-  @apply bg-yellow-500/20 text-yellow-400 border border-yellow-500/30;
-}
-
-.pos-badge-def {
-  @apply bg-purple-500/20 text-purple-400 border border-purple-500/30;
-}
-
-/* Accent button */
-.btn-primary {
-  @apply bg-accent-500 hover:bg-accent-600 text-white font-medium px-4 py-2.5 rounded-lg transition-colors;
-}
-
-.btn-secondary {
-  @apply bg-[#111111] hover:bg-[#1a1a1a] text-[#cccccc] font-medium px-4 py-2.5 rounded-lg border border-[#151515] transition-colors;
-}
-
-/* Input styling */
-.input {
-  @apply bg-[#0a0a0a] border border-[#151515] rounded-lg px-3 py-2 text-white placeholder-[#555555] focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-transparent transition-colors;
-}
-
-/* Gradient accent for featured cards */
-.accent-gradient {
-  @apply bg-gradient-to-br from-accent-500 to-accent-600;
-}
-
-/* Premium card glow effects */
-.card-glow-green {
-  box-shadow: 0 0 24px rgba(34, 197, 94, 0.08), 0 0 0 1px rgba(34, 197, 94, 0.12);
-}
-
+/* Premium card glow (top draft pick highlight) */
 .card-glow-gold {
   box-shadow: 0 0 24px rgba(255, 215, 0, 0.08), 0 0 0 1px rgba(255, 215, 0, 0.12);
-}
-
-.card-glow-red {
-  box-shadow: 0 0 24px rgba(239, 68, 68, 0.08), 0 0 0 1px rgba(239, 68, 68, 0.12);
 }
 
 /* Smooth transition utility */
@@ -199,7 +135,7 @@ body {
 }
 
 .skeleton {
-  background: linear-gradient(90deg, #111111 25%, #1a1a1a 50%, #111111 75%);
+  background: linear-gradient(90deg, #1b1b22 25%, #26262f 50%, #1b1b22 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s ease-in-out infinite;
   border-radius: 6px;
@@ -208,8 +144,8 @@ body {
 /* Segmented control base */
 .segmented-control {
   display: inline-flex;
-  background: #0a0a0a;
-  border: none;
+  background: #141419;
+  border: 1px solid #26262f;
   border-radius: 10px;
   padding: 3px;
   gap: 2px;
@@ -220,7 +156,7 @@ body {
   border-radius: 8px;
   font-size: 13px;
   font-weight: 500;
-  color: #888888;
+  color: #9c9ca7;
   transition: all 200ms ease-out;
   border: none;
   background: transparent;
@@ -228,8 +164,8 @@ body {
 }
 
 .segmented-control button:hover {
-  color: #cccccc;
-  background: #111111;
+  color: #d6d6de;
+  background: #1b1b22;
 }
 
 .segmented-control button.active {
@@ -239,74 +175,12 @@ body {
   box-shadow: 0 0 12px rgba(34, 197, 94, 0.2);
 }
 
-/* Hide scrollbar utility */
-.scrollbar-hide {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
-}
-.scrollbar-hide::-webkit-scrollbar {
-  display: none;
-}
-
-/* Newsletter-style section header */
-.section-label {
-  font-size: 10px;
-  font-weight: 700;
-  color: #555555;
-  letter-spacing: 3px;
-  text-transform: uppercase;
-}
-
-.section-title {
-  font-size: 24px;
-  font-weight: 800;
-  color: #ffffff;
-  letter-spacing: -0.5px;
-}
-
-.section-subtitle {
-  font-size: 13px;
-  font-weight: 400;
-  color: #666666;
-}
-
 /* Card hover lift */
 .card-hover {
-  border: 1px solid #161616;
+  border: 1px solid #26262f;
   transition: border-color 200ms ease-out;
 }
 
 .card-hover:hover {
-  border-color: #222222;
-}
-
-/* Ensure minimum touch targets on mobile */
-@media (max-width: 640px) {
-  .touch-target {
-    min-height: 44px;
-    min-width: 44px;
-  }
-}
-
-/* Mobile-first compact utilities */
-@media (max-width: 640px) {
-  .mobile-compact {
-    font-size: 0.75rem;
-    line-height: 1.25rem;
-  }
-
-  .mobile-compact-table th,
-  .mobile-compact-table td {
-    padding: 0.5rem 0.75rem;
-    font-size: 0.75rem;
-  }
-
-  .mobile-compact-card {
-    padding: 0.75rem;
-    border-radius: 0.5rem;
-  }
-
-  .mobile-compact-page {
-    padding: 0.75rem;
-  }
+  border-color: #363641;
 }

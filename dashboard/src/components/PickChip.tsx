@@ -1,6 +1,6 @@
 const roundStyles: Record<number, string> = {
   1: 'bg-amber-500/15 text-amber-400 border-amber-500/25',
-  2: 'bg-[#161616] text-[#888888] border-[#2a2a2a]',
+  2: 'bg-[#22222b] text-[#9c9ca7] border-[#363641]',
   3: 'bg-orange-500/15 text-orange-400 border-orange-500/25',
   4: 'bg-stone-500/15 text-stone-400 border-stone-500/25',
 };

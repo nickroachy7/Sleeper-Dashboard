@@ -263,7 +263,7 @@ export default function Home() {
                 <div className="skeleton h-4 w-32 mb-4" />
                 <div className="grid grid-cols-3 gap-3 mb-4">
                   {[...Array(3)].map((_, i) => (
-                    <div key={i} className="bg-[#0a0a0a] rounded-xl p-4">
+                    <div key={i} className="bg-[#141419] rounded-xl p-4">
                       <div className="skeleton h-10 w-10 rounded-full mx-auto mb-2" />
                       <div className="skeleton h-3 w-20 mx-auto mb-1" />
                       <div className="skeleton h-4 w-16 mx-auto" />
@@ -271,7 +271,7 @@ export default function Home() {
                   ))}
                 </div>
                 {[...Array(4)].map((_, i) => (
-                  <div key={i} className="flex items-center gap-3 py-3 border-b border-[#111111]">
+                  <div key={i} className="flex items-center gap-3 py-3 border-b border-[#1b1b22]">
                     <div className="skeleton h-4 w-4" />
                     <div className="skeleton h-4 w-32" />
                     <div className="flex-1" />
@@ -284,7 +284,7 @@ export default function Home() {
               <div>
                 <div className="skeleton h-4 w-24 mb-4" />
                 {[...Array(5)].map((_, i) => (
-                  <div key={i} className="flex items-center gap-3 py-2.5 border-b border-[#111111]">
+                  <div key={i} className="flex items-center gap-3 py-2.5 border-b border-[#1b1b22]">
                     <div className="skeleton h-3 w-4" />
                     <div className="skeleton h-7 w-7 rounded-full" />
                     <div className="skeleton h-3 w-24" />
@@ -309,7 +309,7 @@ export default function Home() {
               <Zap className="h-8 w-8 text-accent-400" />
             </div>
             <h2 className="text-2xl font-bold text-white mb-2">Welcome to Sleeper Dashboard</h2>
-            <p className="text-[#666666] text-sm mb-8">Connect your Sleeper fantasy league to get started with dynasty trade intelligence.</p>
+            <p className="text-[#80808c] text-sm mb-8">Connect your Sleeper fantasy league to get started with dynasty trade intelligence.</p>
             <Link
               to="/settings"
               className="inline-flex items-center gap-2 px-5 py-3 bg-accent-500 text-white text-sm font-semibold rounded-xl hover:bg-accent-600 transition-all shadow-[0_0_16px_rgba(34,197,94,0.2)]"
@@ -343,7 +343,7 @@ export default function Home() {
 
           {/* Quick Actions */}
           <section>
-            <p className="text-[10px] font-bold text-[#555555] tracking-[3px] uppercase mb-3">QUICK ACTIONS</p>
+            <p className="text-[11px] font-bold text-accent-500 tracking-[0.2em] uppercase mb-3">QUICK ACTIONS</p>
             <div className="space-y-2">
               {[
                 { to: '/trade', icon: Scale, label: 'Evaluate a Trade', desc: 'Build a trade and see who wins', color: 'text-[#f97316]', bg: 'bg-[#f97316]/10' },
@@ -353,14 +353,14 @@ export default function Home() {
                 <Link
                   key={to}
                   to={to}
-                  className="flex items-center gap-3 p-3 bg-[#0a0a0a] rounded-xl hover:bg-[#0d0d0d] card-hover group"
+                  className="flex items-center gap-3 p-3 bg-[#141419] rounded-xl hover:bg-[#17171d] card-hover group"
                 >
                   <div className={`w-9 h-9 rounded-lg ${bg} flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform`}>
                     <Icon className={`h-4 w-4 ${color}`} />
                   </div>
                   <div className="min-w-0">
                     <p className="text-[13px] font-semibold text-white">{label}</p>
-                    <p className="text-[11px] text-[#555555]">{desc}</p>
+                    <p className="text-[11px] text-[#75757f]">{desc}</p>
                   </div>
                 </Link>
               ))}

@@ -17,7 +17,7 @@ interface PositionBadgeProps {
 }
 
 export function PositionBadge({ position, size = 'xs' }: PositionBadgeProps) {
-  const style = positionStyles[position] || 'bg-[#111111] text-[#888888]';
+  const style = positionStyles[position] || 'bg-[#1b1b22] text-[#9c9ca7]';
   const sizeClass = size === 'xs'
     ? 'px-1.5 py-0.5 text-[10px]'
     : size === 'sm'

@@ -108,8 +108,8 @@ const tierAccents: Record<number, string> = {
   1: '#ffd700',
   2: '#c0c0c0',
   3: '#cd7f32',
-  4: '#555555',
-  5: '#333333',
+  4: '#75757f',
+  5: '#4c4c56',
 };
 
 // ── Teams Tab Types & Helpers ────────────────────────────────────
@@ -144,7 +144,7 @@ const teamTierLabels: Record<string, string> = {
 const teamTierBorders: Record<string, string> = {
   Stacked: '#f59e0b',
   Solid: '#3b82f6',
-  Meh: '#555555',
+  Meh: '#75757f',
   Pain: '#ef4444',
 };
 
@@ -303,14 +303,14 @@ function PlayersTab() {
   return (
     <>
       <div className="flex items-center gap-2 flex-wrap mb-2">
-        <span className="text-[11px] text-[#555555] bg-[#0a0a0a] px-2 py-0.5 rounded-md">
+        <span className="text-[11px] text-[#75757f] bg-[#141419] px-2 py-0.5 rounded-md">
           {stats.totalPlayers} players
         </span>
-        <span className="text-[11px] text-[#555555] bg-[#0a0a0a] px-2 py-0.5 rounded-md">
+        <span className="text-[11px] text-[#75757f] bg-[#141419] px-2 py-0.5 rounded-md">
           {stats.totalPicks} picks
         </span>
         {stats.lastUpdated && (
-          <span className="text-[11px] text-[#444444]">
+          <span className="text-[11px] text-[#60606a]">
             Updated {new Date(stats.lastUpdated).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} at {new Date(stats.lastUpdated).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
           </span>
         )}
@@ -352,7 +352,7 @@ function PlayersTab() {
         />
       </FilterBar>
 
-      <div className="bg-[#0a0a0a] rounded-xl overflow-hidden">
+      <div className="bg-[#141419] rounded-xl overflow-hidden">
         {paginatedValues.map((item, idx) => {
           const prevItem = idx > 0 ? paginatedValues[idx - 1] : null;
           const showTierHeader = sortField === 'rank' &&
@@ -365,23 +365,23 @@ function PlayersTab() {
             <Fragment key={`${item.type}-${item.id}`}>
               {showTierHeader && (
                 <div
-                  className="px-4 py-2.5 bg-[#0d0d0d] border-b border-[#111111] sticky top-0 z-[5]"
+                  className="px-4 py-2.5 bg-[#17171d] border-b border-[#1b1b22] sticky top-0 z-[5]"
                   style={{ borderLeft: `3px solid ${tierAccents[item.tier!] || '#333'}` }}
                 >
-                  <span className="text-xs font-bold text-[#888888]">
+                  <span className="text-xs font-bold text-[#9c9ca7]">
                     Tier {item.tier}
                   </span>
                   {tierDescriptions[item.tier!] && (
-                    <span className="text-xs text-[#555555] ml-2">
+                    <span className="text-xs text-[#75757f] ml-2">
                       — {tierDescriptions[item.tier!]}
                     </span>
                   )}
                 </div>
               )}
               <div
-                className="flex items-center gap-2.5 px-3 sm:px-4 py-2 sm:py-2.5 hover:bg-[#111111]/50 transition-colors border-b border-[#111111] last:border-b-0"
+                className="flex items-center gap-2.5 px-3 sm:px-4 py-2 sm:py-2.5 hover:bg-[#1b1b22]/50 transition-colors border-b border-[#1b1b22] last:border-b-0"
               >
-                <span className="text-xs font-medium text-[#666666] w-5 sm:w-6 text-right shrink-0 tabular-nums">
+                <span className="text-xs font-medium text-[#80808c] w-5 sm:w-6 text-right shrink-0 tabular-nums">
                   {globalRank}
                 </span>
 
@@ -389,12 +389,12 @@ function PlayersTab() {
                   <img
                     src={`https://sleepercdn.com/content/nfl/players/${item.playerId}.jpg`}
                     alt=""
-                    className="w-8 h-8 rounded-full object-cover bg-[#111111] shrink-0"
+                    className="w-8 h-8 rounded-full object-cover bg-[#1b1b22] shrink-0"
                     onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                   />
                 ) : (
-                  <div className="w-8 h-8 rounded-full bg-[#111111] flex items-center justify-center shrink-0">
-                    <span className="text-[8px] font-bold text-[#555555]">PK</span>
+                  <div className="w-8 h-8 rounded-full bg-[#1b1b22] flex items-center justify-center shrink-0">
+                    <span className="text-[8px] font-bold text-[#75757f]">PK</span>
                   </div>
                 )}
 
@@ -405,7 +405,7 @@ function PlayersTab() {
                   <div className="flex items-center gap-1.5 mt-0.5">
                     {item.position && <PositionBadge position={item.position} size="xs" />}
                     {item.team && (
-                      <span className="text-[11px] text-[#666666]">
+                      <span className="text-[11px] text-[#80808c]">
                         {item.team}
                       </span>
                     )}
@@ -421,7 +421,7 @@ function PlayersTab() {
                   </div>
                 </div>
 
-                <span className="text-sm font-bold text-white tabular-nums shrink-0">
+                <span className="font-display text-sm font-bold text-white tabular-nums shrink-0">
                   {item.value.toLocaleString()}
                 </span>
               </div>
@@ -567,10 +567,10 @@ function TeamsTab() {
   return (
     <>
       <div className="flex items-center gap-2 flex-wrap mb-4">
-        <span className="text-[11px] text-[#555555] bg-[#0a0a0a] px-2 py-1 rounded-md">
+        <span className="text-[11px] text-[#75757f] bg-[#141419] px-2 py-1 rounded-md">
           {sortedTeams.length} teams
         </span>
-        <span className="text-[11px] text-[#444444]">
+        <span className="text-[11px] text-[#60606a]">
           Ranked by {filterLabel} weighted KTC value
         </span>
       </div>
@@ -590,7 +590,7 @@ function TeamsTab() {
         />
       </div>
 
-      <div className="bg-[#0a0a0a] rounded-xl overflow-hidden border border-[#161616]">
+      <div className="bg-[#141419] rounded-xl overflow-hidden border border-[#22222b]">
         {sortedTeams.map((team, idx) => {
           const rank = idx + 1;
           const accentColor = teamRankAccentColors[rank];
@@ -603,29 +603,29 @@ function TeamsTab() {
             <div key={team.rosterId}>
               {showTierHeader && (
                 <div
-                  className="px-4 py-2.5 bg-[#0d0d0d] border-b border-[#111111]"
+                  className="px-4 py-2.5 bg-[#17171d] border-b border-[#1b1b22]"
                   style={{ borderLeft: `3px solid ${teamTierBorders[tierInfo.label] || '#333'}` }}
                 >
-                  <span className="text-xs font-bold text-[#888888]">
+                  <span className="text-xs font-bold text-[#9c9ca7]">
                     Tier {tiers.indexOf(tierInfo) + 1}
                   </span>
-                  <span className="text-xs text-[#555555] ml-2">
+                  <span className="text-xs text-[#75757f] ml-2">
                     — {teamTierLabels[tierInfo.label]}
                   </span>
                 </div>
               )}
 
               <div
-                className={`flex items-center gap-2.5 px-3 py-2 hover:bg-[#0d0d0d] transition-colors ${idx % 2 === 1 ? 'bg-[#070707]' : ''}`}
+                className={`flex items-center gap-2.5 px-3 py-2 hover:bg-[#17171d] transition-colors ${idx % 2 === 1 ? 'bg-[#101015]' : ''}`}
               >
                 <span
                   className="text-[11px] font-bold tabular-nums w-5 text-right shrink-0"
-                  style={{ color: accentColor || '#555555' }}
+                  style={{ color: accentColor || '#75757f' }}
                 >
                   {rank}
                 </span>
 
-                <div className="w-7 h-7 rounded-full overflow-hidden bg-[#111111] shrink-0">
+                <div className="w-7 h-7 rounded-full overflow-hidden bg-[#1b1b22] shrink-0">
                   {team.avatarUrl ? (
                     <img
                       src={team.avatarUrl}
@@ -640,7 +640,7 @@ function TeamsTab() {
                   <p className="text-[12px] font-semibold text-white truncate">
                     {team.teamName || team.ownerName}
                   </p>
-                  <span className="text-[12px] font-bold text-white tabular-nums ml-2 shrink-0">
+                  <span className="font-display text-[12px] font-bold text-white tabular-nums ml-2 shrink-0">
                     {displayValue.toLocaleString()}
                   </span>
                 </div>
@@ -651,16 +651,16 @@ function TeamsTab() {
 
       </div>
 
-      <div className="text-[11px] text-[#444444] mt-3 px-1 leading-relaxed space-y-1.5">
+      <div className="text-[11px] text-[#60606a] mt-3 px-1 leading-relaxed space-y-1.5">
         <p>
           Rankings use diminishing returns to prevent roster hoarding from inflating values. Players are sorted by KTC value at each position, then weighted by roster slot:
         </p>
         <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 pl-1">
-          <span className="text-[#555555] font-medium">100%</span>
+          <span className="text-[#75757f] font-medium">100%</span>
           <span>Top 2 QBs, top 3 RBs, top 3 WRs, top 1 TE</span>
-          <span className="text-[#555555] font-medium">50%</span>
+          <span className="text-[#75757f] font-medium">50%</span>
           <span>Next 1 QB, next 2 RBs, next 2 WRs, next 1 TE</span>
-          <span className="text-[#555555] font-medium">10%</span>
+          <span className="text-[#75757f] font-medium">10%</span>
           <span>Everyone else on the bench beyond that</span>
         </div>
         <p>Picks are always counted at full value.</p>

@@ -8,6 +8,7 @@ import { KTCValues } from './pages/KTCValues';
 import TradeTools from './pages/TradeTools';
 import PlayerDetail from './pages/PlayerDetail';
 import TeamDetail from './pages/TeamDetail';
+import Chat from './pages/Chat';
 
 function App() {
   return (
@@ -16,6 +17,7 @@ function App() {
         <Route index element={<Home />} />
         <Route path="trade" element={<TradeTools />} />
         <Route path="ktc-values" element={<KTCValues />} />
+        <Route path="chat" element={<Chat />} />
         <Route path="transactions" element={<Transactions />} />
         <Route path="drafts" element={<Drafts />} />
         <Route path="players/:playerId" element={<PlayerDetail />} />

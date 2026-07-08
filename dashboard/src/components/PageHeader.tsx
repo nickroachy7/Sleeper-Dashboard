@@ -30,12 +30,12 @@ export function PageHeader({
   return (
     <div className="mb-3">
       {sectionLabel && (
-        <p className="text-[10px] font-bold text-[#555555] tracking-[3px] uppercase mb-1">
+        <p className="text-[11px] font-bold text-accent-500 tracking-[0.2em] uppercase mb-1">
           {sectionLabel}
         </p>
       )}
       <div className="flex items-center justify-between gap-3">
-        <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight truncate">
+        <h1 className="font-display text-2xl sm:text-3xl font-bold text-white tracking-tight truncate">
           {title}
         </h1>
         <div className="flex items-center gap-2 flex-shrink-0">
@@ -60,7 +60,7 @@ export function PageHeader({
       {(subtitle || stats) && (
         <div className="flex items-center gap-2 mt-1 flex-wrap">
           {subtitle && (
-            <p className="text-[13px] text-[#555555]">
+            <p className="text-[13px] text-[#9c9ca7]">
               {subtitle}
             </p>
           )}

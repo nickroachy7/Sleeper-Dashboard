@@ -114,49 +114,49 @@ function AssetDropdown({
       <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40" onClick={onClose} />
       <div
         ref={dropdownRef}
-        className="fixed z-50 left-4 right-4 top-1/2 -translate-y-1/2 max-w-md mx-auto bg-[#0a0a0a] border border-[#1e1e1e] rounded-xl shadow-2xl overflow-hidden"
+        className="fixed z-50 left-4 right-4 top-1/2 -translate-y-1/2 max-w-md mx-auto bg-[#141419] border border-[#2a2a34] rounded-xl shadow-2xl overflow-hidden"
       >
-        <div className="px-4 py-3 border-b border-[#151515] flex items-center justify-between">
+        <div className="px-4 py-3 border-b border-[#1f1f27] flex items-center justify-between">
           <span className="text-sm font-semibold text-white">{title}</span>
           <div className="flex items-center gap-2">
             {selectedIds.length > 0 && (
               <span className="text-xs text-accent-400 font-medium">{selectedIds.length} selected</span>
             )}
-            <button onClick={onClose} className="p-1.5 hover:bg-[#151515] rounded-lg transition-colors">
-              <X className="h-4 w-4 text-[#666666]" />
+            <button onClick={onClose} className="p-1.5 hover:bg-[#1f1f27] rounded-lg transition-colors">
+              <X className="h-4 w-4 text-[#80808c]" />
             </button>
           </div>
         </div>
 
-        <div className="p-3 border-b border-[#151515]">
+        <div className="p-3 border-b border-[#1f1f27]">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#555555]" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#75757f]" />
             <input
               ref={inputRef}
               type="text"
               placeholder="Search..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-9 pr-4 py-2.5 text-sm bg-[#111111] border border-[#222222] rounded-lg text-white placeholder-[#555555] focus:outline-none focus:border-accent-500/50 transition-colors"
+              className="w-full pl-9 pr-4 py-2.5 text-sm bg-[#1b1b22] border border-[#2e2e38] rounded-lg text-white placeholder-[#75757f] focus:outline-none focus:border-accent-500/50 transition-colors"
             />
           </div>
         </div>
 
         <div className="max-h-80 overflow-y-auto overscroll-contain">
           {filteredItems.length === 0 ? (
-            <div className="p-8 text-sm text-[#555555] text-center">{emptyMessage}</div>
+            <div className="p-8 text-sm text-[#75757f] text-center">{emptyMessage}</div>
           ) : (
-            <div className="divide-y divide-[#111111]">
+            <div className="divide-y divide-[#1b1b22]">
               {filteredItems.map((item) => {
                 const isSelected = selectedIds.includes(item.id);
                 return (
                   <button
                     key={item.id}
                     onClick={() => onToggle(item)}
-                    className={`w-full px-4 py-3 flex items-center justify-between gap-3 transition-colors ${isSelected ? 'bg-accent-500/10' : 'hover:bg-[#111111]'}`}
+                    className={`w-full px-4 py-3 flex items-center justify-between gap-3 transition-colors ${isSelected ? 'bg-accent-500/10' : 'hover:bg-[#1b1b22]'}`}
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
-                      <div className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${isSelected ? 'bg-accent-500 border-accent-500' : 'border-[#333333]'}`}>
+                      <div className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${isSelected ? 'bg-accent-500 border-accent-500' : 'border-[#4c4c56]'}`}>
                         {isSelected && <span className="text-white text-[10px] font-bold">&#10003;</span>}
                       </div>
                       <span className={`px-1.5 py-0.5 text-[10px] font-bold rounded shrink-0 ${getPositionBadgeClass(item.type === 'player' ? (item.position || '') : 'PICK')}`}>
@@ -172,7 +172,7 @@ function AssetDropdown({
           )}
         </div>
 
-        <div className="px-4 py-3 bg-[#080808] border-t border-[#151515]">
+        <div className="px-4 py-3 bg-[#080808] border-t border-[#1f1f27]">
           <button
             onClick={onClose}
             className="w-full py-2.5 bg-accent-500 hover:bg-accent-600 text-white text-sm font-semibold rounded-lg transition-colors"
@@ -591,23 +591,23 @@ export function TradeFinder() {
   return (
     <div>
       {/* ── Setup Card — styled like TradeCard ── */}
-      <div className="bg-[#0a0a0a] rounded-xl overflow-hidden mb-4">
+      <div className="bg-[#141419] rounded-xl overflow-hidden mb-4">
         {/* Header */}
         <div className="flex items-center justify-between bg-white/[0.05] px-4 sm:px-5 py-3 sm:py-4">
           <div className="flex items-center gap-2">
             <span className="px-2 py-0.5 bg-white text-black text-[10px] font-extrabold tracking-[1px] rounded-sm">
               TRADE
             </span>
-            <span className="text-[11px] text-[#555555]">Finder</span>
+            <span className="text-[11px] text-[#75757f]">Finder</span>
           </div>
           {/* Mode Toggle */}
-          <div className="flex items-center gap-1 bg-[#111111] rounded-lg p-0.5">
+          <div className="flex items-center gap-1 bg-[#1b1b22] rounded-lg p-0.5">
             <button
               onClick={() => setTradeMode('dump')}
               className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all ${
                 tradeMode === 'dump'
-                  ? 'bg-[#1a1a1a] text-white'
-                  : 'text-[#555555] hover:text-[#888888]'
+                  ? 'bg-[#26262f] text-white'
+                  : 'text-[#75757f] hover:text-[#9c9ca7]'
               }`}
             >
               <ArrowUp className="h-3 w-3" />
@@ -617,8 +617,8 @@ export function TradeFinder() {
               onClick={() => setTradeMode('acquire')}
               className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all ${
                 tradeMode === 'acquire'
-                  ? 'bg-[#1a1a1a] text-white'
-                  : 'text-[#555555] hover:text-[#888888]'
+                  ? 'bg-[#26262f] text-white'
+                  : 'text-[#75757f] hover:text-[#9c9ca7]'
               }`}
             >
               <ArrowDown className="h-3 w-3" />
@@ -630,11 +630,11 @@ export function TradeFinder() {
         {/* Side 1: Your Team (dump) or Trade With (acquire) */}
         <button
           onClick={() => setDropdownOpen(tradeMode === 'dump' ? 'myTeam' : 'targetTeam')}
-          className="w-full flex items-center justify-between bg-[#111111] px-4 sm:px-5 py-2.5 border-t border-[#1a1a1a] group"
+          className="w-full flex items-center justify-between bg-[#1b1b22] px-4 sm:px-5 py-2.5 border-t border-[#26262f] group"
         >
           <div className="flex items-center gap-2 min-w-0">
             <span className={`font-bold text-sm truncate ${
-              (tradeMode === 'dump' ? myRoster : targetRoster) ? 'text-white' : 'text-[#555555]'
+              (tradeMode === 'dump' ? myRoster : targetRoster) ? 'text-white' : 'text-[#75757f]'
             }`}>
               {tradeMode === 'dump'
                 ? (myRoster ? getTeamDisplayName(myRoster) : 'Select your team...')
@@ -642,24 +642,24 @@ export function TradeFinder() {
               }
             </span>
             {selectedAssets.length > 0 && (
-              <span className="text-[10px] text-[#555555]">
+              <span className="text-[10px] text-[#75757f]">
                 {selectedAssets.length} asset{selectedAssets.length !== 1 ? 's' : ''}
               </span>
             )}
           </div>
           <div className="flex items-center gap-2 shrink-0">
             {selectedAssets.length > 0 && (
-              <span className="text-[11px] text-[#555555] font-medium tabular-nums">
+              <span className="text-[11px] text-[#75757f] font-medium tabular-nums">
                 {selectedValueInfo.adjusted.toLocaleString()} KTC
               </span>
             )}
-            <ChevronDown className="h-4 w-4 text-[#333333] group-hover:text-[#555555] transition-colors" />
+            <ChevronDown className="h-4 w-4 text-[#4c4c56] group-hover:text-[#75757f] transition-colors" />
           </div>
         </button>
 
         {/* Assets for side 1 */}
         {assetSourceRoster && (
-          <div style={{ borderLeft: '3px solid #222222' }}>
+          <div style={{ borderLeft: '3px solid #2e2e38' }}>
             {selectedAssets.map(asset => {
               const playerId = asset.type === 'player' ? asset.id.replace('player-', '') : null;
               return (
@@ -670,13 +670,13 @@ export function TradeFinder() {
                   position={asset.type === 'player' ? (asset.position || '?') : 'PICK'}
                   team={asset.team}
                   value={asset.value}
-                  className="group/row border-t border-[#111111] px-4 sm:px-5"
+                  className="group/row border-t border-[#1b1b22] px-4 sm:px-5"
                   suffix={
                     <button
                       onClick={(e) => { e.stopPropagation(); removeAsset(asset.id); }}
                       className="p-1 rounded opacity-0 group-hover/row:opacity-100 hover:bg-red-500/10 transition-all shrink-0"
                     >
-                      <X className="h-3 w-3 text-[#555555] hover:text-red-400" />
+                      <X className="h-3 w-3 text-[#75757f] hover:text-red-400" />
                     </button>
                   }
                 />
@@ -684,17 +684,17 @@ export function TradeFinder() {
             })}
 
             {/* Add buttons — matches Evaluator style */}
-            <div className="flex gap-2 py-2 px-4 sm:px-5 border-t border-[#111111]">
+            <div className="flex gap-2 py-2 px-4 sm:px-5 border-t border-[#1b1b22]">
               <button
                 onClick={() => setDropdownOpen('assets')}
-                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] text-[#555555] hover:text-accent-400 hover:bg-accent-500/5 transition-all"
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] text-[#75757f] hover:text-accent-400 hover:bg-accent-500/5 transition-all"
               >
                 <Plus className="h-3 w-3" />
                 Player
               </button>
               <button
                 onClick={() => setDropdownOpen('assets')}
-                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] text-[#555555] hover:text-cyan-400 hover:bg-cyan-500/5 transition-all"
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] text-[#75757f] hover:text-cyan-400 hover:bg-cyan-500/5 transition-all"
               >
                 <Plus className="h-3 w-3" />
                 Pick
@@ -707,11 +707,11 @@ export function TradeFinder() {
         {((tradeMode === 'dump' && myRoster) || (tradeMode === 'acquire' && targetRoster)) && (
           <button
             onClick={() => setDropdownOpen(tradeMode === 'dump' ? 'targetTeam' : 'myTeam')}
-            className="w-full flex items-center justify-between bg-[#111111] px-4 sm:px-5 py-2.5 border-t border-[#1a1a1a] group"
+            className="w-full flex items-center justify-between bg-[#1b1b22] px-4 sm:px-5 py-2.5 border-t border-[#26262f] group"
           >
             <div className="flex items-center gap-2 min-w-0">
               <span className={`font-bold text-sm truncate ${
-                (tradeMode === 'dump' ? targetRoster : myRoster) ? 'text-white' : 'text-[#555555]'
+                (tradeMode === 'dump' ? targetRoster : myRoster) ? 'text-white' : 'text-[#75757f]'
               }`}>
                 {tradeMode === 'dump'
                   ? (targetRoster ? getTeamDisplayName(targetRoster) : 'Any team')
@@ -725,19 +725,19 @@ export function TradeFinder() {
                   onClick={(e) => { e.stopPropagation(); setTargetRoster(null); setScenarios([]); }}
                   className="p-1 rounded hover:bg-red-500/10 transition-colors"
                 >
-                  <X className="h-3.5 w-3.5 text-[#555555] hover:text-red-400" />
+                  <X className="h-3.5 w-3.5 text-[#75757f] hover:text-red-400" />
                 </button>
               )}
-              <ChevronDown className="h-4 w-4 text-[#333333] group-hover:text-[#555555] transition-colors" />
+              <ChevronDown className="h-4 w-4 text-[#4c4c56] group-hover:text-[#75757f] transition-colors" />
             </div>
           </button>
         )}
 
         {/* Filters Row */}
-        <div className="border-t border-[#151515]">
+        <div className="border-t border-[#1f1f27]">
           <button
             onClick={() => setShowFilters(!showFilters)}
-            className="w-full px-4 py-2.5 flex items-center justify-between text-xs text-[#555555] hover:text-[#888888] transition-colors"
+            className="w-full px-4 py-2.5 flex items-center justify-between text-xs text-[#75757f] hover:text-[#9c9ca7] transition-colors"
           >
             <div className="flex items-center gap-1.5">
               <SlidersHorizontal className="h-3.5 w-3.5" />
@@ -761,7 +761,7 @@ export function TradeFinder() {
               {/* Row 1: Max return pieces + Tolerance */}
               <div className="flex flex-col sm:flex-row gap-4">
                 <div className="flex-1">
-                  <span className="text-[10px] font-semibold text-[#555555] uppercase tracking-wider block mb-1.5">
+                  <span className="text-[10px] font-semibold text-[#75757f] uppercase tracking-wider block mb-1.5">
                     Max Return Pieces
                   </span>
                   <div className="flex gap-1">
@@ -772,7 +772,7 @@ export function TradeFinder() {
                         className={`flex-1 py-1.5 px-2 rounded-md text-xs font-medium transition-all ${
                           maxPieces === n
                             ? 'bg-accent-500/15 text-accent-400'
-                            : 'text-[#555555] hover:text-[#888888] hover:bg-[#111111]'
+                            : 'text-[#75757f] hover:text-[#9c9ca7] hover:bg-[#1b1b22]'
                         }`}
                       >
                         {n === 0 ? 'Any' : `${n}`}
@@ -783,7 +783,7 @@ export function TradeFinder() {
 
                 <div className="sm:w-40">
                   <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-[10px] font-semibold text-[#555555] uppercase tracking-wider">Tolerance</span>
+                    <span className="text-[10px] font-semibold text-[#75757f] uppercase tracking-wider">Tolerance</span>
                     <span className="text-xs font-bold text-accent-400 tabular-nums">&plusmn;{tolerance}%</span>
                   </div>
                   <input
@@ -793,7 +793,7 @@ export function TradeFinder() {
                     step={5}
                     value={tolerance}
                     onChange={(e) => setTolerance(Number(e.target.value))}
-                    className="w-full h-1.5 bg-[#222222] rounded-full appearance-none cursor-pointer accent-accent-500"
+                    className="w-full h-1.5 bg-[#2e2e38] rounded-full appearance-none cursor-pointer accent-accent-500"
                   />
                 </div>
               </div>
@@ -801,7 +801,7 @@ export function TradeFinder() {
               {/* Row 2: Position filter + Asset type */}
               <div className="flex flex-col sm:flex-row gap-4">
                 <div className="flex-1">
-                  <span className="text-[10px] font-semibold text-[#555555] uppercase tracking-wider block mb-1.5">
+                  <span className="text-[10px] font-semibold text-[#75757f] uppercase tracking-wider block mb-1.5">
                     Positions
                   </span>
                   <div className="flex gap-1">
@@ -828,7 +828,7 @@ export function TradeFinder() {
                           className={`flex-1 py-1.5 px-2 rounded-md text-xs font-medium transition-all ${
                             isActive
                               ? colors[pos]
-                              : 'text-[#555555] hover:text-[#888888] hover:bg-[#111111]'
+                              : 'text-[#75757f] hover:text-[#9c9ca7] hover:bg-[#1b1b22]'
                           }`}
                         >
                           {pos}
@@ -837,12 +837,12 @@ export function TradeFinder() {
                     })}
                   </div>
                   {positionFilters.size === 0 && (
-                    <span className="text-[10px] text-[#333333] mt-1 block">All positions shown when none selected</span>
+                    <span className="text-[10px] text-[#4c4c56] mt-1 block">All positions shown when none selected</span>
                   )}
                 </div>
 
                 <div className="sm:w-40">
-                  <span className="text-[10px] font-semibold text-[#555555] uppercase tracking-wider block mb-1.5">
+                  <span className="text-[10px] font-semibold text-[#75757f] uppercase tracking-wider block mb-1.5">
                     {tradeMode === 'dump' ? 'Prefer to receive' : 'Prefer to give up'}
                   </span>
                   <div className="flex gap-1">
@@ -853,7 +853,7 @@ export function TradeFinder() {
                         className={`flex-1 py-1.5 px-2 rounded-md text-xs font-medium transition-all ${
                           assetPreference === pref
                             ? 'bg-accent-500/15 text-accent-400'
-                            : 'text-[#555555] hover:text-[#888888] hover:bg-[#111111]'
+                            : 'text-[#75757f] hover:text-[#9c9ca7] hover:bg-[#1b1b22]'
                         }`}
                       >
                         {pref === 'all' ? 'Any' : pref === 'players' ? 'Plyr' : 'Pick'}
@@ -874,7 +874,7 @@ export function TradeFinder() {
         className={`w-full py-3.5 rounded-xl font-semibold text-white text-sm transition-all flex items-center justify-center gap-2 mt-3 ${
           canSearch && !isSearching
             ? 'bg-accent-500 hover:bg-accent-600 shadow-[0_0_20px_rgba(34,197,94,0.15)]'
-            : 'bg-[#1a1a1a] text-[#444444] cursor-not-allowed'
+            : 'bg-[#26262f] text-[#60606a] cursor-not-allowed'
         }`}
       >
         {isSearching ? (
@@ -897,14 +897,14 @@ export function TradeFinder() {
             <h2 className="text-sm font-bold text-white">
               Trade Scenarios
             </h2>
-            <span className="text-xs text-[#555555] tabular-nums">
+            <span className="text-xs text-[#75757f] tabular-nums">
               {scenarios.length} found
             </span>
           </div>
 
           {/* Sort controls */}
-          <div className="flex items-center gap-1.5 mb-3 bg-[#0a0a0a] rounded-lg p-1 w-fit">
-            <span className="text-[10px] text-[#555555] font-semibold uppercase tracking-wider px-2">Sort</span>
+          <div className="flex items-center gap-1.5 mb-3 bg-[#141419] rounded-lg p-1 w-fit">
+            <span className="text-[10px] text-[#75757f] font-semibold uppercase tracking-wider px-2">Sort</span>
             {([
               { key: 'balanced', label: 'Balanced' },
               { key: 'fairness', label: 'Fairness' },
@@ -947,7 +947,7 @@ export function TradeFinder() {
                 className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all ${
                   sortMode === key
                     ? 'bg-accent-500/15 text-accent-400'
-                    : 'text-[#666666] hover:text-[#aaaaaa]'
+                    : 'text-[#80808c] hover:text-[#aaaaaa]'
                 }`}
               >
                 {label}
@@ -1001,7 +1001,7 @@ export function TradeFinder() {
               const fitColor =
                 scenario.userFit >= 25 ? 'text-emerald-400'
                   : scenario.userFit <= -25 ? 'text-red-400'
-                  : 'text-[#888888]';
+                  : 'text-[#9c9ca7]';
               const fitLabel =
                 scenario.userFit >= 40 ? 'Great fit'
                   : scenario.userFit >= 15 ? 'Good fit'
@@ -1011,16 +1011,16 @@ export function TradeFinder() {
               return (
                 <div key={idx}>
                   <TradeCard sides={sides} />
-                  <div className="flex items-center justify-between gap-2 px-4 py-2 bg-[#0a0a0a] border-t border-[#151515] rounded-b-xl -mt-[1px]">
+                  <div className="flex items-center justify-between gap-2 px-4 py-2 bg-[#141419] border-t border-[#1f1f27] rounded-b-xl -mt-[1px]">
                     <div className="flex items-center gap-3 text-[10px]">
                       <span className={`font-semibold ${fitColor}`}>
                         {fitLabel}
-                        <span className="text-[#555555] font-normal ml-1">
+                        <span className="text-[#75757f] font-normal ml-1">
                           ({scenario.userFit > 0 ? '+' : ''}{Math.round(scenario.userFit)})
                         </span>
                       </span>
                       {scenario.partnerDeltaPct < -0.5 && (
-                        <span className="text-[#666666]">
+                        <span className="text-[#80808c]">
                           Partner {scenario.partnerDeltaPct.toFixed(1)}%
                         </span>
                       )}
@@ -1043,7 +1043,7 @@ export function TradeFinder() {
                           },
                         });
                       }}
-                      className="flex items-center gap-1 text-[10px] text-[#666666] hover:text-accent-400 font-semibold px-2 py-1 rounded transition-colors"
+                      className="flex items-center gap-1 text-[10px] text-[#80808c] hover:text-accent-400 font-semibold px-2 py-1 rounded transition-colors"
                     >
                       Open in Evaluator
                       <ExternalLink className="h-3 w-3" />
@@ -1058,7 +1058,7 @@ export function TradeFinder() {
 
       {scenarios.length === 0 && selectedAssets.length > 0 && !isSearching && (
         <div className="mt-6 py-8 text-center">
-          <p className="text-sm text-[#444444]">
+          <p className="text-sm text-[#60606a]">
             Hit "Find Trades" to discover matching scenarios
           </p>
         </div>

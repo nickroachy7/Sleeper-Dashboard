@@ -270,7 +270,7 @@ export default function Transactions() {
       <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto">
         <div className="space-y-4 mt-12">
           {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="bg-[#0a0a0a] rounded-xl p-5">
+            <div key={i} className="bg-[#141419] rounded-xl p-5">
               <div className="flex items-center gap-2 mb-4">
                 <div className="skeleton w-16 h-5" />
                 <div className="skeleton w-20 h-4" />
@@ -298,11 +298,11 @@ export default function Transactions() {
     return (
       <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto">
         <div className="flex flex-col items-center justify-center py-16 text-center">
-          <div className="w-14 h-14 bg-[#111111] rounded-2xl flex items-center justify-center mb-4">
-            <ArrowRightLeft className="h-7 w-7 text-[#555555]" />
+          <div className="w-14 h-14 bg-[#1b1b22] rounded-2xl flex items-center justify-center mb-4">
+            <ArrowRightLeft className="h-7 w-7 text-[#75757f]" />
           </div>
           <h3 className="text-lg font-bold text-white mb-2">No Transactions</h3>
-          <p className="text-sm text-[#666666] max-w-sm mb-6">
+          <p className="text-sm text-[#80808c] max-w-sm mb-6">
             Connect your league to see trades, waivers, and roster moves
           </p>
           <Link
@@ -415,28 +415,28 @@ export default function Transactions() {
       ? 'bg-amber-500 text-black'
       : tx.type === 'free_agent'
       ? 'bg-emerald-500 text-black'
-      : 'bg-[#555555] text-black';
+      : 'bg-[#75757f] text-black';
     const headerBg = tx.type === 'waiver'
       ? 'bg-amber-500/[0.07]'
       : tx.type === 'free_agent'
       ? 'bg-emerald-500/[0.07]'
       : 'bg-white/[0.03]';
     return (
-      <div className="bg-[#0a0a0a] rounded-xl overflow-hidden animate-smooth border border-[#161616] hover:border-[#222222]">
+      <div className="bg-[#141419] rounded-xl overflow-hidden animate-smooth border border-[#22222b] hover:border-[#2e2e38]">
         {/* Header */}
         <div className={`flex items-center justify-between px-4 sm:px-5 py-3 sm:py-4 ${headerBg}`}>
           <div className="flex items-center gap-2">
             <span className={`px-2 py-0.5 text-[10px] font-extrabold tracking-[1px] rounded-sm ${typeBadgeClass}`}>
               {typeLabel}
             </span>
-            <span className="text-[11px] text-[#555555] flex items-center gap-1">
+            <span className="text-[11px] text-[#75757f] flex items-center gap-1">
               <Clock className="h-3 w-3" />
               {formatDate(tx)}
             </span>
           </div>
           {(addedValue > 0 || droppedValue > 0) && (
             <span className={`text-[10px] font-semibold tabular-nums ${
-              netValue > 0 ? 'text-emerald-400' : netValue < 0 ? 'text-red-400' : 'text-[#555555]'
+              netValue > 0 ? 'text-emerald-400' : netValue < 0 ? 'text-red-400' : 'text-[#75757f]'
             }`}>
               {netValue > 0 ? '+' : ''}{netValue.toLocaleString()} KTC
             </span>
@@ -445,16 +445,16 @@ export default function Transactions() {
 
         {/* Team + Assets */}
         <div>
-          <div className="flex items-center justify-between border-t border-[#1a1a1a] bg-[#111111] px-4 sm:px-5 py-2.5">
+          <div className="flex items-center justify-between border-t border-[#26262f] bg-[#1b1b22] px-4 sm:px-5 py-2.5">
             <div className="flex items-center gap-2">
               <span className="text-sm font-bold text-white">{team?.teamName || 'Unknown'}</span>
-              <span className="text-[10px] text-[#555555]">
+              <span className="text-[10px] text-[#75757f]">
                 {adds.length + drops.length} move{adds.length + drops.length !== 1 ? 's' : ''}
               </span>
             </div>
           </div>
 
-          <div style={{ borderLeft: '3px solid #222222' }}>
+          <div style={{ borderLeft: '3px solid #2e2e38' }}>
             {adds.map((pid) => {
               const p = getPlayer(pid);
               const val = getPlayerValue(pid);
@@ -467,7 +467,7 @@ export default function Transactions() {
                   team={p?.team}
                   value={val}
                   prefix={<span className="text-emerald-400 font-bold text-[11px]">+</span>}
-                  className="px-4 sm:px-5 border-t border-[#111111]"
+                  className="px-4 sm:px-5 border-t border-[#1b1b22]"
                 />
               );
             })}
@@ -483,7 +483,7 @@ export default function Transactions() {
                   team={p?.team}
                   value={val}
                   prefix={<span className="text-red-400 font-bold text-[11px]">−</span>}
-                  className="px-4 sm:px-5 border-t border-[#111111]"
+                  className="px-4 sm:px-5 border-t border-[#1b1b22]"
                 />
               );
             })}
@@ -503,13 +503,13 @@ export default function Transactions() {
         subtitle="Trades, waivers, and roster moves with KTC analysis"
         stats={
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-[11px] text-[#555555] bg-[#0a0a0a] px-2 py-1 rounded-md">
+            <span className="text-[11px] text-[#75757f] bg-[#141419] px-2 py-1 rounded-md">
               {typeCounts.trades} trades
             </span>
-            <span className="text-[11px] text-[#555555] bg-[#0a0a0a] px-2 py-1 rounded-md">
+            <span className="text-[11px] text-[#75757f] bg-[#141419] px-2 py-1 rounded-md">
               {typeCounts.waivers} waivers
             </span>
-            <span className="text-[11px] text-[#555555] bg-[#0a0a0a] px-2 py-1 rounded-md">
+            <span className="text-[11px] text-[#75757f] bg-[#141419] px-2 py-1 rounded-md">
               {typeCounts.freeAgent} free agent
             </span>
           </div>
@@ -552,10 +552,10 @@ export default function Transactions() {
               {showDateHeader && (
                 <div className="sticky top-12 z-[5] py-2 -mx-1 px-1">
                   <div className="flex items-center gap-3">
-                    <span className="text-[10px] font-bold text-[#555555] tracking-[2px] uppercase whitespace-nowrap">
+                    <span className="text-[10px] font-bold text-[#75757f] tracking-[2px] uppercase whitespace-nowrap">
                       {dateGroup}
                     </span>
-                    <div className="flex-1 h-px bg-[#1e1e1e]" />
+                    <div className="flex-1 h-px bg-[#2a2a34]" />
                   </div>
                 </div>
               )}
@@ -569,7 +569,7 @@ export default function Transactions() {
         })}
         {paginatedTransactions.length === 0 && (
           <div className="text-center py-12">
-            <p className="text-sm text-[#555555]">No transactions found for this filter.</p>
+            <p className="text-sm text-[#75757f]">No transactions found for this filter.</p>
           </div>
         )}
       </div>
