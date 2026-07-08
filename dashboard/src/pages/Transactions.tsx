@@ -391,11 +391,13 @@ export default function Transactions() {
     });
 
     return (
-      <SharedTradeCard
-        sides={sides}
-        date={formatDate(tx)}
-        fairness={analysis?.fairness}
-      />
+      <Link to={`/trades/${tx.transaction_id}`} className="block group">
+        <SharedTradeCard
+          sides={sides}
+          date={formatDate(tx)}
+          fairness={analysis?.fairness}
+        />
+      </Link>
     );
   };
 

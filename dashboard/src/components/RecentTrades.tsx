@@ -70,12 +70,13 @@ export function RecentTrades({ trades }: RecentTradesProps) {
           }));
 
           return (
-            <TradeCard
-              key={trade.id}
-              sides={sides}
-              date={trade.date}
-              fairness={trade.fairness}
-            />
+            <Link key={trade.id} to={`/trades/${trade.id}`} className="block group">
+              <TradeCard
+                sides={sides}
+                date={trade.date}
+                fairness={trade.fairness}
+              />
+            </Link>
           );
         })}
       </div>

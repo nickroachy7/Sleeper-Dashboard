@@ -1,4 +1,5 @@
 import { Clock } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { AssetRow } from './AssetRow';
 import { FAIRNESS_CONFIG } from '../lib/trade-shared';
 import type { Fairness } from '../types/domain';
@@ -34,6 +35,8 @@ interface TradeCardProps {
   variant?: 'compact' | 'full';
   showHeader?: boolean;
   fairness?: Fairness;
+  /** Wrap each player row in a link to its detail page (used on the trade page). */
+  linkPlayers?: boolean;
 }
 
 export function TradeCard({
@@ -44,6 +47,7 @@ export function TradeCard({
   variant = 'full',
   showHeader = true,
   fairness,
+  linkPlayers = false,
 }: TradeCardProps) {
   if (sides.length < 2) return null;
 
@@ -145,17 +149,25 @@ export function TradeCard({
 
               {/* Assets */}
               <div style={{ borderLeft: `3px solid ${isWinner ? '#10b981' : '#2e2e38'}` }}>
-                {side.players.map((p) => (
-                  <AssetRow
-                    key={p.id}
-                    playerId={p.id}
-                    name={p.name}
-                    position={p.position}
-                    team={p.team}
-                    value={p.value}
-                    className={`border-t border-[#1b1b22] ${isCompact ? 'px-3' : 'px-4 sm:px-5'}`}
-                  />
-                ))}
+                {side.players.map((p) => {
+                  const row = (
+                    <AssetRow
+                      playerId={p.id}
+                      name={p.name}
+                      position={p.position}
+                      team={p.team}
+                      value={p.value}
+                      className={`border-t border-[#1b1b22] ${isCompact ? 'px-3' : 'px-4 sm:px-5'}`}
+                    />
+                  );
+                  return linkPlayers ? (
+                    <Link key={p.id} to={`/players/${p.id}`} className="block hover:bg-[#1b1b22] active:bg-[#22222b] transition-colors">
+                      {row}
+                    </Link>
+                  ) : (
+                    <div key={p.id}>{row}</div>
+                  );
+                })}
                 {side.picks.map((pick, pickIdx) => (
                   <AssetRow
                     key={pickIdx}
