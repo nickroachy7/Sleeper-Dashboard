@@ -1,5 +1,6 @@
 import { ChevronDown, ChevronUp, Crown } from 'lucide-react';
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { PageHeader } from './PageHeader';
 
 interface RankedTeam {
@@ -89,7 +90,10 @@ export function PowerRankings({ rankings }: PowerRankingsProps) {
               )}
 
               {/* Team row */}
-              <div className="group flex items-center gap-3 px-4 py-2.5 hover:bg-[#1b1b22] transition-colors">
+              <Link
+                to={`/teams/${team.rosterId}`}
+                className="group flex items-center gap-3 px-4 py-2.5 hover:bg-[#1b1b22] transition-colors"
+              >
                 {/* Rank */}
                 <div className="w-6 shrink-0 flex items-center justify-center">
                   {medal ? (
@@ -132,7 +136,7 @@ export function PowerRankings({ rankings }: PowerRankingsProps) {
                 {/* Name + meta + bar */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-baseline justify-between gap-3">
-                    <p className="text-[13px] font-semibold text-white truncate">{team.teamName}</p>
+                    <p className="text-[13px] font-semibold text-white truncate group-hover:text-accent-400 transition-colors">{team.teamName}</p>
                     <span className="font-display text-[13px] font-bold text-white tabular-nums shrink-0">
                       {team.totalValue.toLocaleString()}
                     </span>
@@ -160,7 +164,7 @@ export function PowerRankings({ rankings }: PowerRankingsProps) {
                     )}
                   </div>
                 </div>
-              </div>
+              </Link>
             </div>
           );
         })}

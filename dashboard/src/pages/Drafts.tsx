@@ -16,7 +16,7 @@ import {
 import { Link } from 'react-router-dom';
 import { useState, useMemo } from 'react';
 import { PageHeader } from '../components/PageHeader';
-import { PositionBadge } from '../components/PositionBadge';
+import { PlayerRow } from '../components/PlayerRow';
 import type { DraftPickRow } from '../types/domain';
 
 interface Player {
@@ -291,27 +291,20 @@ export default function Drafts() {
                             const pickDisplay = `${round}.${String(pick.pick_no - (round - 1) * 12).padStart(2, '0')}`;
 
                             return (
-                              <div key={pick.pick_no} className="flex items-center gap-3 px-4 py-2.5 hover:bg-[#17171d] transition-colors">
-                                <span className="font-mono text-xs font-bold text-[#60606a] w-8 shrink-0">
-                                  {pickDisplay}
-                                </span>
-                                {player && (
-                                  <img
-                                    src={`https://sleepercdn.com/content/nfl/players/${pick.player_id}.jpg`}
-                                    alt=""
-                                    className="w-7 h-7 rounded-full object-cover bg-[#1b1b22] shrink-0"
-                                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                                  />
-                                )}
-                                <div className="flex-1 min-w-0">
-                                  <span className="text-sm font-medium text-white">{player?.full_name || 'Unknown'}</span>
-                                </div>
-                                {player?.position && <PositionBadge position={player.position} size="xs" />}
-                                <span className="text-xs text-[#75757f] hidden sm:block">{player?.team || '—'}</span>
-                                <span className="text-xs text-[#60606a] hidden sm:block w-24 text-right truncate">
-                                  {getTeamNameByUserId(pick.picked_by)}
-                                </span>
-                              </div>
+                              <PlayerRow
+                                key={pick.pick_no}
+                                playerId={pick.player_id || undefined}
+                                name={player?.full_name || 'Unknown'}
+                                position={player?.position}
+                                team={player?.team}
+                                meta={getTeamNameByUserId(pick.picked_by)}
+                                size="sm"
+                                lead={
+                                  <span className="font-mono text-xs font-bold text-[#60606a] w-8">
+                                    {pickDisplay}
+                                  </span>
+                                }
+                              />
                             );
                           })}
                         </div>

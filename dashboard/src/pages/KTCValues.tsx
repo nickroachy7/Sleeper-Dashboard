@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase';
 import { PageHeader } from '../components/PageHeader';
 import { Pagination } from '../components/Pagination';
 import { FilterBar, SearchInput, FilterPills, SortSelect } from '../components/FilterBar';
-import { PositionBadge } from '../components/PositionBadge';
+import { PlayerRow } from '../components/PlayerRow';
 import { useTradeData } from '../hooks/useLeagueData';
 import {
   buildPlayersForRoster,
@@ -378,53 +378,29 @@ function PlayersTab() {
                   )}
                 </div>
               )}
-              <div
-                className="flex items-center gap-2.5 px-3 sm:px-4 py-2 sm:py-2.5 hover:bg-[#1b1b22]/50 transition-colors border-b border-[#1b1b22] last:border-b-0"
-              >
-                <span className="text-xs font-medium text-[#80808c] w-5 sm:w-6 text-right shrink-0 tabular-nums">
-                  {globalRank}
-                </span>
-
-                {item.type === 'player' && item.playerId ? (
-                  <img
-                    src={`https://sleepercdn.com/content/nfl/players/${item.playerId}.jpg`}
-                    alt=""
-                    className="w-8 h-8 rounded-full object-cover bg-[#1b1b22] shrink-0"
-                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                  />
-                ) : (
-                  <div className="w-8 h-8 rounded-full bg-[#1b1b22] flex items-center justify-center shrink-0">
-                    <span className="text-[8px] font-bold text-[#75757f]">PK</span>
-                  </div>
-                )}
-
-                <div className="flex-1 min-w-0">
-                  <span className="text-[13px] font-semibold text-white truncate block">
-                    {item.name}
+              <PlayerRow
+                playerId={item.type === 'player' ? item.playerId : undefined}
+                name={item.name || 'Unknown'}
+                position={item.position || undefined}
+                team={item.team}
+                value={item.value}
+                size="sm"
+                divided
+                lead={
+                  <span className="text-xs font-medium text-[#80808c] w-6 text-right tabular-nums">
+                    {globalRank}
                   </span>
-                  <div className="flex items-center gap-1.5 mt-0.5">
-                    {item.position && <PositionBadge position={item.position} size="xs" />}
-                    {item.team && (
-                      <span className="text-[11px] text-[#80808c]">
-                        {item.team}
-                      </span>
-                    )}
-                    {item.pickTier && (
-                      <span className={`px-1 py-0.5 text-[9px] rounded font-bold leading-none ${
-                        item.pickTier === 'Early' ? 'bg-emerald-500/20 text-emerald-400' :
-                        item.pickTier === 'Mid' ? 'bg-yellow-500/20 text-yellow-400' :
-                        'bg-red-500/20 text-red-400'
-                      }`}>
-                        {item.pickTier}
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                <span className="font-display text-sm font-bold text-white tabular-nums shrink-0">
-                  {item.value.toLocaleString()}
-                </span>
-              </div>
+                }
+                meta={item.pickTier ? (
+                  <span className={`px-1 py-0.5 text-[9px] rounded font-bold leading-none ${
+                    item.pickTier === 'Early' ? 'bg-emerald-500/20 text-emerald-400' :
+                    item.pickTier === 'Mid' ? 'bg-yellow-500/20 text-yellow-400' :
+                    'bg-red-500/20 text-red-400'
+                  }`}>
+                    {item.pickTier}
+                  </span>
+                ) : undefined}
+              />
             </Fragment>
           );
         })}

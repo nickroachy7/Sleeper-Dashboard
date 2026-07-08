@@ -1,21 +1,34 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Users, X } from 'lucide-react';
+import { Search, X } from 'lucide-react';
 import { usePlayers, usePlayerValuesList } from '../hooks/queries';
 import { useLeagueDirectory } from '../hooks/detail';
-import { PositionBadge } from './PositionBadge';
-import { getPlayerImageUrl } from '../lib/trade-shared';
+import { PlayerRow } from './PlayerRow';
+import { TeamRow } from './TeamRow';
 import { OPEN_LOOKUP_EVENT } from '../lib/lookup';
 
-interface Result {
-  kind: 'player' | 'team';
+interface PlayerResult {
+  kind: 'player';
   id: string;
   to: string;
-  title: string;
-  subtitle: string;
+  playerId: string;
+  name: string;
   position?: string;
+  team?: string | null;
   value?: number;
 }
+
+interface TeamResult {
+  kind: 'team';
+  id: string;
+  to: string;
+  rosterId: number;
+  name: string;
+  owner: string;
+  avatarId?: string | null;
+}
+
+type Result = PlayerResult | TeamResult;
 
 /**
  * Global player/team lookup palette. Opens via Cmd/Ctrl+K, "/", or the
@@ -67,60 +80,67 @@ export function LookupSearch() {
     if (!open) { setQuery(''); setActiveIdx(0); }
   }
 
-  const results = useMemo((): Result[] => {
+  const { teams, playerResults } = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const out: Result[] = [];
 
     // Teams (current league)
+    let teams: TeamResult[] = [];
     if (directory) {
-      const teams = directory.rosters
+      teams = directory.rosters
         .filter((r) => r.league_id === directory.currentLeagueId)
         .map((r) => {
           const name = directory.teamName(r.roster_id);
           const owner = directory.users.find((u) => u.user_id === r.owner_id);
-          return { rosterId: r.roster_id, name, ownerName: owner?.display_name || owner?.username || '' };
+          return {
+            kind: 'team' as const,
+            id: `team-${r.roster_id}`,
+            to: `/teams/${r.roster_id}`,
+            rosterId: r.roster_id,
+            name,
+            owner: owner?.display_name || owner?.username || '',
+            avatarId: (owner as { avatar?: string | null })?.avatar ?? null,
+          };
         })
-        .filter((t) => !q || t.name.toLowerCase().includes(q) || t.ownerName.toLowerCase().includes(q));
-      teams.slice(0, q ? 4 : 12).forEach((t) => {
-        out.push({
-          kind: 'team',
-          id: `team-${t.rosterId}`,
-          to: `/teams/${t.rosterId}`,
-          title: t.name,
-          subtitle: t.ownerName,
-        });
-      });
+        .filter((t) => !q || t.name.toLowerCase().includes(q) || t.owner.toLowerCase().includes(q))
+        .slice(0, q ? 4 : 12);
     }
 
     // Players (only with a query — the unfiltered list is noise)
+    let playerResults: PlayerResult[] = [];
     if (q && players) {
-      const matched = players
+      playerResults = players
         .filter((p) => p.full_name?.toLowerCase().includes(q))
-        .map((p) => ({ ...p, value: playerValues?.get(p.player_id) || 0 }))
+        .map((p) => ({ p, value: playerValues?.get(p.player_id) || 0 }))
         .sort((a, b) => b.value - a.value)
-        .slice(0, 8);
-      matched.forEach((p) => {
-        out.push({
-          kind: 'player',
+        .slice(0, 8)
+        .map(({ p, value }) => ({
+          kind: 'player' as const,
           id: `player-${p.player_id}`,
           to: `/players/${p.player_id}`,
-          title: p.full_name,
-          subtitle: [p.position, p.team].filter(Boolean).join(' · '),
+          playerId: p.player_id,
+          name: p.full_name,
           position: p.position,
-          value: p.value,
-        });
-      });
+          team: p.team,
+          value,
+        }));
     }
 
-    return out;
+    return { teams, playerResults };
   }, [query, players, playerValues, directory]);
 
-  const go = useCallback((r: Result) => {
+  // Flat, ordered list drives keyboard navigation. Players first when present.
+  const flat = useMemo<Result[]>(() => [...playerResults, ...teams], [playerResults, teams]);
+
+  const go = useCallback((r: Result | undefined) => {
+    if (!r) return;
     setOpen(false);
     navigate(r.to);
   }, [navigate]);
 
   if (!open) return null;
+
+  const idxOf = (r: Result) => flat.indexOf(r);
+  const activeClass = (r: Result) => (idxOf(r) === activeIdx ? 'bg-[#1b1b22]' : '');
 
   return (
     <div
@@ -128,68 +148,95 @@ export function LookupSearch() {
       onClick={() => setOpen(false)}
     >
       <div
-        className="w-full max-w-lg bg-[#141419] border border-[#2a2a34] rounded-xl overflow-hidden shadow-2xl"
+        className="w-full max-w-xl bg-[#141419] border border-[#2a2a34] rounded-2xl overflow-hidden shadow-2xl ring-1 ring-black/40"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center gap-2.5 px-4 border-b border-[#1b1b22]">
+        {/* Search input */}
+        <div className="flex items-center gap-3 px-4 border-b border-[#22222b]">
           <Search className="h-4 w-4 text-[#75757f] shrink-0" />
           <input
             ref={inputRef}
             value={query}
             onChange={(e) => { setQuery(e.target.value); setActiveIdx(0); }}
             onKeyDown={(e) => {
-              if (e.key === 'ArrowDown') { e.preventDefault(); setActiveIdx((i) => Math.min(i + 1, results.length - 1)); }
+              if (e.key === 'ArrowDown') { e.preventDefault(); setActiveIdx((i) => Math.min(i + 1, flat.length - 1)); }
               if (e.key === 'ArrowUp') { e.preventDefault(); setActiveIdx((i) => Math.max(i - 1, 0)); }
-              if (e.key === 'Enter' && results[activeIdx]) go(results[activeIdx]);
+              if (e.key === 'Enter') { e.preventDefault(); go(flat[activeIdx]); }
             }}
-            placeholder="Search players and teams..."
-            className="flex-1 bg-transparent py-3.5 text-sm text-white placeholder-[#75757f] focus:outline-none"
+            placeholder="Search players and teams…"
+            className="flex-1 bg-transparent py-4 text-[15px] text-white placeholder-[#75757f] focus:outline-none"
           />
-          <button onClick={() => setOpen(false)} className="text-[#75757f] hover:text-white" aria-label="Close search">
-            <X className="h-4 w-4" />
-          </button>
+          {query && (
+            <button
+              onClick={() => { setQuery(''); inputRef.current?.focus(); }}
+              className="text-[#60606a] hover:text-white transition-colors"
+              aria-label="Clear search"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
         </div>
 
-        <div className="max-h-[50vh] overflow-y-auto">
-          {results.length === 0 && (
-            <p className="px-4 py-6 text-center text-[11px] text-[#75757f]">
-              {query ? 'No matches.' : 'Type to search players, or pick a team.'}
-            </p>
-          )}
-          {results.map((r, i) => (
-            <button
-              key={r.id}
-              onClick={() => go(r)}
-              onPointerEnter={() => setActiveIdx(i)}
-              className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors ${
-                i === activeIdx ? 'bg-[#1b1b22]' : ''
-              }`}
-            >
-              {r.kind === 'player' ? (
-                <img
-                  src={getPlayerImageUrl(r.id.replace('player-', ''))}
-                  alt=""
-                  className="w-8 h-8 rounded-full bg-[#22222b] object-cover shrink-0"
-                  onError={(e) => { (e.target as HTMLImageElement).style.visibility = 'hidden'; }}
-                />
+        {/* Results */}
+        <div className="max-h-[54vh] overflow-y-auto py-1.5">
+          {flat.length === 0 ? (
+            <p className="px-4 py-10 text-center text-[12px] text-[#75757f]">
+              {query ? (
+                <>No matches for “<span className="text-[#d6d6de]">{query}</span>”.</>
               ) : (
-                <div className="w-8 h-8 rounded-full bg-[#22222b] flex items-center justify-center shrink-0">
-                  <Users className="h-3.5 w-3.5 text-[#75757f]" />
+                'Type to search players, or jump to a team below.'
+              )}
+            </p>
+          ) : (
+            <>
+              {playerResults.length > 0 && (
+                <div className="mb-1">
+                  <p className="px-4 pt-1.5 pb-1 text-[10px] font-bold tracking-[0.18em] uppercase text-[#60606a]">
+                    Players
+                  </p>
+                  {playerResults.map((r) => (
+                    <div key={r.id} onPointerEnter={() => setActiveIdx(idxOf(r))}>
+                      <PlayerRow
+                        playerId={r.playerId}
+                        name={r.name}
+                        position={r.position}
+                        team={r.team}
+                        value={r.value}
+                        size="sm"
+                        onClick={() => setOpen(false)}
+                        className={activeClass(r)}
+                      />
+                    </div>
+                  ))}
                 </div>
               )}
-              <div className="min-w-0 flex-1">
-                <p className="text-[13px] font-medium text-white truncate">{r.title}</p>
-                <p className="text-[10px] text-[#9c9ca7] truncate">{r.subtitle}</p>
-              </div>
-              {r.kind === 'player' && r.position && <PositionBadge position={r.position} />}
-              {r.kind === 'player' && r.value ? (
-                <span className="text-[11px] text-[#9c9ca7] tabular-nums shrink-0">{r.value.toLocaleString()}</span>
-              ) : null}
-            </button>
-          ))}
+
+              {teams.length > 0 && (
+                <div>
+                  <p className="px-4 pt-1.5 pb-1 text-[10px] font-bold tracking-[0.18em] uppercase text-[#60606a]">
+                    {query ? 'Teams' : 'League Teams'}
+                  </p>
+                  {teams.map((r) => (
+                    <div key={r.id} onPointerEnter={() => setActiveIdx(idxOf(r))}>
+                      <TeamRow
+                        rosterId={r.rosterId}
+                        name={r.name}
+                        subtitle={r.owner}
+                        avatarId={r.avatarId}
+                        size="sm"
+                        onClick={() => setOpen(false)}
+                        className={activeClass(r)}
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
         </div>
 
-        <div className="px-4 py-2 border-t border-[#1b1b22] flex items-center gap-3 text-[9px] text-[#60606a]">
+        {/* Footer hints */}
+        <div className="px-4 py-2.5 border-t border-[#22222b] flex items-center gap-3 text-[9px] text-[#60606a]">
           <span>↑↓ navigate</span>
           <span>↵ open</span>
           <span>esc close</span>
