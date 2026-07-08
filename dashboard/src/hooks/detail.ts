@@ -234,15 +234,24 @@ export function useTradeDetail(transactionId: string | undefined) {
         const seasons = [...new Set(picks.map((p) => String(p.season)))];
         const [{ data: leagues }, { data: drafts }] = await Promise.all([
           supabase.from('leagues').select('league_id, season').order('season', { ascending: false }),
-          supabase.from('drafts').select('draft_id, league_id, season, status, draft_order').in('season', seasons),
+          supabase.from('drafts').select('draft_id, league_id, season, status, draft_order, slot_to_roster_id').in('season', seasons),
         ]);
         const currentLeagueId = leagues?.[0]?.league_id ?? null;
 
-        // One usable (completed, ordered) draft per season.
-        const draftBySeason = new Map<string, { draft_id: string; league_id: string; draft_order: Record<string, number> }>();
+        // Seasons whose rookie draft has already happened (pick → real player).
+        const completedSeasons = new Set<string>();
+        (drafts || []).forEach((d) => { if (d.status === 'complete') completedSeasons.add(String(d.season)); });
+
+        // One usable draft per completed season, with whatever slot maps we have.
+        const draftBySeason = new Map<string, { draft_id: string; league_id: string; draft_order: Record<string, number> | null; slotToRoster: Record<string, number> | null }>();
         (drafts || []).forEach((d) => {
-          if (d.status === 'complete' && d.draft_order && !draftBySeason.has(String(d.season))) {
-            draftBySeason.set(String(d.season), { draft_id: d.draft_id, league_id: d.league_id, draft_order: d.draft_order as Record<string, number> });
+          if (d.status === 'complete' && !draftBySeason.has(String(d.season))) {
+            draftBySeason.set(String(d.season), {
+              draft_id: d.draft_id,
+              league_id: d.league_id,
+              draft_order: (d.draft_order as Record<string, number> | null) ?? null,
+              slotToRoster: (d.slot_to_roster_id as Record<string, number> | null) ?? null,
+            });
           }
         });
 
@@ -285,15 +294,30 @@ export function useTradeDetail(transactionId: string | undefined) {
 
         for (const p of picks) {
           const key = `${p.season}-${p.round}-${p.roster_id}`;
-          const draft = draftBySeason.get(String(p.season));
+          const season = String(p.season);
+          const draft = draftBySeason.get(season);
           if (draft) {
-            const user = userByRoster.get(`${draft.league_id}-${p.roster_id}`);
-            const slot = user ? draft.draft_order[user] : undefined;
+            // Prefer the authoritative slot→roster map; fall back to draft_order (user→slot).
+            let slot: number | undefined;
+            if (draft.slotToRoster) {
+              const hit = Object.keys(draft.slotToRoster).find((s) => Number(draft.slotToRoster![s]) === Number(p.roster_id));
+              if (hit) slot = Number(hit);
+            }
+            if (slot == null && draft.draft_order) {
+              const user = userByRoster.get(`${draft.league_id}-${p.roster_id}`);
+              const s = user ? draft.draft_order[user] : undefined;
+              if (s != null) slot = s;
+            }
             const playerId = slot != null ? board.get(`${draft.draft_id}-${p.round}-${slot}`) : undefined;
             if (playerId) { pickResolution.set(key, { playerId, slot, future: false }); continue; }
           }
-          // Future / unresolved: project the tier from the owner's roster-value rank.
-          pickResolution.set(key, { tier: tierByRoster.get(Number(p.roster_id)) ?? 'Mid', future: true });
+          // A completed draft exists but we couldn't pin the slot → past, unresolved
+          // (no projection; the draft already happened). Otherwise it's a future pick.
+          if (completedSeasons.has(season)) {
+            pickResolution.set(key, { future: false });
+          } else {
+            pickResolution.set(key, { tier: tierByRoster.get(Number(p.roster_id)) ?? 'Mid', future: true });
+          }
         }
       }
 

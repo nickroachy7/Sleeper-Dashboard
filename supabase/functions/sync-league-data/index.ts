@@ -334,10 +334,15 @@ Deno.serve(async (req) => {
 
       // 4e. Sync Drafts and Draft Picks for this season
       try {
-        const drafts = await fetchWithRetry(`${SLEEPER_API}/league/${leagueId}/drafts`);
-        if (!drafts?.length) continue;
+        const draftList = await fetchWithRetry(`${SLEEPER_API}/league/${leagueId}/drafts`);
+        if (!draftList?.length) continue;
 
-        for (const draft of drafts) {
+        for (const summary of draftList) {
+          // The list endpoint omits slot_to_roster_id and returns only a partial
+          // draft_order; the per-draft endpoint has the complete, authoritative
+          // slot→roster and user→slot maps we need to resolve traded picks.
+          const detail = await fetchWithRetry(`${SLEEPER_API}/draft/${summary.draft_id}`);
+          const draft = detail || summary;
           const { error: draftError } = await supabase.from("drafts").upsert(
             {
               draft_id: draft.draft_id,
@@ -347,8 +352,8 @@ Deno.serve(async (req) => {
               season: draft.season,
               settings: draft.settings,
               start_time: draft.start_time || null,
-              slot_to_roster_id: draft.slot_to_roster_id,
-              draft_order: draft.draft_order,
+              slot_to_roster_id: draft.slot_to_roster_id ?? summary.slot_to_roster_id ?? null,
+              draft_order: draft.draft_order ?? summary.draft_order ?? null,
               updated_at: new Date().toISOString(),
             },
             { onConflict: "draft_id", ignoreDuplicates: false }
