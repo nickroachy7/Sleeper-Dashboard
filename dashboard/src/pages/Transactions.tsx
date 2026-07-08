@@ -415,11 +415,11 @@ export default function Transactions() {
 
     const typeLabel = tx.type === 'free_agent' ? 'FREE AGENT' : tx.type === 'waiver' ? 'WAIVER' : tx.type.toUpperCase();
     return (
-      <div className="bg-[#141419] rounded-2xl overflow-hidden animate-smooth border border-[#22222b] card-hover">
-        {/* Header */}
-        <div className="flex items-center justify-between px-4 py-2.5">
+      <div>
+        {/* Meta sits ABOVE the card for separation */}
+        <div className="flex items-center justify-between px-1.5 pb-2">
           <div className="flex items-center gap-2 text-[11px] text-[#75757f]">
-            <span className="px-1.5 py-0.5 bg-[#22222b] text-[#9c9ca7] text-[9px] font-bold tracking-[1px] rounded">
+            <span className="px-1.5 py-0.5 bg-[#1b1b22] text-[#9c9ca7] text-[9px] font-bold tracking-[1px] rounded">
               {typeLabel}
             </span>
             <span className="flex items-center gap-1">
@@ -437,15 +437,15 @@ export default function Transactions() {
         </div>
 
         {/* Team + Assets */}
-        <div className="border-t border-[#1b1b22]">
-          <div className="flex items-center gap-2 px-4 pt-3 pb-1">
+        <div className="bg-[#141419] rounded-2xl overflow-hidden animate-smooth border border-[#22222b] card-hover">
+          <div className="flex items-center gap-2 px-4 py-2.5 bg-[#1b1b22]">
             <span className="font-display text-sm font-bold text-white truncate">{team?.teamName || 'Unknown'}</span>
             <span className="text-[10px] text-[#60606a]">
               {adds.length + drops.length} move{adds.length + drops.length !== 1 ? 's' : ''}
             </span>
           </div>
 
-          <div className="pb-1.5">
+          <div className="py-1">
             {adds.map((pid) => {
               const p = getPlayer(pid);
               const val = getPlayerValue(pid);
