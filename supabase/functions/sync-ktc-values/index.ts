@@ -154,6 +154,56 @@ async function fetchKTCData(): Promise<KTCPlayer[]> {
   return JSON.parse(match[1]) as KTCPlayer[];
 }
 
+// KTC's /dynasty-rankings playersArray is hard-capped at 500 entries, so players
+// ranked below that (e.g. Odell Beckham, rank ~679) are absent and get no value.
+// They ARE published on individual pages, and the dynasty sitemap lists every
+// ranked player's slug (`name-ktcID`). This second pass recovers the tail.
+
+const USER_AGENT =
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36";
+const DEEP_FETCH_CONCURRENCY = 5;
+
+async function fetchDynastySitemapSlugs(): Promise<string[]> {
+  try {
+    const resp = await fetch("https://keeptradecut.com/sitemap-dynasty.xml", {
+      headers: { "User-Agent": USER_AGENT },
+    });
+    if (!resp.ok) return [];
+    const xml = await resp.text();
+    const slugs = [...xml.matchAll(/\/dynasty-rankings\/players\/([a-z0-9-]+)/g)].map((m) => m[1]);
+    return [...new Set(slugs)];
+  } catch (e) {
+    console.warn("Sitemap fetch failed:", (e as Error).message);
+    return [];
+  }
+}
+
+// Fetch one KTC player page and pull the embedded `var player = {...}` object.
+async function fetchKTCPlayerPage(
+  slug: string
+): Promise<{ playerName: string; position: string; team: string; tepValue: number; baseValue: number } | null> {
+  try {
+    const resp = await fetch(`https://keeptradecut.com/dynasty-rankings/players/${slug}`, {
+      headers: { "User-Agent": USER_AGENT },
+    });
+    if (!resp.ok) return null;
+    const html = await resp.text();
+    const m = html.match(/var\s+player\s*=\s*(\{[\s\S]*?\});/);
+    if (!m) return null;
+    const player = JSON.parse(m[1]);
+    const sf = player.superflexValues ?? {};
+    return {
+      playerName: player.playerName,
+      position: player.position,
+      team: player.team,
+      tepValue: sf.tep?.value ?? sf.value ?? 0,
+      baseValue: sf.value ?? sf.tep?.value ?? 0,
+    };
+  } catch {
+    return null;
+  }
+}
+
 Deno.serve(async (req) => {
   const corsResponse = handleCors(req);
   if (corsResponse) return corsResponse;
@@ -263,6 +313,66 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ── Second pass: recover players ranked below KTC's top-500 bulk list ──
+    // Pull the dynasty sitemap, find Sleeper players NOT already matched above,
+    // and fetch their individual pages for a real value (e.g. Odell Beckham).
+    let deepRecovered = 0;
+    try {
+      const matchedIds = new Set(playerValues.map((p) => p.player_id));
+      // Index still-unmatched Sleeper players by normalized name.
+      const unmatchedByName = new Map<string, SleeperPlayer[]>();
+      for (const sp of sleeperPlayers) {
+        if (!sp.full_name || matchedIds.has(sp.player_id)) continue;
+        const key = normalizeName(sp.full_name);
+        const arr = unmatchedByName.get(key) ?? [];
+        arr.push(sp);
+        unmatchedByName.set(key, arr);
+      }
+
+      const slugs = await fetchDynastySitemapSlugs();
+      const deslug = (s: string) => normalizeName(s.replace(/-\d+$/, "").replace(/-/g, " "));
+      // Only fetch pages for slugs that map to a still-unmatched Sleeper player.
+      const candidates = slugs.filter((s) => unmatchedByName.has(deslug(s)));
+
+      for (let i = 0; i < candidates.length; i += DEEP_FETCH_CONCURRENCY) {
+        const batch = candidates.slice(i, i + DEEP_FETCH_CONCURRENCY);
+        const pages = await Promise.all(
+          batch.map((slug) => fetchKTCPlayerPage(slug).then((v) => ({ slug, v })))
+        );
+        for (const { slug, v } of pages) {
+          if (!v || v.tepValue <= 0) continue; // KTC lists some fringe players at 0 → skip
+          const cands = unmatchedByName.get(deslug(slug)) ?? [];
+          // Verify position to avoid name-collision false matches.
+          const match = cands.find((p) => p.position === v.position) ?? (cands.length === 1 ? cands[0] : null);
+          if (!match || matchedIds.has(match.player_id)) continue;
+          matchedIds.add(match.player_id);
+          deepRecovered++;
+          playerValues.push({
+            player_id: match.player_id,
+            value: v.tepValue,
+            rank: null,
+            position_rank: null,
+            tier: null,
+            trend: 0,
+            superflex: true,
+            source: "keeptradecut",
+            fetched_at: new Date().toISOString(),
+          });
+          historyRows.push({
+            player_id: match.player_id,
+            value: v.baseValue,
+            rank: null,
+            date: today,
+            source: "keeptradecut",
+          });
+        }
+      }
+      console.log(`Deep pass recovered ${deepRecovered} sub-500 players from ${candidates.length} candidate pages`);
+    } catch (e) {
+      // Never let the deep pass break the primary sync.
+      console.warn("Deep-value pass failed (non-fatal):", (e as Error).message);
+    }
+
     // Upsert player values in batches (no delete — atomic updates via unique constraint)
     let insertedPlayers = 0;
     for (let i = 0; i < playerValues.length; i += BATCH_SIZE) {
@@ -305,6 +415,7 @@ Deno.serve(async (req) => {
     return jsonResponse({
       success: true,
       matchedPlayers: insertedPlayers,
+      deepRecovered,
       insertedPicks,
       unmatched,
       ktcTotal: ktcPlayers.length,
