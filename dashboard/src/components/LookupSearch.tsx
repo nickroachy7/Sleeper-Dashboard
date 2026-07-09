@@ -144,7 +144,7 @@ export function LookupSearch() {
 
   return (
     <div
-      className="fixed inset-0 z-[60] bg-black/70 sm:backdrop-blur-sm flex items-stretch sm:items-start justify-center sm:pt-[10vh] sm:px-4"
+      className="fixed inset-0 z-[90] bg-black/70 sm:backdrop-blur-sm flex items-stretch sm:items-start justify-center sm:pt-[10vh] sm:px-4"
       onClick={() => setOpen(false)}
     >
       <div
