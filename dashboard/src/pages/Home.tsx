@@ -2,13 +2,14 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useLeague, usePlayerValuesList } from '../hooks/queries';
 import { usePlayerMap, useTradeData } from '../hooks/useLeagueData';
-import { Zap, Scale, TrendingUp, FileText } from 'lucide-react';
+import { Zap } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useCallback, useMemo } from 'react';
 import { PowerRankings } from '../components/PowerRankings';
 import { RecentTrades } from '../components/RecentTrades';
 import { ValueWatch } from '../components/ValueWatch';
-import { DashboardHero } from '../components/DashboardHero';
+import { HomeSplash } from '../components/HomeSplash';
+import { LeaguePulse } from '../components/LeaguePulse';
 import { BiggestMovers, type Mover } from '../components/BiggestMovers';
 import { useValueMovers } from '../hooks/detail';
 import {
@@ -25,6 +26,13 @@ import {
 } from '../lib/trade-shared';
 import { analyzeTrade } from '../lib/trade-value-adjustment';
 import type { TradeAsset } from '../types/domain';
+
+const STATUS_LABEL: Record<string, string> = {
+  in_season: 'In Season',
+  drafting: 'Drafting',
+  complete: 'Complete',
+  pre_draft: 'Pre-Draft',
+};
 
 // ─── Component ───────────────────────────────────────────────────────
 
@@ -254,13 +262,6 @@ export default function Home() {
     });
   }, [recentTrades, rostersData, playersMap, playerValues, resolveTeamName, pickValues]);
 
-  // ─── Derived: League pulse stats for hero ────────────────────────
-
-  const leagueValue = useMemo(
-    () => powerRankings.reduce((sum, t) => sum + t.totalValue, 0),
-    [powerRankings]
-  );
-
   // ─── Derived: Biggest Movers (30-day value change, rostered players) ──
 
   const movers = useMemo((): { risers: Mover[]; fallers: Mover[] } => {
@@ -380,16 +381,18 @@ export default function Home() {
     <div className="min-h-dvh">
     <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6 lg:space-y-8">
 
-      {/* ── Hero ── */}
-      <DashboardHero
+      {/* ── Splash Hero ── */}
+      <HomeSplash
         leagueName={league.name}
         season={league.season}
         totalRosters={league.total_rosters ?? powerRankings.length}
-        status={league.status}
-        topTeam={powerRankings[0] ? { name: powerRankings[0].teamName, value: powerRankings[0].totalValue, to: `/teams/${powerRankings[0].rosterId}` } : null}
-        topAsset={valueWatch[0] ? { name: valueWatch[0].name, value: valueWatch[0].value, to: `/players/${valueWatch[0].playerId}` } : null}
-        leagueValue={leagueValue}
-        tradeCount={tradesWithTeams.length}
+        statusLabel={league.status ? (STATUS_LABEL[league.status] ?? league.status) : undefined}
+      />
+
+      {/* ── League Pulse (at-a-glance highlights) ── */}
+      <LeaguePulse
+        topTeam={powerRankings[0] ? { name: powerRankings[0].teamName, value: powerRankings[0].totalValue, to: `/teams/${powerRankings[0].rosterId}`, image: powerRankings[0].avatarUrl } : null}
+        topAsset={valueWatch[0] ? { name: valueWatch[0].name, value: valueWatch[0].value, to: `/players/${valueWatch[0].playerId}`, image: `https://sleepercdn.com/content/nfl/players/${valueWatch[0].playerId}.jpg` } : null}
       />
 
       {/* ── Biggest Movers (30-day value change) ── */}
@@ -406,32 +409,6 @@ export default function Home() {
         {/* Side Column */}
         <div className="lg:col-span-2 space-y-8">
           <ValueWatch players={valueWatch} />
-
-          {/* Quick Actions */}
-          <section>
-            <p className="text-[11px] font-bold text-accent-500 tracking-[0.2em] uppercase mb-3">QUICK ACTIONS</p>
-            <div className="space-y-2">
-              {[
-                { to: '/trade', icon: Scale, label: 'Evaluate a Trade', desc: 'Build a trade and see who wins', color: 'text-[#f97316]', bg: 'bg-[#f97316]/10' },
-                { to: '/ktc-values', icon: TrendingUp, label: 'Browse Player Values', desc: 'Search KTC dynasty rankings', color: 'text-accent-400', bg: 'bg-accent-500/10' },
-                { to: '/transactions', icon: FileText, label: 'View Transactions', desc: 'Trades, waivers, and roster moves', color: 'text-[#8b5cf6]', bg: 'bg-[#8b5cf6]/10' },
-              ].map(({ to, icon: Icon, label, desc, color, bg }) => (
-                <Link
-                  key={to}
-                  to={to}
-                  className="flex items-center gap-3 p-3 bg-[#141419] rounded-xl hover:bg-[#17171d] card-hover group"
-                >
-                  <div className={`w-9 h-9 rounded-lg ${bg} flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform`}>
-                    <Icon className={`h-4 w-4 ${color}`} />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-[13px] font-semibold text-white">{label}</p>
-                    <p className="text-[11px] text-[#75757f]">{desc}</p>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </section>
         </div>
       </div>
     </div>

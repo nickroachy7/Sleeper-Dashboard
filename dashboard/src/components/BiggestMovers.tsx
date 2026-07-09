@@ -19,18 +19,17 @@ interface BiggestMoversProps {
   windowLabel?: string;
 }
 
-function MoverColumn({ title, icon: Icon, tint, rows, empty }: {
+function MoverColumn({ title, icon: Icon, rows, empty }: {
   title: string;
   icon: typeof TrendingUp;
-  tint: string;
   rows: Mover[];
   empty: string;
 }) {
   return (
     <div className="bg-[#141419] rounded-2xl overflow-hidden border border-[#22222b]">
       <div className="flex items-center gap-2 px-3 py-2.5 border-b border-[#1b1b22]">
-        <Icon className="h-3.5 w-3.5" style={{ color: tint }} />
-        <span className="text-[11px] font-bold tracking-[0.15em] uppercase" style={{ color: tint }}>
+        <Icon className="h-3.5 w-3.5 text-[#75757f]" />
+        <span className="text-[11px] font-bold tracking-[0.15em] uppercase text-[#9c9ca7]">
           {title}
         </span>
       </div>
@@ -70,8 +69,8 @@ export function BiggestMovers({ risers, fallers, windowLabel = '30d' }: BiggestM
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 lg:gap-4">
-        <MoverColumn title="Risers" icon={TrendingUp} tint="#22c55e" rows={risers} empty="No movement yet." />
-        <MoverColumn title="Fallers" icon={TrendingDown} tint="#ef4444" rows={fallers} empty="No movement yet." />
+        <MoverColumn title="Risers" icon={TrendingUp} rows={risers} empty="No movement yet." />
+        <MoverColumn title="Fallers" icon={TrendingDown} rows={fallers} empty="No movement yet." />
       </div>
     </section>
   );
