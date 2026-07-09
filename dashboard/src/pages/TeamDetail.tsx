@@ -1,14 +1,22 @@
 import { useParams, Link } from 'react-router-dom';
 import { useMemo, useState } from 'react';
-import { ArrowRightLeft, ChevronRight, Users } from 'lucide-react';
+import { ArrowRightLeft, ChevronRight, Users, LayoutGrid, ListChecks, BarChart3 } from 'lucide-react';
 import { ValueChart } from '../components/charts/ValueChart';
 import { SeasonValueChart } from '../components/charts/SeasonValueChart';
 import { CHART_POS, CHART_NEG } from '../components/charts/theme';
 import { PlayerRow } from '../components/PlayerRow';
-import { useLeagueDirectory, useSeasonRosterValues, useTeamTrades } from '../hooks/detail';
+import { useLeagueDirectory, useSeasonRosterValues, useTeamTrades, useTeamMoves } from '../hooks/detail';
 import { usePlayerMap } from '../hooks/useLeagueData';
 import { usePlayerValuesList, usePickValues } from '../hooks/queries';
+import { useUrlState } from '../hooks/useUrlState';
 import { playerMoves, txDraftPicks, lookupPickValue } from '../lib/trade-shared';
+
+type TeamTab = 'overview' | 'roster' | 'transactions';
+const TEAM_TABS: { id: TeamTab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
+  { id: 'overview', label: 'Overview', icon: BarChart3 },
+  { id: 'roster', label: 'Roster', icon: LayoutGrid },
+  { id: 'transactions', label: 'Transactions', icon: ListChecks },
+];
 
 interface TradeLedgerEntry {
   txId: string;
@@ -32,7 +40,11 @@ export default function TeamDetail() {
   const { data: playerValues } = usePlayerValuesList();
   const { data: pickValues } = usePickValues();
   const { data: trades } = useTeamTrades(Number.isFinite(rosterId) ? rosterId : undefined);
+  const { data: moves } = useTeamMoves(Number.isFinite(rosterId) ? rosterId : undefined);
   const [showFullRoster, setShowFullRoster] = useState(false);
+
+  const { get, set } = useUrlState();
+  const activeTab = (TEAM_TABS.some((t) => t.id === get('tab')) ? get('tab') : 'overview') as TeamTab;
 
   const currentRoster = useMemo(() => {
     if (!directory) return null;
@@ -195,6 +207,26 @@ export default function TeamDetail() {
         </div>
       </section>
 
+      {/* ── Tab bar (under the team card, swaps the content below) ── */}
+      <div className="flex gap-1.5 bg-[#141419] border border-[#22222b] rounded-xl p-1">
+        {TEAM_TABS.map(({ id, label, icon: Icon }) => (
+          <button
+            key={id}
+            onClick={() => set('tab', id === 'overview' ? null : id)}
+            className={`flex-1 flex items-center justify-center gap-1.5 h-9 rounded-lg text-[13px] font-medium transition-all ${
+              activeTab === id
+                ? 'bg-accent-500 text-white shadow-[0_0_10px_rgba(34,197,94,0.2)]'
+                : 'text-[#9c9ca7] hover:text-white hover:bg-[#1b1b22]'
+            }`}
+          >
+            <Icon className="h-4 w-4" />
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {/* ═══ OVERVIEW: value trajectory + season history ═══ */}
+      {activeTab === 'overview' && (<>
       {/* ── Roster value by season (vs league average) ── */}
       <section className="bg-[#141419] rounded-2xl p-4 sm:p-5 border border-[#22222b]">
         <p className="text-[11px] font-bold text-white tracking-[0.18em] uppercase mb-0.5">Roster Value by Season</p>
@@ -233,7 +265,10 @@ export default function TeamDetail() {
         </>
         )}
       </section>
+      </>)}
 
+      {/* ═══ TRANSACTIONS: trade +/- + all moves ═══ */}
+      {activeTab === 'transactions' && (<>
       {/* ── Cumulative trade +/- ── */}
       <section className="bg-[#141419] rounded-2xl p-4 sm:p-5 border border-[#22222b]">
         <p className="text-[11px] font-bold text-accent-500 tracking-[0.18em] uppercase mb-0.5">Trade Plus/Minus</p>
@@ -282,7 +317,44 @@ export default function TeamDetail() {
         )}
       </section>
 
-      {/* ── Season history ── */}
+      {/* ── Waivers / free-agent moves ── */}
+      <section className="bg-[#141419] rounded-2xl p-4 sm:p-5 border border-[#22222b]">
+        <p className="text-[11px] font-bold text-accent-500 tracking-[0.18em] uppercase mb-0.5">Waivers &amp; Free Agents</p>
+        <p className="text-[10px] text-[#75757f] mb-3">Non-trade adds and drops, newest first</p>
+        {(moves?.length ?? 0) === 0 ? (
+          <p className="text-[12px] text-[#60606a] py-4 text-center">No waiver or free-agent moves.</p>
+        ) : (
+          <div className="-mx-4 sm:-mx-5 border-t border-[#1b1b22]">
+            {(moves || []).map((tx) => {
+              const adds = Object.keys(playerMoves(tx.adds)).filter((p) => playerMoves(tx.adds)[p] === rosterId);
+              const drops = Object.keys(playerMoves(tx.drops)).filter((p) => playerMoves(tx.drops)[p] === rosterId);
+              const label = tx.type === 'free_agent' ? 'FA' : tx.type === 'waiver' ? 'Waiver' : tx.type;
+              return (
+                <div key={tx.transaction_id} className="flex items-center gap-3 px-4 sm:px-5 py-2.5 border-b border-[#1b1b22] last:border-b-0">
+                  <span className="text-[9px] font-bold tracking-[1px] uppercase text-[#9c9ca7] bg-[#1b1b22] rounded px-1.5 py-0.5 shrink-0">{label}</span>
+                  <div className="min-w-0 flex-1 text-[12px]">
+                    {adds.length > 0 && (
+                      <p className="truncate"><span className="text-accent-400 font-bold">+ </span>
+                        <span className="text-white">{adds.map((p) => playersMap?.get(p)?.full_name || p).join(', ')}</span></p>
+                    )}
+                    {drops.length > 0 && (
+                      <p className="truncate"><span className="text-red-400 font-bold">− </span>
+                        <span className="text-[#9c9ca7]">{drops.map((p) => playersMap?.get(p)?.full_name || p).join(', ')}</span></p>
+                    )}
+                  </div>
+                  <span className="text-[9px] text-[#60606a] tabular-nums shrink-0">
+                    {tx.created ? new Date(tx.created).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' }) : ''}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </section>
+      </>)}
+
+      {/* ═══ OVERVIEW (cont.): season history ═══ */}
+      {activeTab === 'overview' && (
       <section className="bg-[#141419] rounded-2xl p-4 sm:p-5 border border-[#22222b]">
         <p className="text-[11px] font-bold text-accent-500 tracking-[0.18em] uppercase mb-3">Season History</p>
         <div className="overflow-x-auto">
@@ -308,11 +380,14 @@ export default function TeamDetail() {
           </table>
         </div>
       </section>
+      )}
 
-      {/* ── Current roster ── */}
+      {/* ═══ ROSTER: full player list ═══ */}
+      {activeTab === 'roster' && (
       <section className="bg-[#141419] rounded-2xl border border-[#22222b] overflow-hidden">
-        <div className="px-4 sm:px-5 pt-4 pb-2">
+        <div className="px-4 sm:px-5 pt-4 pb-2 flex items-baseline justify-between">
           <p className="text-[11px] font-bold text-accent-500 tracking-[0.18em] uppercase">Roster</p>
+          <span className="text-[10px] text-[#60606a]">{rosterAssets.length} players</span>
         </div>
         {visibleAssets.map((a) => (
           <PlayerRow
@@ -334,6 +409,7 @@ export default function TeamDetail() {
           </button>
         )}
       </section>
+      )}
     </div>
   );
 }

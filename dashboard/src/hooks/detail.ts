@@ -593,3 +593,20 @@ export function useTeamTrades(rosterId: number | undefined) {
     },
   });
 }
+
+/** Non-trade moves (waivers, free-agent adds/drops) for one roster, newest first. */
+export function useTeamMoves(rosterId: number | undefined) {
+  return useQuery({
+    queryKey: ['team-moves', rosterId],
+    enabled: rosterId !== undefined,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('transactions')
+        .select('*')
+        .neq('type', 'trade')
+        .contains('roster_ids', [rosterId!])
+        .order('created', { ascending: false });
+      return (data || []) as TransactionRow[];
+    },
+  });
+}
