@@ -39,20 +39,11 @@ interface TradeCardProps {
   date?: string;
   variant?: 'compact' | 'full';
   showHeader?: boolean;
+  /** Accepted for compatibility but no longer rendered — the meta row is type + date only. */
   fairness?: Fairness;
   /** Link players/used-picks to their detail pages (used on the trade page). */
   linkPlayers?: boolean;
 }
-
-const FAIRNESS_TEXT: Record<Fairness, string> = {
-  fair: 'text-[#75757f]',
-  slight: 'text-[#75757f]',
-  unfair: 'text-amber-400/90',
-  lopsided: 'text-red-400/90',
-};
-const FAIRNESS_LABEL: Record<Fairness, string> = {
-  fair: 'Even', slight: 'Slightly uneven', unfair: 'Uneven', lopsided: 'Lopsided',
-};
 
 export function TradeCard({
   sides,
@@ -60,7 +51,6 @@ export function TradeCard({
   isEvenTrade,
   date,
   showHeader = true,
-  fairness,
   linkPlayers = false,
 }: TradeCardProps) {
   const { data: directory } = useLeagueDirectory();
@@ -80,6 +70,9 @@ export function TradeCard({
     return raw.startsWith('http') ? raw : `https://sleepercdn.com/avatars/thumbs/${raw}`;
   };
 
+  // Winner/verdict uses the ADJUSTED value (KTC-style stud premium), but the
+  // number shown in each team header is the RAW total so it always equals the
+  // player/pick rows below it.
   const val0 = sides[0].adjustedValue ?? sides[0].totalValue;
   const val1 = sides[1].adjustedValue ?? sides[1].totalValue;
   const diff = Math.abs(val0 - val1);
@@ -91,22 +84,19 @@ export function TradeCard({
 
   return (
     <div>
-      {/* Meta sits ABOVE the card for separation */}
+      {/* Meta sits ABOVE the card for separation — type + date only, no trailing label */}
       {showHeader && (
-        <div className="flex items-center justify-between px-1.5 pb-2">
+        <div className="flex items-center px-1.5 pb-2">
           <div className="flex items-center gap-2 text-[11px] text-[#75757f]">
             <span className="px-1.5 py-0.5 bg-[#1b1b22] text-[#9c9ca7] text-[9px] font-bold tracking-[1px] rounded">TRADE</span>
             {date && <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{date}</span>}
           </div>
-          {fairness && (
-            <span className={`text-[11px] font-medium ${FAIRNESS_TEXT[fairness]}`}>{FAIRNESS_LABEL[fairness]}</span>
-          )}
         </div>
       )}
 
       <div className="bg-[#141419] rounded-2xl overflow-hidden border border-[#22222b] card-hover">
         {sides.map((side, idx) => {
-          const sideVal = side.adjustedValue ?? side.totalValue;
+          const sideVal = side.totalValue; // raw sum of rows shown in header
           const avatar = avatarUrl(side.rosterId);
           const result: 'W' | 'L' | '=' = deadEven ? '=' : actualWinnerIdx === idx ? 'W' : 'L';
 

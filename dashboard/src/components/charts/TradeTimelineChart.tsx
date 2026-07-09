@@ -14,6 +14,8 @@ interface TradeTimelineChartProps {
   /** ISO date to mark with a vertical line (e.g. the day the trade was made). */
   markerDate?: string;
   markerLabel?: string;
+  /** Show the color/label legend above the plot. Off when the caller renders its own. */
+  showLegend?: boolean;
 }
 
 const M = { top: 12, right: 16, bottom: 24, left: 46 };
@@ -40,7 +42,7 @@ function niceTicks(min: number, max: number): number[] {
  * overlays several lines (one per trade side) on a shared date/value scale with
  * a legend and a crosshair that reads every series at the hovered date.
  */
-export function TradeTimelineChart({ series, height = 260, formatValue = fmtDefault, markerDate, markerLabel }: TradeTimelineChartProps) {
+export function TradeTimelineChart({ series, height = 260, formatValue = fmtDefault, markerDate, markerLabel, showLegend = true }: TradeTimelineChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
   const [hoverDate, setHoverDate] = useState<string | null>(null);
@@ -142,14 +144,16 @@ export function TradeTimelineChart({ series, height = 260, formatValue = fmtDefa
   return (
     <div>
       {/* Legend */}
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mb-2">
-        {series.map((s) => (
-          <div key={s.label} className="flex items-center gap-1.5">
-            <span className="w-3 h-[3px] rounded-full" style={{ backgroundColor: s.color }} />
-            <span className="text-[11px] text-[#9c9ca7] truncate max-w-[160px]">{s.label}</span>
-          </div>
-        ))}
-      </div>
+      {showLegend && (
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mb-2">
+          {series.map((s) => (
+            <div key={s.label} className="flex items-center gap-1.5">
+              <span className="w-3 h-[3px] rounded-full" style={{ backgroundColor: s.color }} />
+              <span className="text-[11px] text-[#9c9ca7] truncate max-w-[160px]">{s.label}</span>
+            </div>
+          ))}
+        </div>
+      )}
 
       <div
         ref={containerRef}

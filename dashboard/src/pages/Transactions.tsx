@@ -328,7 +328,7 @@ export default function Transactions() {
   };
 
   const formatDate = (tx: TransactionWithTeams) =>
-    txDate(tx).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    txDate(tx).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
   const getDateGroup = (tx: TransactionWithTeams) =>
     txDate(tx).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
@@ -417,15 +417,11 @@ export default function Transactions() {
     const adds = Object.keys(playerMoves(tx.adds));
     const drops = Object.keys(playerMoves(tx.drops));
 
-    const addedValue = adds.reduce((sum, playerId) => sum + getPlayerValue(playerId), 0);
-    const droppedValue = drops.reduce((sum, playerId) => sum + getPlayerValue(playerId), 0);
-    const netValue = addedValue - droppedValue;
-
     const typeLabel = tx.type === 'free_agent' ? 'FREE AGENT' : tx.type === 'waiver' ? 'WAIVER' : tx.type.toUpperCase();
     return (
       <div>
-        {/* Meta sits ABOVE the card for separation */}
-        <div className="flex items-center justify-between px-1.5 pb-2">
+        {/* Meta sits ABOVE the card for separation — type + date only, no trailing value */}
+        <div className="flex items-center px-1.5 pb-2">
           <div className="flex items-center gap-2 text-[11px] text-[#75757f]">
             <span className="px-1.5 py-0.5 bg-[#1b1b22] text-[#9c9ca7] text-[9px] font-bold tracking-[1px] rounded">
               {typeLabel}
@@ -435,13 +431,6 @@ export default function Transactions() {
               {formatDate(tx)}
             </span>
           </div>
-          {(addedValue > 0 || droppedValue > 0) && (
-            <span className={`text-[11px] font-bold tabular-nums ${
-              netValue > 0 ? 'text-accent-400' : netValue < 0 ? 'text-red-400' : 'text-[#75757f]'
-            }`}>
-              {netValue > 0 ? '+' : netValue < 0 ? '−' : ''}{Math.abs(netValue).toLocaleString()}
-            </span>
-          )}
         </div>
 
         {/* Team + Assets */}

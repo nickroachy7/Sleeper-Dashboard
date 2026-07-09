@@ -6,9 +6,13 @@ import { usePlayerValues, usePickValues, usePlayers } from '../hooks/queries';
 import { playerMoves, txDraftPicks, formatResolvedPick } from '../lib/trade-shared';
 import { TradeCard, type TradeSide } from '../components/TradeCard';
 import { TradeTimelineChart, type TimelineSeries } from '../components/charts/TradeTimelineChart';
-import { CHART_POS } from '../components/charts/theme';
+import { CHART_POS, CHART_NEG } from '../components/charts/theme';
 
-const SIDE_COLORS = [CHART_POS, '#3b82f6', '#f59e0b', '#a855f7'];
+// Two-sided trades color by OUTCOME (winner green, loser red) so the chart reads
+// the same as the W/L badges on the card below. Trades with 3+ sides (rare) fall
+// back to a neutral identity palette — you can't have two "losers" in red.
+const EVEN_COLOR = '#3b82f6';
+const IDENTITY_COLORS = [CHART_POS, EVEN_COLOR, '#f59e0b', '#a855f7'];
 
 /** Value of a series at-or-before a timestamp (last known point). */
 function valueAt(points: { date: string; value: number }[], iso: string): number | null {
@@ -101,6 +105,17 @@ export default function TradeDetail() {
 
   const tradeIso = tx?.created ? new Date(tx.created).toISOString().slice(0, 10) : null;
 
+  // Outcome color per side: the side that received more value at trade time is the
+  // winner (green); the other is the loser (red). Ties → neutral. This is the same
+  // verdict the W/L badges on the card below show, so the whole page agrees.
+  const sideColors = useMemo(() => {
+    if (!built) return [] as string[];
+    if (built.sides.length !== 2) return built.sides.map((_, i) => IDENTITY_COLORS[i] ?? EVEN_COLOR);
+    const [a, b] = built.sides.map((s) => s.adjustedValue ?? s.totalValue);
+    if (a === b) return [EVEN_COLOR, EVEN_COLOR];
+    return a > b ? [CHART_POS, CHART_NEG] : [CHART_NEG, CHART_POS];
+  }, [built]);
+
   const chart = useMemo(() => {
     if (!built || built.sides.length < 2) return null;
     const feeds = [histA, histB].map((f) => f ?? []);
@@ -113,19 +128,20 @@ export default function TradeDetail() {
     const clip = (pts: { date: string; value: number }[]) => pts.filter((p) => p.date >= commonStart);
 
     const series: TimelineSeries[] = built.sides.slice(0, 2).map((side, i) => ({
-      label: side.teamName, color: SIDE_COLORS[i], points: clip(feeds[i]),
+      label: side.teamName, color: sideColors[i], points: clip(feeds[i]),
     }));
     if (series.some((s) => s.points.length === 0)) return null;
 
-    // then → now readout per side (value at trade date vs latest)
+    // then → now readout per side (value at trade date vs latest). Color carries
+    // the win/loss outcome (green winner / red loser), matching the card below.
     const readouts = built.sides.slice(0, 2).map((side, i) => {
       const pts = feeds[i];
       const now = pts[pts.length - 1]?.value ?? null;
       const then = tradeIso ? valueAt(pts, tradeIso) : null;
-      return { teamName: side.teamName, color: SIDE_COLORS[i], then, now };
+      return { teamName: side.teamName, color: sideColors[i], then, now };
     });
     return { series, readouts, markerDate: tradeIso };
-  }, [built, histA, histB, tradeIso]);
+  }, [built, histA, histB, tradeIso, sideColors]);
 
   if (isLoading || !detail) {
     return (
@@ -153,7 +169,7 @@ export default function TradeDetail() {
     <div className="p-4 sm:p-6 lg:p-8 max-w-3xl mx-auto space-y-4">
       {/* ── Value over time (on top) ── */}
       <div className="bg-[#141419] rounded-2xl p-4 sm:p-5 border border-[#22222b]">
-        <p className="text-[11px] font-bold text-accent-500 tracking-[0.18em] uppercase mb-0.5">Value Since The Trade</p>
+        <p className="text-[11px] font-bold text-white tracking-[0.18em] uppercase mb-0.5">Value Since The Trade</p>
         <p className="text-[10px] text-[#75757f] mb-4">
           KTC value of what each side received, over time. Picks that have been used are tracked as the player
           drafted; future picks are valued at their projected tier but aren&apos;t charted.
@@ -161,7 +177,7 @@ export default function TradeDetail() {
 
         {chart ? (
           <>
-            <TradeTimelineChart series={chart.series} height={260} markerDate={chart.markerDate ?? undefined} markerLabel="Trade" />
+            <TradeTimelineChart series={chart.series} height={200} markerDate={chart.markerDate ?? undefined} markerLabel="Trade" />
 
             {/* then → now per side */}
             <div className="grid grid-cols-2 gap-3 mt-4">
