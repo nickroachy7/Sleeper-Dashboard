@@ -178,47 +178,47 @@ export function useRosterValueHistory(playerIds: string[] | undefined) {
   });
 }
 
-export interface SeasonValuePoint {
+export interface SeasonRankPoint {
   season: string;
-  /** The team's actual roster that season, valued at that season's KTC. */
+  /** Rank (1 = best) of this roster's total KTC value among the league that season. */
+  powerRank: number;
+  /** Actual standings finish (1 = best), by wins then points. Null before games. */
+  finishRank: number | null;
+  /** The team's roster value that season (for the tooltip). */
   value: number;
-  /** League-average roster value that season. */
-  leagueAvg: number;
-  /** value − leagueAvg. */
-  vsLeague: number;
-  rosterCount: number;
+  wins: number;
+  losses: number;
+  teams: number;
 }
 
 /**
- * Per-season roster value for one team, the honest "did this manager build or
- * bleed value" series. For each season we take the roster the manager ACTUALLY
- * held that year (the season's roster snapshot) and value it at THAT season's
- * KTC (from player_value_history near season's end), plus the league average
- * that season. This avoids the back-projection artifact of valuing today's
- * roster in the past (which made every team look awful-then-great).
+ * Per-season POWER RANK (roster talent) and FINISH RANK (actual standings) for
+ * one team — the legible "am I building or declining, and am I over/under-
+ * achieving" story. Power rank comes from valuing each team's actual season
+ * roster at that season's KTC and ranking them; finish rank from wins→points.
+ * Ranks are league-relative, so they're immune to the leaguewide value inflation
+ * that made raw-dollar charts meaningless.
  *
- * `ownerId` ties the team across seasons (roster_id can differ); we resolve the
- * owner's roster within each season's league.
+ * `ownerId` ties the team across seasons (roster_id can differ).
  */
-export function useSeasonRosterValues(ownerId: string | null | undefined) {
+export function useSeasonRanks(ownerId: string | null | undefined) {
   return useQuery({
-    queryKey: ['season-roster-values', ownerId],
+    queryKey: ['season-ranks', ownerId],
     enabled: !!ownerId,
-    queryFn: async (): Promise<SeasonValuePoint[]> => {
+    queryFn: async (): Promise<SeasonRankPoint[]> => {
       const { data: leagues } = await supabase
         .from('leagues').select('league_id, season').order('season', { ascending: true });
       if (!leagues?.length) return [];
 
       const { data: rosters } = await supabase
-        .from('rosters').select('league_id, roster_id, owner_id, players');
+        .from('rosters').select('league_id, roster_id, owner_id, players, wins, losses, fpts');
 
-      const points: SeasonValuePoint[] = [];
+      const points: SeasonRankPoint[] = [];
       for (const lg of leagues) {
         const leagueRosters = (rosters || []).filter((r) => r.league_id === lg.league_id);
         if (!leagueRosters.length) continue;
 
-        // Value date: a point inside the season (Dec 15), or today for the
-        // current/most-recent season if that date is still in the future.
+        // Value date: a point inside the season (Dec 15), or today if that's future.
         const todayIso = new Date().toISOString().slice(0, 10);
         let asOf = `${lg.season}-12-15`;
         if (asOf > todayIso) asOf = todayIso;
@@ -226,14 +226,10 @@ export function useSeasonRosterValues(ownerId: string | null | undefined) {
         const allPlayerIds = [...new Set(leagueRosters.flatMap((r) => (r.players as string[]) || []))];
         if (!allPlayerIds.length) continue;
 
-        // Latest value at-or-before asOf for each player. We only need each
-        // player's most-recent snapshot on/before the date, so pull a NARROW
-        // window (values are snapshotted ~daily) instead of many months of
-        // history — the old wide window fetched ~100k rows and took ~10s.
+        // Latest value at-or-before asOf per player, from a narrow window.
         const windowLo = new Date(asOf);
         windowLo.setDate(windowLo.getDate() - 14);
         const loIso = windowLo.toISOString().slice(0, 10);
-
         const rows = await fetchAllRows<{ player_id: string; value: number; date: string }>((from, to) =>
           supabase
             .from('player_value_history')
@@ -247,23 +243,151 @@ export function useSeasonRosterValues(ownerId: string | null | undefined) {
         const valOf = new Map<string, number>();
         for (const r of rows) if (!valOf.has(r.player_id)) valOf.set(r.player_id, r.value);
 
-        const totals = leagueRosters.map((r) =>
-          ((r.players as string[]) || []).reduce((s, pid) => s + (valOf.get(pid) || 0), 0)
-        );
-        const leagueAvg = Math.round(totals.reduce((s, t) => s + t, 0) / totals.length);
-        const mine = leagueRosters.find((r) => r.owner_id === ownerId);
+        const withVal = leagueRosters.map((r) => ({
+          roster: r,
+          value: ((r.players as string[]) || []).reduce((s, pid) => s + (valOf.get(pid) || 0), 0),
+        }));
+        const mine = withVal.find((x) => x.roster.owner_id === ownerId);
         if (!mine) continue;
-        const value = ((mine.players as string[]) || []).reduce((s, pid) => s + (valOf.get(pid) || 0), 0);
+
+        // Power rank: sort by value desc.
+        const powerRank = [...withVal].sort((a, b) => b.value - a.value)
+          .findIndex((x) => x.roster.owner_id === ownerId) + 1;
+
+        // Finish rank: wins then points. Null if no games played yet this season.
+        const anyGames = leagueRosters.some((r) => (r.wins || 0) + (r.losses || 0) > 0);
+        const finishRank = anyGames
+          ? [...leagueRosters].sort((a, b) =>
+              (b.wins || 0) - (a.wins || 0) || Number(b.fpts || 0) - Number(a.fpts || 0)
+            ).findIndex((r) => r.owner_id === ownerId) + 1
+          : null;
 
         points.push({
           season: lg.season,
-          value,
-          leagueAvg,
-          vsLeague: value - leagueAvg,
-          rosterCount: leagueRosters.length,
+          powerRank,
+          finishRank,
+          value: mine.value,
+          wins: mine.roster.wins || 0,
+          losses: mine.roster.losses || 0,
+          teams: leagueRosters.length,
         });
       }
       return points;
+    },
+  });
+}
+
+// ── Team analytics (3 charts: contention window, scoring/luck, positional edge) ──
+
+export interface TeamAnalytics {
+  /** Roster value bucketed by player age → contention window shape. */
+  ageBuckets: { age: number; value: number }[];
+  /** Value-weighted average age of this roster + the league average of that. */
+  weightedAge: number;
+  leagueWeightedAge: number;
+  /** Per-season scoring + luck: actual wins vs all-play (luck-neutral) wins. */
+  scoring: {
+    season: string;
+    avg: number;         // avg weekly points
+    stdev: number;       // scoring consistency (lower = steadier)
+    wins: number; losses: number;              // head-to-head record
+    allPlayWinPct: number;                     // 0..1, luck-neutral
+    games: number;
+  }[];
+}
+
+/**
+ * Everything the team-analytics tab needs, in one bundle:
+ *  1. Contention window — current roster value by player age.
+ *  2. Scoring & luck — per season, actual record vs all-play win% (a big gap
+ *     means wins/losses were driven by schedule luck, not scoring).
+ *  3. Positional edge — current roster value per position vs the league.
+ */
+export function useTeamAnalytics(rosterId: number | undefined, ownerId: string | null | undefined) {
+  return useQuery({
+    queryKey: ['team-analytics', rosterId, ownerId],
+    enabled: rosterId !== undefined && !!ownerId,
+    queryFn: async (): Promise<TeamAnalytics> => {
+      const [{ data: leagues }, { data: rosters }, players, pvRows, matchups] = await Promise.all([
+        supabase.from('leagues').select('league_id, season').order('season', { ascending: true }),
+        supabase.from('rosters').select('league_id, roster_id, owner_id, players'),
+        fetchAllRows<{ player_id: string; position: string | null; age: number | null }>((from, to) =>
+          supabase.from('players').select('player_id, position, age').range(from, to)),
+        fetchAllRows<{ player_id: string; value: number }>((from, to) =>
+          supabase.from('player_values').select('player_id, value').range(from, to)),
+        fetchAllRows<{ league_id: string; week: number; roster_id: number; points: number | null; matchup_id: number | null }>((from, to) =>
+          supabase.from('matchups').select('league_id, week, roster_id, points, matchup_id').range(from, to)),
+      ]);
+
+      const currentLeagueId = leagues?.[leagues.length - 1]?.league_id ?? null;
+      const playerById = new Map(players.map((p) => [p.player_id, p]));
+      const valOf = new Map(pvRows.map((r) => [r.player_id, r.value]));
+      const allRosters = rosters || [];
+      const currentRosters = allRosters.filter((r) => r.league_id === currentLeagueId);
+      const mine = currentRosters.find((r) => r.roster_id === rosterId);
+      const myPlayers = (mine?.players as string[]) || [];
+
+      // 1. Age buckets + weighted ages ------------------------------------
+      const ageMap = new Map<number, number>();
+      let wSum = 0, vSum = 0;
+      for (const pid of myPlayers) {
+        const p = playerById.get(pid); const v = valOf.get(pid) || 0;
+        if (!p?.age || !v) continue;
+        const a = Math.round(p.age);
+        ageMap.set(a, (ageMap.get(a) || 0) + v);
+        wSum += v * p.age; vSum += v;
+      }
+      const ageBuckets = [...ageMap.entries()].map(([age, value]) => ({ age, value })).sort((a, b) => a.age - b.age);
+      const weightedAge = vSum ? wSum / vSum : 0;
+      // League weighted-age average
+      const teamWtAges: number[] = [];
+      for (const r of currentRosters) {
+        let ws = 0, vs = 0;
+        for (const pid of (r.players as string[]) || []) {
+          const p = playerById.get(pid); const v = valOf.get(pid) || 0;
+          if (p?.age && v) { ws += v * p.age; vs += v; }
+        }
+        if (vs) teamWtAges.push(ws / vs);
+      }
+      const leagueWeightedAge = teamWtAges.length ? teamWtAges.reduce((s, a) => s + a, 0) / teamWtAges.length : 0;
+
+      // 2. Scoring & luck per season --------------------------------------
+      const scoring: TeamAnalytics['scoring'] = [];
+      for (const lg of leagues || []) {
+        const rows = matchups.filter((m) => m.league_id === lg.league_id);
+        if (rows.length < 12) continue; // skip barely-started seasons
+        // owner's roster_id in THIS season
+        const seasonRoster = allRosters.find((r) => r.league_id === lg.league_id && r.owner_id === ownerId);
+        if (!seasonRoster) continue;
+        const rid = seasonRoster.roster_id;
+        const byWeek = new Map<number, typeof rows>();
+        for (const m of rows) { const arr = byWeek.get(m.week) || []; arr.push(m); byWeek.set(m.week, arr); }
+        const scores: number[] = [];
+        let wins = 0, losses = 0, apWin = 0, apGames = 0;
+        for (const [, wk] of byWeek) {
+          const me = wk.find((m) => m.roster_id === rid);
+          if (!me || me.points == null) continue;
+          const myPts = me.points;
+          scores.push(myPts);
+          // head-to-head via matchup_id
+          const opp = wk.find((m) => m.matchup_id === me.matchup_id && m.roster_id !== rid);
+          if (opp && opp.points != null) { if (myPts > opp.points) wins++; else losses++; }
+          // all-play: vs everyone else that week
+          for (const m of wk) {
+            if (m.roster_id === rid || m.points == null) continue;
+            apGames++; if (myPts > m.points) apWin++;
+          }
+        }
+        if (!scores.length) continue;
+        const avg = scores.reduce((s, v) => s + v, 0) / scores.length;
+        const variance = scores.reduce((s, v) => s + (v - avg) ** 2, 0) / scores.length;
+        scoring.push({
+          season: lg.season, avg, stdev: Math.sqrt(variance),
+          wins, losses, allPlayWinPct: apGames ? apWin / apGames : 0, games: wins + losses,
+        });
+      }
+
+      return { ageBuckets, weightedAge, leagueWeightedAge, scoring };
     },
   });
 }

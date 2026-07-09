@@ -1,19 +1,21 @@
 import { useParams, Link } from 'react-router-dom';
 import { useMemo, useState } from 'react';
-import { ArrowRightLeft, ChevronRight, Users, LayoutGrid, ListChecks, BarChart3 } from 'lucide-react';
+import { ArrowRightLeft, ChevronRight, Users, LayoutGrid, ListChecks, BarChart3, Sparkles } from 'lucide-react';
 import { ValueChart } from '../components/charts/ValueChart';
-import { SeasonValueChart } from '../components/charts/SeasonValueChart';
+import { SeasonRankChart } from '../components/charts/SeasonRankChart';
+import { TeamAnalyticsCharts } from '../components/charts/TeamAnalytics';
 import { CHART_POS, CHART_NEG } from '../components/charts/theme';
 import { PlayerRow } from '../components/PlayerRow';
-import { useLeagueDirectory, useSeasonRosterValues, useTeamTrades, useTeamMoves } from '../hooks/detail';
+import { useLeagueDirectory, useSeasonRanks, useTeamAnalytics, useTeamTrades, useTeamMoves } from '../hooks/detail';
 import { usePlayerMap } from '../hooks/useLeagueData';
 import { usePlayerValuesList, usePickValues } from '../hooks/queries';
 import { useUrlState } from '../hooks/useUrlState';
 import { playerMoves, txDraftPicks, lookupPickValue } from '../lib/trade-shared';
 
-type TeamTab = 'overview' | 'roster' | 'transactions';
+type TeamTab = 'overview' | 'analytics' | 'roster' | 'transactions';
 const TEAM_TABS: { id: TeamTab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { id: 'overview', label: 'Overview', icon: BarChart3 },
+  { id: 'analytics', label: 'Analytics', icon: Sparkles },
   { id: 'roster', label: 'Roster', icon: LayoutGrid },
   { id: 'transactions', label: 'Transactions', icon: ListChecks },
 ];
@@ -53,8 +55,13 @@ export default function TeamDetail() {
     ) ?? null;
   }, [directory, rosterId]);
 
-  // Per-season roster value vs league average (real team-building trajectory).
-  const { data: seasonValues, isLoading: seasonLoading } = useSeasonRosterValues(currentRoster?.owner_id);
+  // Per-season power rank (talent) vs finish rank (results).
+  const { data: seasonRanks, isLoading: seasonLoading } = useSeasonRanks(currentRoster?.owner_id);
+  // Deep analytics (contention window, scoring/luck, positional edge).
+  const { data: analytics, isLoading: analyticsLoading } = useTeamAnalytics(
+    Number.isFinite(rosterId) ? rosterId : undefined,
+    currentRoster?.owner_id
+  );
 
   // Season-by-season record with league finish (by wins, then fpts)
   const seasons = useMemo(() => {
@@ -208,19 +215,19 @@ export default function TeamDetail() {
       </section>
 
       {/* ── Tab bar (under the team card, swaps the content below) ── */}
-      <div className="flex gap-1.5 bg-[#141419] border border-[#22222b] rounded-xl p-1">
+      <div className="flex gap-1 bg-[#141419] border border-[#22222b] rounded-xl p-1">
         {TEAM_TABS.map(({ id, label, icon: Icon }) => (
           <button
             key={id}
             onClick={() => set('tab', id === 'overview' ? null : id)}
-            className={`flex-1 flex items-center justify-center gap-1.5 h-9 rounded-lg text-[13px] font-medium transition-all ${
+            className={`flex-1 flex items-center justify-center gap-1 sm:gap-1.5 h-9 rounded-lg text-[11px] sm:text-[13px] font-medium transition-all ${
               activeTab === id
                 ? 'bg-accent-500 text-white shadow-[0_0_10px_rgba(34,197,94,0.2)]'
                 : 'text-[#9c9ca7] hover:text-white hover:bg-[#1b1b22]'
             }`}
           >
-            <Icon className="h-4 w-4" />
-            {label}
+            <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
+            <span className="truncate">{label}</span>
           </button>
         ))}
       </div>
@@ -229,39 +236,42 @@ export default function TeamDetail() {
       {activeTab === 'overview' && (<>
       {/* ── Roster value by season (vs league average) ── */}
       <section className="bg-[#141419] rounded-2xl p-4 sm:p-5 border border-[#22222b]">
-        <p className="text-[11px] font-bold text-white tracking-[0.18em] uppercase mb-0.5">Roster Value by Season</p>
+        <p className="text-[11px] font-bold text-white tracking-[0.18em] uppercase mb-0.5">Power &amp; Finish by Season</p>
         <p className="text-[10px] text-[#75757f] mb-3">
-          Value of the roster actually held each season, priced at that season&apos;s KTC. Green when above the
-          league average that year, red when below — so you can see real value built or lost, not just player aging.
+          Where this team ranked in roster talent (green) vs where it actually finished (purple), each season.
+          Rising = climbing the league; a finish worse than power means underachieving, better means overachieving.
         </p>
 
-        {seasonLoading && !seasonValues ? (
+        {seasonLoading && !seasonRanks ? (
           <div className="skeleton h-[240px] w-full rounded-xl" />
         ) : (
         <>
-        {/* Lead readout: where the team stands now vs its first tracked season */}
-        {(seasonValues?.length ?? 0) > 0 && (() => {
-          const pts = seasonValues!;
+        {/* Lead readout: current power rank + trajectory since first season */}
+        {(seasonRanks?.length ?? 0) > 0 && (() => {
+          const pts = seasonRanks!;
           const first = pts[0];
           const latest = pts[pts.length - 1];
+          const ord = (n: number) => {
+            const s = ['th', 'st', 'nd', 'rd'], v = n % 100;
+            return n + (s[(v - 20) % 10] || s[v] || s[0]);
+          };
+          const moved = first.powerRank - latest.powerRank; // + = climbed (lower rank number)
           return (
             <div className="flex flex-wrap items-baseline gap-x-5 gap-y-1 mb-3">
               <div>
-                <span className="font-display text-2xl font-bold text-white tabular-nums">{latest.value.toLocaleString()}</span>
-                <span className={`ml-2 text-[12px] font-semibold tabular-nums ${latest.vsLeague >= 0 ? 'text-accent-400' : 'text-red-400'}`}>
-                  {latest.vsLeague >= 0 ? '+' : ''}{latest.vsLeague.toLocaleString()} vs league
-                </span>
+                <span className="font-display text-2xl font-bold text-accent-400 tabular-nums">{ord(latest.powerRank)}</span>
+                <span className="ml-2 text-[12px] text-[#75757f]">in roster talent, of {latest.teams}</span>
               </div>
               {pts.length > 1 && (
-                <span className="text-[11px] text-[#60606a]">
-                  {first.season}: {first.value.toLocaleString()} ({first.vsLeague >= 0 ? '+' : ''}{first.vsLeague.toLocaleString()} vs lg)
+                <span className={`text-[11px] font-semibold ${moved > 0 ? 'text-accent-400' : moved < 0 ? 'text-red-400' : 'text-[#60606a]'}`}>
+                  {moved > 0 ? `▲ up ${moved}` : moved < 0 ? `▼ down ${Math.abs(moved)}` : '— flat'} since {first.season}
                 </span>
               )}
             </div>
           );
         })()}
 
-        <SeasonValueChart data={seasonValues || []} height={240} />
+        <SeasonRankChart data={seasonRanks || []} height={240} />
         </>
         )}
       </section>
@@ -380,6 +390,18 @@ export default function TeamDetail() {
           </table>
         </div>
       </section>
+      )}
+
+      {/* ═══ ANALYTICS: contention window, scoring/luck, positional edge ═══ */}
+      {activeTab === 'analytics' && (
+        analyticsLoading && !analytics ? (
+          <div className="space-y-4">
+            <div className="skeleton h-56 w-full rounded-2xl" />
+            <div className="skeleton h-56 w-full rounded-2xl" />
+          </div>
+        ) : analytics ? (
+          <TeamAnalyticsCharts data={analytics} />
+        ) : null
       )}
 
       {/* ═══ ROSTER: full player list ═══ */}
