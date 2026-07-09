@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
-import { useTradeDetail, useLeagueDirectory, useRosterValueHistory } from '../hooks/detail';
+import { useTradeDetail, useLeagueDirectory, useMultiRosterValueHistory } from '../hooks/detail';
 import { usePlayerValues, usePickValues, usePlayers } from '../hooks/queries';
 import { playerMoves, txDraftPicks, formatResolvedPick } from '../lib/trade-shared';
 import { TradeCard, type TradeSide } from '../components/TradeCard';
@@ -83,13 +83,21 @@ export default function TradeDetail() {
       const totalValue =
         players.reduce((s, p) => s + p.value, 0) + sidePicks.reduce((s, p) => s + (p.value || 0), 0);
 
-      const side: TradeSide & { rosterId: number; timelinePlayerIds: string[] } = {
+      // Future picks have no per-day history (they aren't a real player yet), so
+      // their projected value is charted as a flat baseline added to this side's
+      // line — otherwise the chart total wouldn't match the card total.
+      const pickBaseline = sidePicks
+        .filter((p) => !p.playerId)
+        .reduce((s, p) => s + (p.value || 0), 0);
+
+      const side: TradeSide & { rosterId: number; timelinePlayerIds: string[]; pickBaseline: number } = {
         rosterId,
         teamName: directory.teamName(rosterId, tx.league_id),
         players,
         picks: sidePicks,
         totalValue,
         timelinePlayerIds,
+        pickBaseline,
       };
       return side;
     });
@@ -97,17 +105,17 @@ export default function TradeDetail() {
     return { sides };
   }, [tx, directory, playerValues, pickValues, playerMeta, latestValue, pickResolution]);
 
-  // Two-sided value history (hooks must run unconditionally → always call twice)
-  const sideAIds = built?.sides[0]?.timelinePlayerIds ?? [];
-  const sideBIds = built?.sides[1]?.timelinePlayerIds ?? [];
-  const { data: histA } = useRosterValueHistory(sideAIds);
-  const { data: histB } = useRosterValueHistory(sideBIds);
+  // One value-history series per side — works for 2-, 3-, or 4-team trades.
+  const historyInput = useMemo(
+    () => built?.sides.map((s) => ({ playerIds: s.timelinePlayerIds, baseline: s.pickBaseline })),
+    [built]
+  );
+  const { data: histories } = useMultiRosterValueHistory(historyInput);
 
   const tradeIso = tx?.created ? new Date(tx.created).toISOString().slice(0, 10) : null;
 
-  // Outcome color per side: the side that received more value at trade time is the
-  // winner (green); the other is the loser (red). Ties → neutral. This is the same
-  // verdict the W/L badges on the card below show, so the whole page agrees.
+  // Outcome color per side. Two-team trades read as winner-green / loser-red;
+  // 3+ team trades use a distinct identity color per side (no single "loser").
   const sideColors = useMemo(() => {
     if (!built) return [] as string[];
     if (built.sides.length !== 2) return built.sides.map((_, i) => IDENTITY_COLORS[i] ?? EVEN_COLOR);
@@ -117,31 +125,30 @@ export default function TradeDetail() {
   }, [built]);
 
   const chart = useMemo(() => {
-    if (!built || built.sides.length < 2) return null;
-    const feeds = [histA, histB].map((f) => f ?? []);
+    if (!built || built.sides.length < 2 || !histories) return null;
+    const feeds = built.sides.map((_, i) => histories[i] ?? []);
     if (feeds.some((f) => f.length === 0)) return null;
 
-    // Align both lines to a shared start so neither looks "cut off": begin where
-    // BOTH sides first have data (the later of the two first points).
+    // Align every line to a shared start so none looks "cut off": begin where
+    // ALL sides first have data (the latest of each side's first point).
     const firstDates = feeds.map((f) => f[0].date);
     const commonStart = [...firstDates].sort().reverse()[0];
     const clip = (pts: { date: string; value: number }[]) => pts.filter((p) => p.date >= commonStart);
 
-    const series: TimelineSeries[] = built.sides.slice(0, 2).map((side, i) => ({
+    const series: TimelineSeries[] = built.sides.map((side, i) => ({
       label: side.teamName, color: sideColors[i], points: clip(feeds[i]),
     }));
     if (series.some((s) => s.points.length === 0)) return null;
 
-    // then → now readout per side (value at trade date vs latest). Color carries
-    // the win/loss outcome (green winner / red loser), matching the card below.
-    const readouts = built.sides.slice(0, 2).map((side, i) => {
+    // then → now readout per side (value at trade date vs latest).
+    const readouts = built.sides.map((side, i) => {
       const pts = feeds[i];
       const now = pts[pts.length - 1]?.value ?? null;
       const then = tradeIso ? valueAt(pts, tradeIso) : null;
       return { teamName: side.teamName, color: sideColors[i], then, now };
     });
     return { series, readouts, markerDate: tradeIso };
-  }, [built, histA, histB, tradeIso, sideColors]);
+  }, [built, histories, tradeIso, sideColors]);
 
   if (isLoading || !detail) {
     return (
@@ -171,16 +178,16 @@ export default function TradeDetail() {
       <div className="bg-[#141419] rounded-2xl p-4 sm:p-5 border border-[#22222b]">
         <p className="text-[11px] font-bold text-white tracking-[0.18em] uppercase mb-0.5">Value Since The Trade</p>
         <p className="text-[10px] text-[#75757f] mb-4">
-          KTC value of what each side received, over time. Picks that have been used are tracked as the player
-          drafted; future picks are valued at their projected tier but aren&apos;t charted.
+          KTC value of what each side received, over time. Used picks are tracked as the player drafted;
+          future picks are charted at their projected tier value.
         </p>
 
         {chart ? (
           <>
             <TradeTimelineChart series={chart.series} height={200} markerDate={chart.markerDate ?? undefined} markerLabel="Trade" />
 
-            {/* then → now per side */}
-            <div className="grid grid-cols-2 gap-3 mt-4">
+            {/* then → now per side — 2 columns for a 2-team trade, 3-up for larger */}
+            <div className={`grid gap-3 mt-4 ${chart.readouts.length > 2 ? 'grid-cols-2 sm:grid-cols-3' : 'grid-cols-2'}`}>
               {chart.readouts.map((r) => {
                 const delta = r.now != null && r.then != null ? r.now - r.then : null;
                 return (

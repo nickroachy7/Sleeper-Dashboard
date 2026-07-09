@@ -141,6 +141,61 @@ export function useRosterValueHistory(playerIds: string[] | undefined) {
   });
 }
 
+/**
+ * Value history for MULTIPLE sides of a trade in one query, so the timeline
+ * chart works for 2-, 3-, or 4-team trades (React hooks can't be called in a
+ * variable-length loop, so a fixed pair of useRosterValueHistory calls can't
+ * scale). Each side contributes a set of player ids; `baseline[i]` is a flat
+ * value added to every point of side i — used to fold in future draft picks,
+ * which have no per-day history of their own but still count toward the side's
+ * total. Returns one HistoryPoint[] per side, index-aligned with `sides`.
+ */
+export function useMultiRosterValueHistory(
+  sides: { playerIds: string[]; baseline?: number }[] | undefined
+) {
+  const key = (sides || [])
+    .map((s) => `${[...s.playerIds].sort().join('.')}|${s.baseline ?? 0}`)
+    .join(';');
+  const allIds = [...new Set((sides || []).flatMap((s) => s.playerIds))];
+  return useQuery({
+    queryKey: ['multi-roster-value-history', key],
+    enabled: !!allIds.length,
+    queryFn: async () => {
+      const rows = await fetchAllRows<{ player_id: string; date: string; value: number }>((from, to) =>
+        supabase
+          .from('player_value_history')
+          .select('player_id, date, value')
+          .in('player_id', allIds)
+          .order('date', { ascending: true })
+          .range(from, to)
+      );
+
+      // value[player_id][date] for quick per-side summing.
+      const byPlayer = new Map<string, Map<string, number>>();
+      for (const r of rows) {
+        let m = byPlayer.get(r.player_id);
+        if (!m) { m = new Map(); byPlayer.set(r.player_id, m); }
+        m.set(r.date, r.value);
+      }
+
+      return (sides || []).map((side) => {
+        const baseline = side.baseline ?? 0;
+        const byDate = new Map<string, number>();
+        for (const pid of side.playerIds) {
+          const m = byPlayer.get(pid);
+          if (!m) continue;
+          for (const [date, value] of m) byDate.set(date, (byDate.get(date) || 0) + value);
+        }
+        // Fold the flat pick baseline into every dated point.
+        const points = [...byDate.entries()]
+          .map(([date, value]) => ({ date, value: value + baseline }))
+          .sort((a, b) => a.date.localeCompare(b.date)) as HistoryPoint[];
+        return points;
+      });
+    },
+  });
+}
+
 /** Latest value per player within a date window (most recent wins). */
 function latestPerPlayer(rows: { player_id: string; date: string; value: number }[]): Map<string, number> {
   const map = new Map<string, number>();
