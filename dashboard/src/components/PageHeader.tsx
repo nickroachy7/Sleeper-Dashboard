@@ -7,6 +7,7 @@ interface Tab {
 interface PageHeaderProps {
   title: string;
   subtitle?: string;
+  /** @deprecated no longer rendered — the title itself is now the compact label. */
   sectionLabel?: string;
   children?: React.ReactNode;
   actions?: React.ReactNode;
@@ -16,10 +17,14 @@ interface PageHeaderProps {
   onTabChange?: (id: string) => void;
 }
 
+/**
+ * Minimal page header: the title renders as a single compact accent label
+ * (e.g. "TRANSACTIONS") — no oversized heading. Any tabs/segmented control sit
+ * on the same row to the right, keeping the top of every page tight.
+ */
 export function PageHeader({
   title,
   subtitle,
-  sectionLabel,
   children,
   actions,
   stats,
@@ -28,14 +33,9 @@ export function PageHeader({
   onTabChange,
 }: PageHeaderProps) {
   return (
-    <div className="mb-3">
-      {sectionLabel && (
-        <p className="text-[11px] font-bold text-accent-500 tracking-[0.2em] uppercase mb-1">
-          {sectionLabel}
-        </p>
-      )}
-      <div className="flex items-center justify-between gap-3">
-        <h1 className="font-display text-2xl sm:text-3xl font-bold text-white tracking-tight truncate">
+    <div className="mb-4">
+      <div className="flex items-center justify-between gap-3 min-h-[34px]">
+        <h1 className="text-[13px] font-bold text-accent-500 tracking-[0.18em] uppercase truncate">
           {title}
         </h1>
         <div className="flex items-center gap-2 flex-shrink-0">
@@ -57,16 +57,12 @@ export function PageHeader({
           {children}
         </div>
       </div>
-      {(subtitle || stats) && (
-        <div className="flex items-center gap-2 mt-1 flex-wrap">
-          {subtitle && (
-            <p className="text-[13px] text-[#9c9ca7]">
-              {subtitle}
-            </p>
-          )}
-          {stats}
-        </div>
+
+      {subtitle && (
+        <p className="text-[12px] text-[#75757f] mt-1.5 leading-snug">{subtitle}</p>
       )}
+
+      {stats && <div className="mt-2.5">{stats}</div>}
     </div>
   );
 }

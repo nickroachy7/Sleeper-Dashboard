@@ -304,19 +304,11 @@ function PlayersTab() {
 
   return (
     <>
-      <div className="flex items-center gap-2 flex-wrap mb-2">
-        <span className="text-[11px] text-[#75757f] bg-[#141419] px-2 py-0.5 rounded-md">
-          {stats.totalPlayers} players
-        </span>
-        <span className="text-[11px] text-[#75757f] bg-[#141419] px-2 py-0.5 rounded-md">
-          {stats.totalPicks} picks
-        </span>
-        {stats.lastUpdated && (
-          <span className="text-[11px] text-[#60606a]">
-            Updated {new Date(stats.lastUpdated).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} at {new Date(stats.lastUpdated).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
-          </span>
-        )}
-      </div>
+      {stats.lastUpdated && (
+        <p className="text-[11px] text-[#60606a] mb-3">
+          Updated {new Date(stats.lastUpdated).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} at {new Date(stats.lastUpdated).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+        </p>
+      )}
       <FilterBar sticky>
         <SearchInput
           value={searchQuery}
@@ -547,14 +539,9 @@ function TeamsTab() {
 
   return (
     <>
-      <div className="flex items-center gap-2 flex-wrap mb-4">
-        <span className="text-[11px] text-[#75757f] bg-[#141419] px-2 py-1 rounded-md">
-          {sortedTeams.length} teams
-        </span>
-        <span className="text-[11px] text-[#60606a]">
-          Ranked by {filterLabel} weighted KTC value
-        </span>
-      </div>
+      <p className="text-[11px] text-[#60606a] mb-4">
+        Ranked by {filterLabel} weighted KTC value
+      </p>
 
       <div className="mb-4">
         <FilterPills
@@ -659,7 +646,6 @@ export function KTCValues() {
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto">
       <PageHeader
-        sectionLabel="Values"
         title="KTC Values"
         subtitle="Superflex Dynasty Rankings"
         tabs={[

@@ -241,3 +241,17 @@ select:focus-visible {
 .card-hover:hover {
   border-color: #363641;
 }
+
+/* Horizontal filter rails: scroll on mobile without a visible scrollbar */
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+/* Fade the right edge of a horizontally-scrollable rail to hint "more →" */
+.scroll-fade-x {
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 20px), transparent);
+  mask-image: linear-gradient(to right, #000 calc(100% - 20px), transparent);
+}

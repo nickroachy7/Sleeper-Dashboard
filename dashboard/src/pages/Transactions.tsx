@@ -176,16 +176,6 @@ export default function Transactions() {
     return teamAssets;
   }, [getPlayerValue, resolvePickSlotAndValue]);
 
-  // Stats
-  const typeCounts = useMemo(() => {
-    if (!transactions) return { trades: 0, waivers: 0, freeAgent: 0 };
-    return {
-      trades: transactions.filter((t) => t.type === 'trade').length,
-      waivers: transactions.filter((t) => t.type === 'waiver').length,
-      freeAgent: transactions.filter((t) => t.type === 'free_agent').length,
-    };
-  }, [transactions]);
-
   const filteredAndSortedTransactions = useMemo(() => {
     if (!transactions) return [];
 
@@ -485,24 +475,7 @@ export default function Transactions() {
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto">
-      <PageHeader
-        sectionLabel="League"
-        title="Transactions"
-        subtitle="Trades, waivers, and roster moves with KTC analysis"
-        stats={
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-[11px] text-[#75757f] bg-[#141419] px-2 py-1 rounded-md">
-              {typeCounts.trades} trades
-            </span>
-            <span className="text-[11px] text-[#75757f] bg-[#141419] px-2 py-1 rounded-md">
-              {typeCounts.waivers} waivers
-            </span>
-            <span className="text-[11px] text-[#75757f] bg-[#141419] px-2 py-1 rounded-md">
-              {typeCounts.freeAgent} free agent
-            </span>
-          </div>
-        }
-      />
+      <PageHeader title="Transactions" />
 
       <FilterBar sticky>
         <FilterPills

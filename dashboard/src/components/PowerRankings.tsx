@@ -63,8 +63,7 @@ export function PowerRankings({ rankings }: PowerRankingsProps) {
   return (
     <section>
       <PageHeader
-        sectionLabel="Power Rankings"
-        title="Dynasty Rankings"
+        title="Power Rankings"
         subtitle="Weighted roster strength — starters valued most"
       />
 

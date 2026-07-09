@@ -45,7 +45,6 @@ export default function TradeTools() {
     <div className="min-h-dvh">
       <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto">
         <PageHeader
-          sectionLabel="Tools"
           title="Trade Tools"
           subtitle={tabDefs.find(t => t.id === activeTab)?.subtitle}
           tabs={tabDefs}

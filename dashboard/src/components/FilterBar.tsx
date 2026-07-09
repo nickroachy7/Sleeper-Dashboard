@@ -1,13 +1,21 @@
+import { Search, ChevronDown } from 'lucide-react';
+
 interface FilterBarProps {
   children: React.ReactNode;
   sticky?: boolean;
 }
 
+/**
+ * Filter row layout. Children flex-wrap, so a full-width SearchInput takes its
+ * own line while FilterPills (which scroll) and a SortSelect share the next.
+ */
 export function FilterBar({ children, sticky = false }: FilterBarProps) {
   return (
     <div
-      className={`flex flex-col sm:flex-row items-start sm:items-center gap-2 py-2 px-1 mb-3 ${
-        sticky ? 'sticky top-0 z-10 bg-black/90 backdrop-blur-xl -mx-1 px-1' : ''
+      className={`flex flex-wrap items-center gap-2 mb-4 ${
+        sticky
+          ? 'sticky top-0 z-10 -mx-1 px-1 py-2 bg-[#0d0d11]/85 backdrop-blur-xl'
+          : ''
       }`}
     >
       {children}
@@ -25,16 +33,14 @@ interface SearchInputProps {
 
 export function SearchInput({ value, onChange, placeholder = 'Search...' }: SearchInputProps) {
   return (
-    <div className="relative flex-1 w-full sm:w-auto">
-      <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#75757f]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-      </svg>
+    <div className="relative w-full">
+      <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#75757f] pointer-events-none" />
       <input
         type="text"
         placeholder={placeholder}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full pl-9 pr-3 py-2 bg-[#141419] border border-[#2a2a34] rounded-lg text-sm text-white placeholder-[#60606a] focus:outline-none focus:ring-2 focus:ring-accent-500/50 focus:border-transparent transition-all"
+        className="w-full h-11 pl-10 pr-3 bg-[#141419] border border-[#22222b] rounded-xl text-sm text-white placeholder-[#60606a] focus:outline-none focus:border-accent-500/60 focus:ring-2 focus:ring-accent-500/20 transition-all"
       />
     </div>
   );
@@ -48,20 +54,28 @@ interface FilterPillsProps {
 
 export function FilterPills({ options, selected, onChange }: FilterPillsProps) {
   return (
-    <div className="flex gap-1 flex-wrap">
-      {options.map(({ value, label }) => (
-        <button
-          key={value}
-          onClick={() => onChange(value)}
-          className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
-            selected === value
-              ? 'bg-accent-500 text-white shadow-[0_0_8px_rgba(34,197,94,0.2)]'
-              : 'bg-[#1b1b22] text-[#9c9ca7] hover:bg-[#26262f] hover:text-white'
-          }`}
-        >
-          {label}
-        </button>
-      ))}
+    // A horizontal rail: on narrow screens pills scroll instead of wrapping,
+    // so the control stays a single tidy line. Fades at the right edge to hint
+    // there's more to scroll.
+    <div className="flex-1 min-w-0 overflow-x-auto no-scrollbar scroll-fade-x -my-1 py-1">
+      <div className="flex items-center gap-1.5 w-max">
+        {options.map(({ value, label }) => {
+          const active = selected === value;
+          return (
+            <button
+              key={value}
+              onClick={() => onChange(value)}
+              className={`h-9 px-3.5 rounded-lg text-[13px] font-medium whitespace-nowrap transition-all ${
+                active
+                  ? 'bg-accent-500 text-white shadow-[0_0_10px_rgba(34,197,94,0.25)]'
+                  : 'bg-[#141419] border border-[#22222b] text-[#9c9ca7] hover:text-white hover:border-[#363641]'
+              }`}
+            >
+              {label}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -74,14 +88,20 @@ interface SortSelectProps {
 
 export function SortSelect({ value, onChange, options }: SortSelectProps) {
   return (
-    <select
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className="px-3 py-2 bg-[#141419] border border-[#2a2a34] rounded-lg text-xs font-medium focus:outline-none focus:ring-2 focus:ring-accent-500/50 text-white cursor-pointer"
-    >
-      {options.map(({ value: v, label }) => (
-        <option key={v} value={v}>{label}</option>
-      ))}
-    </select>
+    // Native <select> for accessibility + the OS picker on mobile, but styled to
+    // match the pills: fixed height, custom chevron, no default browser chrome.
+    <div className="relative shrink-0">
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        aria-label="Sort"
+        className="h-9 pl-3.5 pr-9 bg-[#141419] border border-[#22222b] rounded-lg text-[13px] font-medium text-white appearance-none cursor-pointer focus:outline-none focus:border-accent-500/60 focus:ring-2 focus:ring-accent-500/20 hover:border-[#363641] transition-all"
+      >
+        {options.map(({ value: v, label }) => (
+          <option key={v} value={v}>{label}</option>
+        ))}
+      </select>
+      <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#75757f] pointer-events-none" />
+    </div>
   );
 }
