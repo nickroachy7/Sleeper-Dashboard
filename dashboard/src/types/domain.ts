@@ -78,3 +78,19 @@ export interface TradeAsset {
 }
 
 export type Fairness = 'fair' | 'slight' | 'unfair' | 'lopsided';
+
+/**
+ * Resolution for a traded draft pick, keyed `${season}-${round}-${originalRosterId}`:
+ *  - `playerId` present → the draft happened and this is the player selected with
+ *    the pick (mapped via Sleeper's authoritative draft_order → slot → board).
+ *  - otherwise `tier` is the projected Early/Mid/Late tier from the original
+ *    owner's current standing, for a future pick that hasn't been used yet.
+ */
+export interface PickResolution {
+  playerId?: string;
+  /** Exact draft slot the pick landed at (past picks) → "round.slot" display. */
+  slot?: number;
+  /** Projected Early/Mid/Late tier (future picks), from the owner's roster-value rank. */
+  tier?: string;
+  future: boolean;
+}

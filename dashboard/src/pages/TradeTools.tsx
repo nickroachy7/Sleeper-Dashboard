@@ -4,6 +4,7 @@ import { Scale, Target } from 'lucide-react';
 import { TradeEvaluator } from './TradeEvaluator';
 import { TradeFinder } from './TradeFinder';
 import { PageHeader } from '../components/PageHeader';
+import { useUrlState } from '../hooks/useUrlState';
 import type { TradeAsset } from '../lib/trade-shared';
 
 const tabDefs = [
@@ -19,6 +20,8 @@ interface InitialTradeState {
 
 export default function TradeTools() {
   const location = useLocation();
+  const { get, setMany } = useUrlState();
+  const activeTab = get('tab', 'evaluate') as TabId;
 
   // Router state handoff: Trade Finder's "Open in Evaluator" button navigates
   // to /trade with { initialTrade: { sides: [...] } } in location.state. We
@@ -29,13 +32,13 @@ export default function TradeTools() {
   const [lastProcessedTrade, setLastProcessedTrade] = useState<InitialTradeState | null>(null);
   const [evaluatorKey, setEvaluatorKey] = useState(0);
   const [initialSides, setInitialSides] = useState<InitialTradeState['sides'] | undefined>(undefined);
-  const [activeTab, setActiveTab] = useState<TabId>('evaluate');
 
   if (incomingTrade && incomingTrade !== lastProcessedTrade) {
     setLastProcessedTrade(incomingTrade);
     setEvaluatorKey((k) => k + 1);
     setInitialSides(incomingTrade.sides);
-    setActiveTab('evaluate');
+    // A handoff always lands on the Evaluator; ensure the tab reflects that.
+    if (activeTab !== 'evaluate') setMany({ tab: null });
   }
 
   return (
@@ -47,7 +50,7 @@ export default function TradeTools() {
           subtitle={tabDefs.find(t => t.id === activeTab)?.subtitle}
           tabs={tabDefs}
           activeTab={activeTab}
-          onTabChange={(id) => setActiveTab(id as TabId)}
+          onTabChange={(id) => setMany({ tab: id === 'evaluate' ? null : id })}
         />
 
         {activeTab === 'evaluate' ? (

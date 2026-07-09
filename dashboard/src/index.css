@@ -42,7 +42,14 @@
 
 html {
   color-scheme: dark;
-  scroll-behavior: smooth;
+  /* NB: no global `scroll-behavior: smooth`. It animates the scroll *clamp*
+     that fires when a short page replaces a tall list on navigation, and those
+     animated events corrupt ScrollManager's saved position. Components that
+     want smooth scrolling (e.g. Chat) opt in with an explicit `behavior`. */
+  /* Disable scroll anchoring: when a filtered/sorted list reorders in place,
+     the browser would otherwise chase the anchored row and yank the viewport
+     to a deep offset. We manage scroll ourselves (see ScrollManager). */
+  overflow-anchor: none;
   /* Stop iOS from inflating text after orientation change */
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;

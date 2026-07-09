@@ -3,19 +3,12 @@ import { useParams, Link } from 'react-router-dom';
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { useTradeDetail, useLeagueDirectory, useRosterValueHistory } from '../hooks/detail';
 import { usePlayerValues, usePickValues, usePlayers } from '../hooks/queries';
-import { playerMoves, txDraftPicks, lookupPickValue } from '../lib/trade-shared';
+import { playerMoves, txDraftPicks, formatResolvedPick } from '../lib/trade-shared';
 import { TradeCard, type TradeSide } from '../components/TradeCard';
 import { TradeTimelineChart, type TimelineSeries } from '../components/charts/TradeTimelineChart';
 import { CHART_POS } from '../components/charts/theme';
 
 const SIDE_COLORS = [CHART_POS, '#3b82f6', '#f59e0b', '#a855f7'];
-
-function ordinal(n: number): string {
-  if (n === 1) return '1st';
-  if (n === 2) return '2nd';
-  if (n === 3) return '3rd';
-  return `${n}th`;
-}
 
 /** Value of a series at-or-before a timestamp (last known point). */
 function valueAt(points: { date: string; value: number }[], iso: string): number | null {
@@ -67,35 +60,20 @@ export default function TradeDetail() {
       });
 
       // Received picks. Past picks resolve to the drafted player (and join the
-      // value chart); future picks show their projected tier value.
+      // value chart); future picks show their projected tier value. The display
+      // fields come from the shared formatter so the transactions list matches.
       const timelinePlayerIds = [...playerIds];
       const sidePicks = picks
         .filter((p) => Number(p.owner_id) === Number(rosterId))
         .map((p) => {
-          const season = String(p.season);
-          const round = Number(p.round);
-          const res = pickResolution?.get(`${season}-${round}-${p.roster_id}`);
-          const origTeam = directory.teamName(Number(p.roster_id), tx.league_id);
-          if (res?.playerId) {
-            const pv = playerValues.get(res.playerId);
-            const meta = playerMeta.get(res.playerId);
-            timelinePlayerIds.push(res.playerId);
-            const slotLabel = res.slot != null ? `${round}.${String(res.slot).padStart(2, '0')}` : ordinal(round);
-            return {
-              season, round,
-              value: pv?.value ?? latestValue?.get(res.playerId) ?? 0,
-              name: `${season} ${slotLabel} → ${pv?.player.full_name || meta?.name || 'drafted pick'}`,
-              subtitle: `via ${origTeam}`,
-              playerId: res.playerId,
-            };
-          }
-          const tier = res?.tier;
-          return {
-            season, round,
-            value: pickValues ? lookupPickValue(pickValues, season, round, { tier: tier ?? 'Mid' }) : 0,
-            name: `${season} ${ordinal(round)} pick`,
-            subtitle: `via ${origTeam}${tier ? ` · proj. ${tier}` : ''}`,
-          };
+          const res = pickResolution?.get(`${String(p.season)}-${Number(p.round)}-${p.roster_id}`);
+          if (res?.playerId) timelinePlayerIds.push(res.playerId);
+          return formatResolvedPick(p, res, {
+            pickValues: pickValues ?? [],
+            origTeamName: directory.teamName(Number(p.roster_id), tx.league_id),
+            playerValue: (pid) => playerValues.get(pid)?.value ?? latestValue?.get(pid),
+            playerName: (pid) => playerValues.get(pid)?.player.full_name ?? playerMeta.get(pid)?.name,
+          });
         });
 
       const totalValue =

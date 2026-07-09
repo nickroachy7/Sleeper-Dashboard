@@ -2,6 +2,25 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import type { Player, PlayerValue, PickValue, Roster } from '../types/domain';
 
+// ── Pagination ────────────────────────────────────────────────────
+// PostgREST caps every response at 1000 rows. Tables that have grown past
+// that (players is ~1150 and climbing as rookies are added) MUST be paged or
+// the tail silently drops — which shows up as players rendering by raw id with
+// a "?" badge because the name/position lookup missed. Page through in 1000s.
+export async function fetchAllRows<T>(
+  fetchPage: (from: number, to: number) => PromiseLike<{ data: T[] | null }>
+): Promise<T[]> {
+  const pageSize = 1000;
+  const all: T[] = [];
+  for (let from = 0; ; from += pageSize) {
+    const { data } = await fetchPage(from, from + pageSize - 1);
+    if (!data?.length) break;
+    all.push(...data);
+    if (data.length < pageSize) break;
+  }
+  return all;
+}
+
 // ── Query Key Factory ─────────────────────────────────────────────
 
 export const queryKeys = {
@@ -58,10 +77,10 @@ export function usePlayers() {
   return useQuery({
     queryKey: queryKeys.players(),
     queryFn: async () => {
-      const { data } = await supabase
-        .from('players')
-        .select('player_id, full_name, position, team');
-      return (data || []) as Player[];
+      const data = await fetchAllRows((from, to) =>
+        supabase.from('players').select('player_id, full_name, position, team').range(from, to)
+      );
+      return data as Player[];
     },
   });
 }
@@ -70,11 +89,14 @@ export function usePlayerValues() {
   return useQuery({
     queryKey: queryKeys.playerValues(),
     queryFn: async () => {
-      const { data } = await supabase
-        .from('player_values')
-        .select('player_id, value, player:players(full_name, position, team)');
+      const data = await fetchAllRows<{ player_id: string; value: number; player: unknown }>((from, to) =>
+        supabase
+          .from('player_values')
+          .select('player_id, value, player:players(full_name, position, team)')
+          .range(from, to)
+      );
       const valueMap = new Map<string, PlayerValue>();
-      for (const pv of data || []) {
+      for (const pv of data) {
         const player = Array.isArray(pv.player) ? pv.player[0] : pv.player;
         if (player) {
           valueMap.set(pv.player_id, {
@@ -94,11 +116,11 @@ export function usePlayerValuesList() {
   return useQuery({
     queryKey: [...queryKeys.playerValues(), 'list'],
     queryFn: async () => {
-      const { data } = await supabase
-        .from('player_values')
-        .select('player_id, value');
+      const data = await fetchAllRows<{ player_id: string; value: number }>((from, to) =>
+        supabase.from('player_values').select('player_id, value').range(from, to)
+      );
       const map = new Map<string, number>();
-      for (const pv of data || []) {
+      for (const pv of data) {
         map.set(pv.player_id, pv.value);
       }
       return map;

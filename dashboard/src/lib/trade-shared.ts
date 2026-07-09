@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import type { Player, PlayerValue, PickValue, Roster, TradedPick, TradeAsset, Fairness, TransactionRow } from '../types/domain';
+import type { Player, PlayerValue, PickValue, Roster, TradedPick, TradeAsset, Fairness, TransactionRow, PickResolution } from '../types/domain';
 export type { Player, PlayerValue, PickValue, Roster, TradedPick, TradeAsset, Fairness } from '../types/domain';
 
 // ── Transaction JSON boundaries ────────────────────────────────────
@@ -15,6 +15,9 @@ export interface TxDraftPick {
   previous_owner_id: number;
   resolvedValue?: number;
   resolvedName?: string;
+  resolvedSubtitle?: string;
+  /** Drafted player id when this pick has already been used. */
+  resolvedPlayerId?: string;
 }
 
 /** adds/drops are stored as {player_id: roster_id} JSON maps */
@@ -403,6 +406,82 @@ export function getPickDisplayName(year: string, round: number, tier: string): s
 export function getPickSlotDisplayName(year: string, round: number, slot: number): string {
   const slotStr = slot < 10 ? `0${slot}` : `${slot}`;
   return `${year} Pick ${round}.${slotStr}`;
+}
+
+/** Ordinal round label: 1 → "1st", 2 → "2nd", … */
+export function ordinalRound(n: number): string {
+  if (n === 1) return '1st';
+  if (n === 2) return '2nd';
+  if (n === 3) return '3rd';
+  return `${n}th`;
+}
+
+/** Shape a resolved traded pick takes when displayed in a trade card. */
+export interface PickDisplay {
+  season: string;
+  round: number;
+  /** e.g. "2024 1.04 → Jayden Daniels" (used) or "2027 1st pick" (future). */
+  name: string;
+  /** Secondary line, e.g. "via Xi" or "via Xi · proj. Early". */
+  subtitle?: string;
+  value: number;
+  /** Present when the pick has been used — the drafted player's id. */
+  playerId?: string;
+}
+
+/**
+ * Turn a traded pick + its {@link PickResolution} into display fields, shared by
+ * every surface that renders a traded pick (Transactions list, TradeDetail) so
+ * they always agree. A *used* pick resolves to the drafted player and their KTC
+ * value; a *future* pick shows its projected tier value; an unresolvable past
+ * pick falls back to a plain round label.
+ */
+export function formatResolvedPick(
+  pick: { season: string | number; round: number },
+  resolution: PickResolution | undefined,
+  ctx: {
+    pickValues: PickValue[];
+    /** Name of the pick's original owner, for the "via {team}" line. */
+    origTeamName?: string;
+    /** KTC value for a drafted player id (undefined → fall back to the pick's tier value). */
+    playerValue?: (playerId: string) => number | undefined;
+    /** Display name for a drafted player id. */
+    playerName?: (playerId: string) => string | undefined;
+  }
+): PickDisplay {
+  const season = String(pick.season);
+  const round = Number(pick.round);
+  const via = ctx.origTeamName ? `via ${ctx.origTeamName}` : undefined;
+
+  // Used pick → the player it was spent on.
+  if (resolution?.playerId) {
+    const pid = resolution.playerId;
+    const slotLabel = resolution.slot != null
+      ? `${round}.${String(resolution.slot).padStart(2, '0')}`
+      : ordinalRound(round);
+    const drafted = ctx.playerName?.(pid) || 'drafted pick';
+    const val = ctx.playerValue?.(pid);
+    return {
+      season,
+      round,
+      name: `${season} ${slotLabel} → ${drafted}`,
+      subtitle: via,
+      // Prefer the drafted player's live value; fall back to the pick's tier value
+      // so a player missing from the value table never reads as 0.
+      value: val ?? lookupPickValue(ctx.pickValues, season, round),
+      playerId: pid,
+    };
+  }
+
+  // Future pick (projected tier) or an unresolved past pick (no projection).
+  const tier = resolution?.tier;
+  return {
+    season,
+    round,
+    name: `${season} ${ordinalRound(round)} pick`,
+    subtitle: tier ? [via, `proj. ${tier}`].filter(Boolean).join(' · ') : via,
+    value: lookupPickValue(ctx.pickValues, season, round, { tier: tier ?? 'Mid' }),
+  };
 }
 
 // ── Hooks ──────────────────────────────────────────────────────────

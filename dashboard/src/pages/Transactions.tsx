@@ -5,21 +5,22 @@ import {
   Clock,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { useState, useMemo, useCallback } from 'react';
+import { useMemo, useCallback } from 'react';
+import { useUrlState } from '../hooks/useUrlState';
 import { PageHeader } from '../components/PageHeader';
 import { Pagination } from '../components/Pagination';
 import { FilterBar, FilterPills, SortSelect } from '../components/FilterBar';
 
 import { usePlayerMap } from '../hooks/useLeagueData';
 import { usePlayerValuesList, usePickValues } from '../hooks/queries';
+import { useLeaguePickResolutions, useLeagueDirectory } from '../hooks/detail';
 import { TradeCard as SharedTradeCard, type TradeSide } from '../components/TradeCard';
 import { PlayerRow } from '../components/PlayerRow';
 import { analyzeTrade } from '../lib/trade-value-adjustment';
 import type { TradeAsset } from '../types/domain';
 import {
   lookupPickValue,
-  getProjectedPickSlot,
-  getPickSlotDisplayName,
+  formatResolvedPick,
   playerMoves,
   txDraftPicks,
   type TxDraftPick,
@@ -37,13 +38,16 @@ type TransactionWithTeams = TransactionRow & { teams: TradeTeam[] };
 const ITEMS_PER_PAGE = 50;
 
 export default function Transactions() {
-  const [typeFilter, setTypeFilter] = useState<string>('all');
-  const [sortBy, setSortBy] = useState<string>('recent');
-  const [currentPage, setCurrentPage] = useState(1);
+  const { get, setMany } = useUrlState();
+  const typeFilter = get('type', 'all');
+  const sortBy = get('sort', 'recent');
+  const currentPage = Number(get('page', '1')) || 1;
 
   const { data: players } = usePlayerMap();
   const { data: playerValues } = usePlayerValuesList();
   const { data: pickValuesData } = usePickValues();
+  const { data: pickResolutions } = useLeaguePickResolutions();
+  const { data: directory } = useLeagueDirectory();
 
   const { data: txData, isLoading } = useQuery({
     queryKey: ['transactions'],
@@ -113,8 +117,6 @@ export default function Transactions() {
   });
 
   const transactions = txData?.transactions;
-  const leagueRosters = useMemo(() => txData?.rosters || [], [txData]);
-  const leagueSize = leagueRosters.length;
 
   const getPlayer = useCallback(
     (playerId: string) => players instanceof Map ? players.get(playerId) : undefined,
@@ -125,24 +127,22 @@ export default function Transactions() {
     [playerValues]
   );
 
-  const currentDraftYear = new Date().getFullYear().toString();
-
-  /** Resolve pick value and display name from roster standings.
-   *  Only the current draft year gets slot-specific labels (e.g. "2026 Pick 1.03").
-   *  Future years use tier labels (e.g. "2027 Early 1st"). */
-  const resolvePickSlotAndValue = useCallback((pick: TxDraftPick) => {
-    const isCurrentYear = pick.season === currentDraftYear;
-    if (isCurrentYear && leagueSize > 0) {
-      const slot = getProjectedPickSlot(pick.roster_id, leagueRosters);
-      const value = lookupPickValue(pickValuesData || [], pick.season, pick.round, { slot, leagueSize });
-      const name = getPickSlotDisplayName(pick.season, pick.round, slot);
-      return { value, name };
-    }
-    // Future years: tier-based
-    const value = lookupPickValue(pickValuesData || [], pick.season, pick.round);
-    const name = `${pick.season} Round ${pick.round}`;
-    return { value, name };
-  }, [currentDraftYear, leagueSize, leagueRosters, pickValuesData]);
+  /**
+   * Resolve a traded pick into display fields using the SAME league-wide
+   * resolver + formatter the trade detail page uses. A pick that has already
+   * been used resolves to the player drafted with it (e.g. "2024 1.04 → Jayden
+   * Daniels") and that player's KTC value; a future pick shows its projected
+   * tier. This is what keeps the list in sync with the individual trade pages.
+   */
+  const resolvePickSlotAndValue = useCallback((pick: TxDraftPick, leagueId?: string) => {
+    const resolution = pickResolutions?.resolve(pick.season, pick.round, pick.roster_id);
+    return formatResolvedPick(pick, resolution, {
+      pickValues: pickValuesData || [],
+      origTeamName: directory?.teamName(pick.roster_id, leagueId),
+      playerValue: (pid) => getPlayerValue(pid) || undefined,
+      playerName: (pid) => (players instanceof Map ? players.get(pid)?.full_name : undefined),
+    });
+  }, [pickResolutions, pickValuesData, directory, getPlayerValue, players]);
 
   /** Group a trade's adds and picks by receiving roster. */
   const getTradeAssets = useCallback((tx: TransactionWithTeams) => {
@@ -161,8 +161,14 @@ export default function Transactions() {
 
     txDraftPicks(tx.draft_picks).forEach((pick) => {
       if (pick.owner_id && teamAssets[pick.owner_id]) {
-        const resolved = resolvePickSlotAndValue(pick);
-        teamAssets[pick.owner_id].picks.push({ ...pick, resolvedValue: resolved.value, resolvedName: resolved.name });
+        const resolved = resolvePickSlotAndValue(pick, tx.league_id);
+        teamAssets[pick.owner_id].picks.push({
+          ...pick,
+          resolvedValue: resolved.value,
+          resolvedName: resolved.name,
+          resolvedSubtitle: resolved.subtitle,
+          resolvedPlayerId: resolved.playerId,
+        });
         teamAssets[pick.owner_id].value += resolved.value;
       }
     });
@@ -262,8 +268,8 @@ export default function Transactions() {
     return filteredAndSortedTransactions.slice(startIndex, startIndex + ITEMS_PER_PAGE);
   }, [filteredAndSortedTransactions, currentPage]);
 
-  const handleFilterChange = (newFilter: string) => { setTypeFilter(newFilter); setCurrentPage(1); };
-  const handleSortChange = (newSort: string) => { setSortBy(newSort); setCurrentPage(1); };
+  const handleFilterChange = (newFilter: string) => setMany({ type: newFilter === 'all' ? null : newFilter, page: null });
+  const handleSortChange = (newSort: string) => setMany({ sort: newSort === 'recent' ? null : newSort, page: null });
 
   if (isLoading) {
     return (
@@ -384,6 +390,8 @@ export default function Transactions() {
           season: pick.season,
           round: pick.round,
           name: pick.resolvedName,
+          subtitle: pick.resolvedSubtitle,
+          playerId: pick.resolvedPlayerId,
           value: pick.resolvedValue ?? lookupPickValue(pickValuesData || [], pick.season, pick.round),
         })),
         totalValue: assets.value,
@@ -570,7 +578,7 @@ export default function Transactions() {
         totalPages={totalPages}
         totalItems={filteredAndSortedTransactions.length}
         itemsPerPage={ITEMS_PER_PAGE}
-        onPageChange={(page) => { setCurrentPage(page); window.scrollTo({ top: 0 }); }}
+        onPageChange={(page) => { setMany({ page: page === 1 ? null : String(page) }); window.scrollTo({ top: 0 }); }}
       />
     </div>
   );

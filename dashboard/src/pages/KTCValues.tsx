@@ -1,6 +1,7 @@
-import { useState, useMemo, Fragment } from 'react';
+import { useMemo, Fragment } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
+import { useUrlState } from '../hooks/useUrlState';
 import { PageHeader } from '../components/PageHeader';
 import { Pagination } from '../components/Pagination';
 import { FilterBar, SearchInput, FilterPills, SortSelect } from '../components/FilterBar';
@@ -185,11 +186,12 @@ function getTeamValueForFilter(team: TeamRanking, filter: TeamPositionFilter): n
 // ── Players Tab Component ────────────────────────────────────────
 
 function PlayersTab() {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [positionFilter, setPositionFilter] = useState<string>('ALL');
-  const [sortField, setSortField] = useState<SortField>('rank');
-  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
-  const [currentPage, setCurrentPage] = useState(1);
+  const { get, setMany } = useUrlState();
+  const searchQuery = get('q');
+  const positionFilter = get('pos', 'ALL');
+  const sortField = get('sf', 'rank') as SortField;
+  const sortDirection = get('sd', 'asc') as SortDirection;
+  const currentPage = Number(get('page', '1')) || 1;
 
   const { data: playerValues, isLoading: playersLoading, error: playersError } = useQuery({
     queryKey: ['playerValues', 'detailed'],
@@ -264,8 +266,8 @@ function PlayersTab() {
     return filteredAndSorted.slice(startIndex, startIndex + ITEMS_PER_PAGE);
   }, [filteredAndSorted, currentPage]);
 
-  const handleSearchChange = (value: string) => { setSearchQuery(value); setCurrentPage(1); };
-  const handlePositionFilterChange = (value: string) => { setPositionFilter(value); setCurrentPage(1); };
+  const handleSearchChange = (value: string) => setMany({ q: value || null, page: null });
+  const handlePositionFilterChange = (value: string) => setMany({ pos: value === 'ALL' ? null : value, page: null });
 
   const stats = useMemo(() => {
     const players = unifiedValues.filter(v => v.type === 'player');
@@ -337,9 +339,11 @@ function PlayersTab() {
           value={`${sortField}-${sortDirection}`}
           onChange={(val) => {
             const [field, dir] = val.split('-') as [SortField, SortDirection];
-            setSortField(field);
-            setSortDirection(dir);
-            setCurrentPage(1);
+            setMany({
+              sf: field === 'rank' ? null : field,
+              sd: dir === 'asc' ? null : dir,
+              page: null,
+            });
           }}
           options={[
             { value: 'rank-asc', label: 'Rank (High → Low)' },
@@ -411,7 +415,7 @@ function PlayersTab() {
         totalPages={totalPages}
         totalItems={filteredAndSorted.length}
         itemsPerPage={ITEMS_PER_PAGE}
-        onPageChange={(page) => { setCurrentPage(page); window.scrollTo({ top: 0 }); }}
+        onPageChange={(page) => { setMany({ page: page === 1 ? null : String(page) }); window.scrollTo({ top: 0 }); }}
       />
     </>
   );
@@ -420,7 +424,8 @@ function PlayersTab() {
 // ── Teams Tab Component ──────────────────────────────────────────
 
 function TeamsTab() {
-  const [positionFilter, setPositionFilter] = useState<TeamPositionFilter>('ALL');
+  const { get, set } = useUrlState();
+  const positionFilter = get('tpos', 'ALL') as TeamPositionFilter;
 
   const { rosters, players, playerValues, pickValues, tradedPicks, currentLeagueId, isLoading } = useTradeData();
 
@@ -562,7 +567,7 @@ function TeamsTab() {
             { value: 'Picks', label: 'Picks' },
           ]}
           selected={positionFilter}
-          onChange={(v) => setPositionFilter(v as TeamPositionFilter)}
+          onChange={(v) => set('tpos', v === 'ALL' ? null : v)}
         />
       </div>
 
@@ -648,7 +653,8 @@ function TeamsTab() {
 // ── Main Page Component ──────────────────────────────────────────
 
 export function KTCValues() {
-  const [activeTab, setActiveTab] = useState<TabType>('players');
+  const { get, setMany } = useUrlState();
+  const activeTab = get('tab', 'players') as TabType;
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto">
@@ -661,7 +667,7 @@ export function KTCValues() {
           { id: 'teams', label: 'Teams' },
         ]}
         activeTab={activeTab}
-        onTabChange={(id) => setActiveTab(id as 'players' | 'teams')}
+        onTabChange={(id) => setMany({ tab: id === 'players' ? null : id })}
       />
 
       {activeTab === 'players' ? <PlayersTab /> : <TeamsTab />}

@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
+import { fetchAllRows } from '../hooks/queries';
 import {
   FileText,
   ArrowRightLeft,
@@ -15,6 +16,7 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useState, useMemo } from 'react';
+import { useUrlState } from '../hooks/useUrlState';
 import { PageHeader } from '../components/PageHeader';
 import { PlayerRow } from '../components/PlayerRow';
 import type { DraftPickRow } from '../types/domain';
@@ -49,18 +51,22 @@ const roundColors: Record<number, string> = {
 };
 
 export default function Drafts() {
-  const [activeTab, setActiveTab] = useState<'history' | 'capital'>('history');
-  const [selectedDraft, setSelectedDraft] = useState<string | null>(null);
-  const [selectedSeason, setSelectedSeason] = useState<string>('2026');
+  const { get, set, setMany } = useUrlState();
+  const activeTab = (get('tab', 'history') as 'history' | 'capital');
+  const selectedSeason = get('season', '2026');
   const [expandedRounds, setExpandedRounds] = useState<Set<number>>(new Set([1]));
   const [showLegend, setShowLegend] = useState(false);
 
   const { data: players } = useQuery({
     queryKey: ['players'],
     queryFn: async () => {
-      const { data } = await supabase.from('players').select('*');
+      // Page past PostgREST's 1000-row cap — the players table is larger, so an
+      // unpaged select drops the tail (recent rookies show as raw ids).
+      const data = await fetchAllRows((from, to) =>
+        supabase.from('players').select('*').range(from, to)
+      );
       const playerMap = new Map<string, Player>();
-      (data || []).forEach(p => playerMap.set(p.player_id, p as Player));
+      data.forEach(p => playerMap.set(p.player_id, p as Player));
       return playerMap;
     },
   });
@@ -99,11 +105,8 @@ export default function Drafts() {
     return user?.display_name || user?.username || 'Unknown';
   };
 
-  useMemo(() => {
-    if (data?.drafts?.length && !selectedDraft) {
-      setSelectedDraft(data.drafts[0].draft_id);
-    }
-  }, [data?.drafts, selectedDraft]);
+  // Selected draft comes from the URL; fall back to the most recent draft.
+  const selectedDraft = get('draft') || data?.drafts?.[0]?.draft_id || null;
 
   const availableSeasons = useMemo(() => {
     if (!data?.tradedPicks?.length) return ['2026', '2027', '2028'];
@@ -230,7 +233,7 @@ export default function Drafts() {
           { id: 'capital', label: 'Capital', icon: Calendar },
         ]}
         activeTab={activeTab}
-        onTabChange={(id) => setActiveTab(id as 'history' | 'capital')}
+        onTabChange={(id) => setMany({ tab: id === 'history' ? null : id })}
       />
 
       {/* Draft History Tab */}
@@ -240,7 +243,11 @@ export default function Drafts() {
             <div className="flex flex-wrap items-center gap-3">
               <select
                 value={selectedDraft || ''}
-                onChange={(e) => { setSelectedDraft(e.target.value); setExpandedRounds(new Set([1])); }}
+                onChange={(e) => {
+                  const isDefault = e.target.value === data.drafts[0]?.draft_id;
+                  set('draft', isDefault ? null : e.target.value);
+                  setExpandedRounds(new Set([1]));
+                }}
                 className="px-3 py-2 bg-[#141419] border border-[#2a2a34] rounded-lg text-xs font-medium text-white focus:outline-none focus:ring-2 focus:ring-accent-500/50"
               >
                 {data.drafts.map((draft) => (
@@ -335,7 +342,7 @@ export default function Drafts() {
               {availableSeasons.map((season: string) => (
                 <button
                   key={season}
-                  onClick={() => setSelectedSeason(season)}
+                  onClick={() => set('season', season === '2026' ? null : season)}
                   className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
                     selectedSeason === season
                       ? 'bg-purple-500/15 text-purple-400 ring-1 ring-purple-500/30'

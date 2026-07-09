@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { playerMoves, txDraftPicks } from '../lib/trade-shared';
-import type { TransactionRow } from '../types/domain';
+import type { TransactionRow, PickResolution } from '../types/domain';
 
 // ── Detail-page data hooks (player / team deep dives) ──────────────
 // Kept separate from queries.ts so detail pages stay self-contained.
@@ -188,20 +188,157 @@ export function useValueMovers(daysAgo: number) {
   });
 }
 
+// PickResolution now lives in types/domain.ts so pure helpers (trade-shared) can
+// consume it without importing this hook module.
+export type { PickResolution } from '../types/domain';
+
 /**
- * Resolution for a traded draft pick, keyed `${season}-${round}-${originalRosterId}`:
- *  - `playerId` present → the draft happened and this is the player selected with
- *    the pick (mapped via Sleeper's authoritative draft_order → slot → board).
- *  - otherwise `tier` is the projected Early/Mid/Late tier from the original
- *    owner's current standing, for a future pick that hasn't been used yet.
+ * Resolve EVERY traded draft pick in the league in one cached blob, keyed
+ * `${season}-${round}-${originalRosterId}`. This is the single source of truth
+ * for "what did this pick become" — the trade detail page and the transactions
+ * list both read from it so a used pick shows the same drafted player + value on
+ * every surface.
+ *
+ * Past picks resolve to the drafted player via Sleeper's authoritative
+ * draft_order / slot_to_roster_id → board mapping; future picks get a projected
+ * Early/Mid/Late tier from the original owner's current roster-value rank.
  */
-export interface PickResolution {
-  playerId?: string;
-  /** Exact draft slot the pick landed at (past picks) → "round.slot" display. */
-  slot?: number;
-  /** Projected Early/Mid/Late tier (future picks), from the owner's roster-value rank. */
-  tier?: string;
-  future: boolean;
+export function useLeaguePickResolutions() {
+  return useQuery({
+    queryKey: ['league-pick-resolutions'],
+    staleTime: 5 * 60_000,
+    queryFn: async () => {
+      const map = await resolveAllPicks();
+      // Return a stable closure so callers read like `resolve(season, round, rosterId)`.
+      return {
+        map,
+        resolve: (season: string | number, round: number, rosterId: number): PickResolution | undefined =>
+          map.get(`${season}-${round}-${rosterId}`),
+      };
+    },
+  });
+}
+
+/**
+ * The pick-resolution engine, shared by {@link useLeaguePickResolutions} and
+ * {@link useTradeDetail}. `pickFilter` lets a caller resolve only the picks of a
+ * single trade (detail page) instead of the whole league.
+ */
+async function resolveAllPicks(
+  pickFilter?: { season: string; round: number; roster_id: number }[]
+): Promise<Map<string, PickResolution>> {
+  const pickResolution = new Map<string, PickResolution>();
+
+  // Which picks to resolve: a caller-supplied subset, or every traded pick in
+  // the league (from the transactions table).
+  let picks = pickFilter;
+  if (!picks) {
+    const txs = await fetchAllTransactions();
+    const seen = new Set<string>();
+    picks = [];
+    for (const tx of txs) {
+      for (const p of txDraftPicks(tx.draft_picks)) {
+        const key = `${p.season}-${p.round}-${p.roster_id}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        picks.push({ season: String(p.season), round: Number(p.round), roster_id: Number(p.roster_id) });
+      }
+    }
+  }
+  if (!picks.length) return pickResolution;
+
+  const seasons = [...new Set(picks.map((p) => String(p.season)))];
+  const [{ data: leagues }, { data: drafts }] = await Promise.all([
+    supabase.from('leagues').select('league_id, season').order('season', { ascending: false }),
+    supabase.from('drafts').select('draft_id, league_id, season, status, draft_order, slot_to_roster_id').in('season', seasons),
+  ]);
+  const currentLeagueId = leagues?.[0]?.league_id ?? null;
+
+  // Seasons whose rookie draft has already happened (pick → real player).
+  const completedSeasons = new Set<string>();
+  (drafts || []).forEach((d) => { if (d.status === 'complete') completedSeasons.add(String(d.season)); });
+
+  // One usable draft per completed season, with whatever slot maps we have.
+  const draftBySeason = new Map<string, { draft_id: string; league_id: string; draft_order: Record<string, number> | null; slotToRoster: Record<string, number> | null }>();
+  (drafts || []).forEach((d) => {
+    if (d.status === 'complete' && !draftBySeason.has(String(d.season))) {
+      draftBySeason.set(String(d.season), {
+        draft_id: d.draft_id,
+        league_id: d.league_id,
+        draft_order: (d.draft_order as Record<string, number> | null) ?? null,
+        slotToRoster: (d.slot_to_roster_id as Record<string, number> | null) ?? null,
+      });
+    }
+  });
+
+  // Board selections for those drafts, keyed (draft_id, round, slot).
+  const boardIds = [...draftBySeason.values()].map((d) => d.draft_id);
+  const board = new Map<string, string>();
+  if (boardIds.length) {
+    const rows = await fetchAllRows<{ draft_id: string; round: number; draft_slot: number | null; player_id: string | null }>((from, to) =>
+      supabase.from('draft_picks').select('draft_id, round, draft_slot, player_id').in('draft_id', boardIds).range(from, to)
+    );
+    rows.forEach((r) => { if (r.player_id != null && r.draft_slot != null) board.set(`${r.draft_id}-${r.round}-${r.draft_slot}`, r.player_id); });
+  }
+
+  // Rosters for the draft leagues (roster→user) + current league (standings for future tiers).
+  const leagueIds = [...new Set([...[...draftBySeason.values()].map((d) => d.league_id), currentLeagueId].filter(Boolean) as string[])];
+  const rosterRows = leagueIds.length
+    ? (await supabase.from('rosters').select('league_id, roster_id, owner_id, wins, losses, fpts, players').in('league_id', leagueIds)).data || []
+    : [];
+  const userByRoster = new Map<string, string>(); // `${league_id}-${roster_id}` → owner_id
+  rosterRows.forEach((r) => { if (r.owner_id) userByRoster.set(`${r.league_id}-${r.roster_id}`, r.owner_id); });
+  const currentRosters = rosterRows.filter((r) => r.league_id === currentLeagueId);
+
+  // Project future-pick tier from the ORIGINAL owner's total roster value,
+  // ranked against the league: weakest roster (lowest value) drafts earliest
+  // → "Early"; strongest → "Late".
+  const tierByRoster = new Map<number, string>();
+  if (currentRosters.length) {
+    const pvRows = await fetchAllRows<{ player_id: string; value: number }>((from, to) =>
+      supabase.from('player_values').select('player_id, value').range(from, to)
+    );
+    const valMap = new Map(pvRows.map((v) => [v.player_id, v.value]));
+    const totals = currentRosters.map((r) => ({
+      rosterId: r.roster_id,
+      total: (r.players || []).reduce((s: number, pid: string) => s + (valMap.get(pid) || 0), 0),
+    }));
+    totals.sort((a, b) => a.total - b.total); // lowest value first → earliest pick
+    const n = totals.length;
+    totals.forEach((t, i) => {
+      tierByRoster.set(t.rosterId, i < n / 3 ? 'Early' : i < (2 * n) / 3 ? 'Mid' : 'Late');
+    });
+  }
+
+  for (const p of picks) {
+    const key = `${p.season}-${p.round}-${p.roster_id}`;
+    const season = String(p.season);
+    const draft = draftBySeason.get(season);
+    if (draft) {
+      // Prefer the authoritative slot→roster map; fall back to draft_order (user→slot).
+      let slot: number | undefined;
+      if (draft.slotToRoster) {
+        const hit = Object.keys(draft.slotToRoster).find((s) => Number(draft.slotToRoster![s]) === Number(p.roster_id));
+        if (hit) slot = Number(hit);
+      }
+      if (slot == null && draft.draft_order) {
+        const user = userByRoster.get(`${draft.league_id}-${p.roster_id}`);
+        const s = user ? draft.draft_order[user] : undefined;
+        if (s != null) slot = s;
+      }
+      const playerId = slot != null ? board.get(`${draft.draft_id}-${p.round}-${slot}`) : undefined;
+      if (playerId) { pickResolution.set(key, { playerId, slot, future: false }); continue; }
+    }
+    // A completed draft exists but we couldn't pin the slot → past, unresolved
+    // (no projection; the draft already happened). Otherwise it's a future pick.
+    if (completedSeasons.has(season)) {
+      pickResolution.set(key, { future: false });
+    } else {
+      pickResolution.set(key, { tier: tierByRoster.get(Number(p.roster_id)) ?? 'Mid', future: true });
+    }
+  }
+
+  return pickResolution;
 }
 
 /**
@@ -229,96 +366,12 @@ export function useTradeDetail(transactionId: string | undefined) {
       const tx = transaction as TransactionRow;
       const picks = txDraftPicks(tx.draft_picks);
 
-      // ── Resolve picks ──────────────────────────────────────────────
+      // ── Resolve picks (shared engine, scoped to just this trade's picks) ──
       if (picks.length > 0) {
-        const seasons = [...new Set(picks.map((p) => String(p.season)))];
-        const [{ data: leagues }, { data: drafts }] = await Promise.all([
-          supabase.from('leagues').select('league_id, season').order('season', { ascending: false }),
-          supabase.from('drafts').select('draft_id, league_id, season, status, draft_order, slot_to_roster_id').in('season', seasons),
-        ]);
-        const currentLeagueId = leagues?.[0]?.league_id ?? null;
-
-        // Seasons whose rookie draft has already happened (pick → real player).
-        const completedSeasons = new Set<string>();
-        (drafts || []).forEach((d) => { if (d.status === 'complete') completedSeasons.add(String(d.season)); });
-
-        // One usable draft per completed season, with whatever slot maps we have.
-        const draftBySeason = new Map<string, { draft_id: string; league_id: string; draft_order: Record<string, number> | null; slotToRoster: Record<string, number> | null }>();
-        (drafts || []).forEach((d) => {
-          if (d.status === 'complete' && !draftBySeason.has(String(d.season))) {
-            draftBySeason.set(String(d.season), {
-              draft_id: d.draft_id,
-              league_id: d.league_id,
-              draft_order: (d.draft_order as Record<string, number> | null) ?? null,
-              slotToRoster: (d.slot_to_roster_id as Record<string, number> | null) ?? null,
-            });
-          }
-        });
-
-        // Board selections for those drafts, keyed (draft_id, round, slot).
-        const boardIds = [...draftBySeason.values()].map((d) => d.draft_id);
-        const board = new Map<string, string>();
-        if (boardIds.length) {
-          const rows = await fetchAllRows<{ draft_id: string; round: number; draft_slot: number | null; player_id: string | null }>((from, to) =>
-            supabase.from('draft_picks').select('draft_id, round, draft_slot, player_id').in('draft_id', boardIds).range(from, to)
-          );
-          rows.forEach((r) => { if (r.player_id != null && r.draft_slot != null) board.set(`${r.draft_id}-${r.round}-${r.draft_slot}`, r.player_id); });
-        }
-
-        // Rosters for the draft leagues (roster→user) + current league (standings for future tiers).
-        const leagueIds = [...new Set([...[...draftBySeason.values()].map((d) => d.league_id), currentLeagueId].filter(Boolean) as string[])];
-        const rosterRows = leagueIds.length
-          ? (await supabase.from('rosters').select('league_id, roster_id, owner_id, wins, losses, fpts, players').in('league_id', leagueIds)).data || []
-          : [];
-        const userByRoster = new Map<string, string>(); // `${league_id}-${roster_id}` → owner_id
-        rosterRows.forEach((r) => { if (r.owner_id) userByRoster.set(`${r.league_id}-${r.roster_id}`, r.owner_id); });
-        const currentRosters = rosterRows.filter((r) => r.league_id === currentLeagueId);
-
-        // Project future-pick tier from the ORIGINAL owner's total roster value,
-        // ranked against the league: weakest roster (lowest value) drafts earliest
-        // → "Early"; strongest → "Late".
-        const tierByRoster = new Map<number, string>();
-        if (currentRosters.length) {
-          const pvRows = (await supabase.from('player_values').select('player_id, value')).data || [];
-          const valMap = new Map(pvRows.map((v) => [v.player_id, v.value]));
-          const totals = currentRosters.map((r) => ({
-            rosterId: r.roster_id,
-            total: (r.players || []).reduce((s: number, pid: string) => s + (valMap.get(pid) || 0), 0),
-          }));
-          totals.sort((a, b) => a.total - b.total); // lowest value first → earliest pick
-          const n = totals.length;
-          totals.forEach((t, i) => {
-            tierByRoster.set(t.rosterId, i < n / 3 ? 'Early' : i < (2 * n) / 3 ? 'Mid' : 'Late');
-          });
-        }
-
-        for (const p of picks) {
-          const key = `${p.season}-${p.round}-${p.roster_id}`;
-          const season = String(p.season);
-          const draft = draftBySeason.get(season);
-          if (draft) {
-            // Prefer the authoritative slot→roster map; fall back to draft_order (user→slot).
-            let slot: number | undefined;
-            if (draft.slotToRoster) {
-              const hit = Object.keys(draft.slotToRoster).find((s) => Number(draft.slotToRoster![s]) === Number(p.roster_id));
-              if (hit) slot = Number(hit);
-            }
-            if (slot == null && draft.draft_order) {
-              const user = userByRoster.get(`${draft.league_id}-${p.roster_id}`);
-              const s = user ? draft.draft_order[user] : undefined;
-              if (s != null) slot = s;
-            }
-            const playerId = slot != null ? board.get(`${draft.draft_id}-${p.round}-${slot}`) : undefined;
-            if (playerId) { pickResolution.set(key, { playerId, slot, future: false }); continue; }
-          }
-          // A completed draft exists but we couldn't pin the slot → past, unresolved
-          // (no projection; the draft already happened). Otherwise it's a future pick.
-          if (completedSeasons.has(season)) {
-            pickResolution.set(key, { future: false });
-          } else {
-            pickResolution.set(key, { tier: tierByRoster.get(Number(p.roster_id)) ?? 'Mid', future: true });
-          }
-        }
+        const resolved = await resolveAllPicks(
+          picks.map((p) => ({ season: String(p.season), round: Number(p.round), roster_id: Number(p.roster_id) }))
+        );
+        resolved.forEach((v, k) => pickResolution.set(k, v));
       }
 
       // ── Latest history value per involved player (players + resolved picks) ──
