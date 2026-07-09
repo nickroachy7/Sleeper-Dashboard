@@ -178,6 +178,96 @@ export function useRosterValueHistory(playerIds: string[] | undefined) {
   });
 }
 
+export interface SeasonValuePoint {
+  season: string;
+  /** The team's actual roster that season, valued at that season's KTC. */
+  value: number;
+  /** League-average roster value that season. */
+  leagueAvg: number;
+  /** value − leagueAvg. */
+  vsLeague: number;
+  rosterCount: number;
+}
+
+/**
+ * Per-season roster value for one team, the honest "did this manager build or
+ * bleed value" series. For each season we take the roster the manager ACTUALLY
+ * held that year (the season's roster snapshot) and value it at THAT season's
+ * KTC (from player_value_history near season's end), plus the league average
+ * that season. This avoids the back-projection artifact of valuing today's
+ * roster in the past (which made every team look awful-then-great).
+ *
+ * `ownerId` ties the team across seasons (roster_id can differ); we resolve the
+ * owner's roster within each season's league.
+ */
+export function useSeasonRosterValues(ownerId: string | null | undefined) {
+  return useQuery({
+    queryKey: ['season-roster-values', ownerId],
+    enabled: !!ownerId,
+    queryFn: async (): Promise<SeasonValuePoint[]> => {
+      const { data: leagues } = await supabase
+        .from('leagues').select('league_id, season').order('season', { ascending: true });
+      if (!leagues?.length) return [];
+
+      const { data: rosters } = await supabase
+        .from('rosters').select('league_id, roster_id, owner_id, players');
+
+      const points: SeasonValuePoint[] = [];
+      for (const lg of leagues) {
+        const leagueRosters = (rosters || []).filter((r) => r.league_id === lg.league_id);
+        if (!leagueRosters.length) continue;
+
+        // Value date: a point inside the season (Dec 15), or today for the
+        // current/most-recent season if that date is still in the future.
+        const todayIso = new Date().toISOString().slice(0, 10);
+        let asOf = `${lg.season}-12-15`;
+        if (asOf > todayIso) asOf = todayIso;
+
+        const allPlayerIds = [...new Set(leagueRosters.flatMap((r) => (r.players as string[]) || []))];
+        if (!allPlayerIds.length) continue;
+
+        // Latest value at-or-before asOf for each player. We only need each
+        // player's most-recent snapshot on/before the date, so pull a NARROW
+        // window (values are snapshotted ~daily) instead of many months of
+        // history — the old wide window fetched ~100k rows and took ~10s.
+        const windowLo = new Date(asOf);
+        windowLo.setDate(windowLo.getDate() - 14);
+        const loIso = windowLo.toISOString().slice(0, 10);
+
+        const rows = await fetchAllRows<{ player_id: string; value: number; date: string }>((from, to) =>
+          supabase
+            .from('player_value_history')
+            .select('player_id, value, date')
+            .in('player_id', allPlayerIds)
+            .lte('date', asOf)
+            .gte('date', loIso)
+            .order('date', { ascending: false })
+            .range(from, to)
+        );
+        const valOf = new Map<string, number>();
+        for (const r of rows) if (!valOf.has(r.player_id)) valOf.set(r.player_id, r.value);
+
+        const totals = leagueRosters.map((r) =>
+          ((r.players as string[]) || []).reduce((s, pid) => s + (valOf.get(pid) || 0), 0)
+        );
+        const leagueAvg = Math.round(totals.reduce((s, t) => s + t, 0) / totals.length);
+        const mine = leagueRosters.find((r) => r.owner_id === ownerId);
+        if (!mine) continue;
+        const value = ((mine.players as string[]) || []).reduce((s, pid) => s + (valOf.get(pid) || 0), 0);
+
+        points.push({
+          season: lg.season,
+          value,
+          leagueAvg,
+          vsLeague: value - leagueAvg,
+          rosterCount: leagueRosters.length,
+        });
+      }
+      return points;
+    },
+  });
+}
+
 /**
  * Value history for MULTIPLE sides of a trade in one query, so the timeline
  * chart works for 2-, 3-, or 4-team trades (React hooks can't be called in a

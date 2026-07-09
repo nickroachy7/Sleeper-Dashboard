@@ -2,9 +2,10 @@ import { useParams, Link } from 'react-router-dom';
 import { useMemo, useState } from 'react';
 import { ArrowRightLeft, ChevronRight, Users } from 'lucide-react';
 import { ValueChart } from '../components/charts/ValueChart';
+import { SeasonValueChart } from '../components/charts/SeasonValueChart';
 import { CHART_POS, CHART_NEG } from '../components/charts/theme';
 import { PlayerRow } from '../components/PlayerRow';
-import { useLeagueDirectory, useRosterValueHistory, useTeamTrades } from '../hooks/detail';
+import { useLeagueDirectory, useSeasonRosterValues, useTeamTrades } from '../hooks/detail';
 import { usePlayerMap } from '../hooks/useLeagueData';
 import { usePlayerValuesList, usePickValues } from '../hooks/queries';
 import { playerMoves, txDraftPicks, lookupPickValue } from '../lib/trade-shared';
@@ -40,7 +41,8 @@ export default function TeamDetail() {
     ) ?? null;
   }, [directory, rosterId]);
 
-  const { data: rosterHistory } = useRosterValueHistory(currentRoster?.players || undefined);
+  // Per-season roster value vs league average (real team-building trajectory).
+  const { data: seasonValues, isLoading: seasonLoading } = useSeasonRosterValues(currentRoster?.owner_id);
 
   // Season-by-season record with league finish (by wins, then fpts)
   const seasons = useMemo(() => {
@@ -193,11 +195,43 @@ export default function TeamDetail() {
         </div>
       </section>
 
-      {/* ── Roster value over time ── */}
+      {/* ── Roster value by season (vs league average) ── */}
       <section className="bg-[#141419] rounded-2xl p-4 sm:p-5 border border-[#22222b]">
-        <p className="text-[11px] font-bold text-accent-500 tracking-[0.18em] uppercase mb-0.5">Roster Value Over Time</p>
-        <p className="text-[10px] text-[#75757f] mb-3">Combined KTC value of the current roster, tracked back through time</p>
-        <ValueChart data={rosterHistory || []} height={240} />
+        <p className="text-[11px] font-bold text-white tracking-[0.18em] uppercase mb-0.5">Roster Value by Season</p>
+        <p className="text-[10px] text-[#75757f] mb-3">
+          Value of the roster actually held each season, priced at that season&apos;s KTC. Green when above the
+          league average that year, red when below — so you can see real value built or lost, not just player aging.
+        </p>
+
+        {seasonLoading && !seasonValues ? (
+          <div className="skeleton h-[240px] w-full rounded-xl" />
+        ) : (
+        <>
+        {/* Lead readout: where the team stands now vs its first tracked season */}
+        {(seasonValues?.length ?? 0) > 0 && (() => {
+          const pts = seasonValues!;
+          const first = pts[0];
+          const latest = pts[pts.length - 1];
+          return (
+            <div className="flex flex-wrap items-baseline gap-x-5 gap-y-1 mb-3">
+              <div>
+                <span className="font-display text-2xl font-bold text-white tabular-nums">{latest.value.toLocaleString()}</span>
+                <span className={`ml-2 text-[12px] font-semibold tabular-nums ${latest.vsLeague >= 0 ? 'text-accent-400' : 'text-red-400'}`}>
+                  {latest.vsLeague >= 0 ? '+' : ''}{latest.vsLeague.toLocaleString()} vs league
+                </span>
+              </div>
+              {pts.length > 1 && (
+                <span className="text-[11px] text-[#60606a]">
+                  {first.season}: {first.value.toLocaleString()} ({first.vsLeague >= 0 ? '+' : ''}{first.vsLeague.toLocaleString()} vs lg)
+                </span>
+              )}
+            </div>
+          );
+        })()}
+
+        <SeasonValueChart data={seasonValues || []} height={240} />
+        </>
+        )}
       </section>
 
       {/* ── Cumulative trade +/- ── */}
