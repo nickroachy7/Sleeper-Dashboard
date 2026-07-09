@@ -56,19 +56,9 @@ export function TradeCard({
   const { data: directory } = useLeagueDirectory();
   if (sides.length < 2) return null;
 
-  const avatarUrl = (rosterId?: number): string | null => {
-    if (rosterId == null || !directory) return null;
-    const roster = directory.rosters.find((r) => r.roster_id === rosterId && r.league_id === directory.currentLeagueId)
-      || directory.rosters.find((r) => r.roster_id === rosterId);
-    if (!roster?.owner_id) return null;
-    // Prefer the manager's team avatar for this league; fall back to their user avatar.
-    const lu = directory.leagueUsers.find((u) => u.user_id === roster.owner_id && u.league_id === directory.currentLeagueId)
-      || directory.leagueUsers.find((u) => u.user_id === roster.owner_id);
-    const raw = (lu as { avatar?: string | null } | undefined)?.avatar
-      || directory.users.find((u) => u.user_id === roster.owner_id)?.avatar;
-    if (!raw) return null;
-    return raw.startsWith('http') ? raw : `https://sleepercdn.com/avatars/thumbs/${raw}`;
-  };
+  // Custom team logo (falls back to user avatar), resolved via the directory.
+  const avatarUrl = (rosterId?: number): string | null =>
+    rosterId == null || !directory ? null : directory.teamAvatar(rosterId);
 
   // Winner/verdict uses the ADJUSTED value (KTC-style stud premium), but the
   // number shown in each team header is the RAW total so it always equals the

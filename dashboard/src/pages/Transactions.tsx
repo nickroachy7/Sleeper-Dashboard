@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import {
   ArrowRightLeft,
   Clock,
+  Users,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useMemo, useCallback } from 'react';
@@ -69,14 +70,27 @@ export default function Transactions() {
         from += pageSize;
       }
 
+      // Resolve team names against the CURRENT league only, so a historical
+      // trade always shows the manager's *current* team name (e.g. "The Jaxon 5")
+      // rather than whatever it was called the season the trade happened
+      // ("Revenge of the Smith"). Roster ids are stable across the dynasty's
+      // season chain, so current roster → current owner → current name holds.
+      const { data: currentLeague } = await supabase
+        .from('leagues').select('league_id').order('season', { ascending: false }).limit(1);
+      const currentLeagueId = currentLeague?.[0]?.league_id ?? null;
+
       const { data: users } = await supabase.from('users').select('*');
       const { data: rosters } = await supabase.from('rosters').select('*');
-      const { data: leagueUsers } = await supabase.from('league_users').select('user_id, team_name, display_name');
+      const { data: leagueUsers } = await supabase.from('league_users').select('league_id, user_id, team_name, display_name');
 
       if (!allTransactions.length) return { transactions: [] as TransactionWithTeams[], rosters: [] as Roster[] };
 
+      // Current-league roster → owner map, and owner → current team name.
+      const currentRosters = (rosters || []).filter((r) => r.league_id === currentLeagueId);
       const rosterToOwner = new Map<number, string>();
-      const rosterList: Roster[] = (rosters || []).map((r) => ({
+      currentRosters.forEach((r) => { if (r.owner_id) rosterToOwner.set(r.roster_id, r.owner_id); });
+
+      const rosterList: Roster[] = currentRosters.map((r) => ({
         roster_id: r.roster_id,
         owner_id: r.owner_id || '',
         players: r.players || [],
@@ -86,19 +100,24 @@ export default function Transactions() {
         ownerName: '',
         teamName: null,
       }));
-      rosters?.forEach((r) => {
-        if (r.owner_id) rosterToOwner.set(r.roster_id, r.owner_id);
-      });
+
+      const currentTeamName = (ownerId: string | undefined): { teamName: string; ownerName: string } => {
+        const owner = users?.find((u) => u.user_id === ownerId);
+        const lu = leagueUsers?.find((l) => l.user_id === ownerId && l.league_id === currentLeagueId);
+        return {
+          teamName: lu?.team_name || lu?.display_name || owner?.display_name || 'Unknown',
+          ownerName: owner?.display_name || owner?.username || 'Unknown',
+        };
+      };
 
       const txList = allTransactions.map((tx): TransactionWithTeams => {
         const rosterOwners = tx.roster_ids?.map((rosterId) => {
           const ownerId = rosterToOwner.get(rosterId);
-          const owner = users?.find((u) => u.user_id === ownerId);
-          const leagueUser = leagueUsers?.find((lu) => lu.user_id === ownerId);
+          const { teamName, ownerName } = currentTeamName(ownerId);
           return {
             rosterId,
-            teamName: leagueUser?.team_name || leagueUser?.display_name || owner?.display_name || `Team ${rosterId}`,
-            ownerName: owner?.display_name || owner?.username || 'Unknown'
+            teamName: ownerId ? teamName : `Team ${rosterId}`,
+            ownerName,
           };
         }) || [];
 
@@ -125,6 +144,12 @@ export default function Transactions() {
   const getPlayerValue = useCallback(
     (playerId: string): number => (playerValues instanceof Map ? playerValues.get(playerId) : 0) || 0,
     [playerValues]
+  );
+
+  // Current-league team logo for a roster (falls back to user avatar → glyph).
+  const teamAvatarUrl = useCallback(
+    (rosterId: number): string | null => directory?.teamAvatar(rosterId) ?? null,
+    [directory]
   );
 
   /**
@@ -425,7 +450,17 @@ export default function Transactions() {
 
         {/* Team + Assets */}
         <div className="bg-[#141419] rounded-2xl overflow-hidden animate-smooth border border-[#22222b] card-hover">
-          <div className="flex items-center gap-2 px-4 py-2.5 bg-[#1b1b22]">
+          <div className="flex items-center gap-2.5 px-4 py-2.5 bg-[#1b1b22]">
+            {(() => {
+              const avatar = team ? teamAvatarUrl(team.rosterId) : null;
+              return avatar ? (
+                <img src={avatar} alt="" className="w-7 h-7 rounded-full bg-[#22222b] shrink-0 ring-1 ring-inset ring-white/10 object-cover" onError={(e) => { (e.target as HTMLImageElement).style.visibility = 'hidden'; }} />
+              ) : (
+                <div className="w-7 h-7 rounded-full bg-[#22222b] shrink-0 ring-1 ring-inset ring-white/10 flex items-center justify-center">
+                  <Users className="h-3.5 w-3.5 text-[#60606a]" />
+                </div>
+              );
+            })()}
             <span className="font-display text-sm font-bold text-white truncate">{team?.teamName || 'Unknown'}</span>
             <span className="text-[10px] text-[#60606a]">
               {adds.length + drops.length} move{adds.length + drops.length !== 1 ? 's' : ''}

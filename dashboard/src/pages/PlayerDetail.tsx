@@ -70,15 +70,16 @@ export default function PlayerDetail() {
       const fromRoster = drops[playerId];
       const kind = txKind(tx.type);
 
+      // Always the manager's current team name, not the historical season's.
       let headline: string;
       if (toRoster !== undefined && fromRoster !== undefined) {
-        headline = `Traded from ${directory.teamName(fromRoster, tx.league_id)} to ${directory.teamName(toRoster, tx.league_id)}`;
+        headline = `Traded from ${directory.teamName(fromRoster)} to ${directory.teamName(toRoster)}`;
       } else if (toRoster !== undefined) {
         headline = kind === 'trade'
-          ? `Acquired by ${directory.teamName(toRoster, tx.league_id)} via trade`
-          : `Added by ${directory.teamName(toRoster, tx.league_id)}`;
+          ? `Acquired by ${directory.teamName(toRoster)} via trade`
+          : `Added by ${directory.teamName(toRoster)}`;
       } else {
-        headline = `Dropped by ${directory.teamName(fromRoster, tx.league_id)}`;
+        headline = `Dropped by ${directory.teamName(fromRoster)}`;
       }
 
       let detail: string | undefined;

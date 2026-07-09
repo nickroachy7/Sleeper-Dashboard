@@ -165,8 +165,8 @@ export default function TeamDetail() {
         <div className="relative p-4 sm:p-6">
           <div className="flex items-center gap-4">
             <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full overflow-hidden bg-[#22222b] shrink-0 ring-1 ring-inset ring-white/10 flex items-center justify-center">
-              {owner?.avatar ? (
-                <img src={`https://sleepercdn.com/avatars/thumbs/${owner.avatar}`} alt="" className="w-full h-full object-cover" />
+              {directory.teamAvatar(rosterId) ? (
+                <img src={directory.teamAvatar(rosterId)!} alt="" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.visibility = 'hidden'; }} />
               ) : (
                 <Users className="h-6 w-6 text-[#60606a]" />
               )}

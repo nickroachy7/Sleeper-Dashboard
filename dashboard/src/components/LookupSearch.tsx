@@ -98,7 +98,7 @@ export function LookupSearch() {
             rosterId: r.roster_id,
             name,
             owner: owner?.display_name || owner?.username || '',
-            avatarId: (owner as { avatar?: string | null })?.avatar ?? null,
+            avatarId: directory.teamAvatar(r.roster_id),
           };
         })
         .filter((t) => !q || t.name.toLowerCase().includes(q) || t.owner.toLowerCase().includes(q))

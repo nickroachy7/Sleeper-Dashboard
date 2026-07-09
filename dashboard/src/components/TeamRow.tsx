@@ -14,7 +14,8 @@ export interface TeamRowProps {
   /** Owner name / record shown on the meta line. */
   subtitle?: string;
   value?: number;
-  /** Sleeper avatar id (thumbs). Falls back to a generic team glyph. */
+  /** Team logo: a full URL (custom logo) or a Sleeper avatar id (thumbs).
+   *  Falls back to a generic team glyph. */
   avatarId?: string | null;
   rank?: number;
   meta?: ReactNode;
@@ -67,7 +68,7 @@ export function TeamRow({
       {avatarId ? (
         <div className={`${avatar} rounded-full overflow-hidden bg-[#22222b] shrink-0 ring-1 ring-inset ring-white/5`}>
           <img
-            src={`https://sleepercdn.com/avatars/thumbs/${avatarId}`}
+            src={avatarId.startsWith('http') ? avatarId : `https://sleepercdn.com/avatars/thumbs/${avatarId}`}
             alt=""
             className="w-full h-full object-cover"
             onError={(e) => {

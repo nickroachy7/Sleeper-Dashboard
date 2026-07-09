@@ -74,7 +74,8 @@ export default function TradeDetail() {
           if (res?.playerId) timelinePlayerIds.push(res.playerId);
           return formatResolvedPick(p, res, {
             pickValues: pickValues ?? [],
-            origTeamName: directory.teamName(Number(p.roster_id), tx.league_id),
+            // Always the current team name (omit league id → resolves vs current league).
+            origTeamName: directory.teamName(Number(p.roster_id)),
             playerValue: (pid) => playerValues.get(pid)?.value ?? latestValue?.get(pid),
             playerName: (pid) => playerValues.get(pid)?.player.full_name ?? playerMeta.get(pid)?.name,
           });
@@ -92,7 +93,7 @@ export default function TradeDetail() {
 
       const side: TradeSide & { rosterId: number; timelinePlayerIds: string[]; pickBaseline: number } = {
         rosterId,
-        teamName: directory.teamName(rosterId, tx.league_id),
+        teamName: directory.teamName(rosterId), // current team name, not the historical season's
         players,
         picks: sidePicks,
         totalValue,

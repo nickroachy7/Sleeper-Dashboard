@@ -48,15 +48,51 @@ export function useLeagueDirectory() {
       (leagues || []).forEach((l) => seasonByLeague.set(l.league_id, l.season));
       const currentLeagueId = leagues?.[0]?.league_id ?? null;
 
-      const teamName = (rosterId: number, leagueId?: string | null): string => {
+      // Sleeper stores a manager's CUSTOM team logo in metadata.avatar (a full
+      // uploads URL), separate from their personal user avatar. We don't sync
+      // that column, so fetch the current league's users live and map
+      // owner_id → team-logo URL. Falls back to the user avatar when absent.
+      const teamLogoByOwner = new Map<string, string>();
+      if (currentLeagueId) {
+        try {
+          const res = await fetch(`https://api.sleeper.app/v1/league/${currentLeagueId}/users`);
+          const sleeperUsers: { user_id?: string; metadata?: { avatar?: string } }[] = await res.json();
+          if (Array.isArray(sleeperUsers)) {
+            for (const u of sleeperUsers) {
+              if (u.user_id && u.metadata?.avatar) teamLogoByOwner.set(u.user_id, u.metadata.avatar);
+            }
+          }
+        } catch { /* fall back to user avatars below */ }
+      }
+
+      const ownerOf = (rosterId: number, leagueId?: string | null): string | null => {
         const lid = leagueId || currentLeagueId;
         const roster = (rosters || []).find((r) => r.roster_id === rosterId && r.league_id === lid)
           || (rosters || []).find((r) => r.roster_id === rosterId && r.league_id === currentLeagueId);
-        if (!roster?.owner_id) return `Team ${rosterId}`;
-        const lu = (leagueUsers || []).find((u) => u.user_id === roster.owner_id && u.league_id === currentLeagueId)
-          || (leagueUsers || []).find((u) => u.user_id === roster.owner_id);
-        const user = (users || []).find((u) => u.user_id === roster.owner_id);
+        return roster?.owner_id ?? null;
+      };
+
+      const teamName = (rosterId: number, leagueId?: string | null): string => {
+        const ownerId = ownerOf(rosterId, leagueId);
+        if (!ownerId) return `Team ${rosterId}`;
+        const lu = (leagueUsers || []).find((u) => u.user_id === ownerId && u.league_id === currentLeagueId)
+          || (leagueUsers || []).find((u) => u.user_id === ownerId);
+        const user = (users || []).find((u) => u.user_id === ownerId);
         return lu?.team_name || lu?.display_name || user?.display_name || user?.username || `Team ${rosterId}`;
+      };
+
+      // Team logo (custom upload) for a roster, preferred over the user avatar.
+      const teamAvatar = (rosterId: number, leagueId?: string | null): string | null => {
+        const ownerId = ownerOf(rosterId, leagueId);
+        if (!ownerId) return null;
+        const logo = teamLogoByOwner.get(ownerId);
+        if (logo) return logo.startsWith('http') ? logo : `https://sleepercdn.com/uploads/${logo}`;
+        const lu = (leagueUsers || []).find((u) => u.user_id === ownerId && u.league_id === currentLeagueId)
+          || (leagueUsers || []).find((u) => u.user_id === ownerId);
+        const raw = (lu as { avatar?: string | null } | undefined)?.avatar
+          || (users || []).find((u) => u.user_id === ownerId)?.avatar;
+        if (!raw) return null;
+        return raw.startsWith('http') ? raw : `https://sleepercdn.com/avatars/thumbs/${raw}`;
       };
 
       return {
@@ -67,6 +103,7 @@ export function useLeagueDirectory() {
         currentLeagueId,
         seasonByLeague,
         teamName,
+        teamAvatar,
       };
     },
   });
