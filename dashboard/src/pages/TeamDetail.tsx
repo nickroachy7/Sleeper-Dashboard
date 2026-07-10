@@ -204,8 +204,11 @@ export default function TeamDetail() {
             {stat('Roster value', totalValue.toLocaleString())}
             {stat('All-time', `${allTime.w}-${allTime.l}`)}
             {stat('Trades', ledger.length)}
-            <div className="rounded-xl border border-[#22222b] bg-[#101015]/60 px-3 py-2.5">
-              <p className="text-[10px] text-[#75757f] uppercase tracking-[0.12em] font-bold">Trade net</p>
+            <div
+              className="rounded-xl border border-[#22222b] bg-[#101015]/60 px-3 py-2.5 cursor-help"
+              title="Everything received minus everything given across all trades, priced at TODAY's KTC. Shows how traded assets aged — not whether trades were fair when made."
+            >
+              <p className="text-[10px] text-[#75757f] uppercase tracking-[0.12em] font-bold">Trade net (today) ⓘ</p>
               <p className={`font-display text-lg font-bold tabular-nums mt-0.5 ${tradeNet > 0 ? 'text-accent-500' : tradeNet < 0 ? 'text-red-400' : 'text-[#75757f]'}`}>
                 {tradeNet > 0 ? '+' : ''}{tradeNet.toLocaleString()}
               </p>
