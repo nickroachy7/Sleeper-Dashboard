@@ -28,6 +28,16 @@ const HALFLIFE_DAYS = 120;     // a 4-month-old trade counts half
 const TRADE_CUTOFF_DAYS = 730; // ignore trades older than ~2 years
 const TIER_MULT: Record<string, number> = { Early: 1.28, Mid: 1.0, Late: 0.78 };
 
+// IDP players are ranked on their OWN display curve so they never push offensive
+// players down the shared board. Top IDP ≈ 5000 (a startable RB2/WR2 in a
+// balanced IDP league). Must match scripts/seed-idp-prior.ts.
+const IDP_MAX = 5000;
+const IDP_CURVE_REF = 525;
+const idpValueForRank = (i: number) => Math.max(1, Math.round(IDP_MAX * Math.exp(-3.1 * (i / IDP_CURVE_REF))));
+const IDP_POSITIONS = new Set([
+  "DL", "DE", "DT", "NT", "EDGE", "LB", "ILB", "OLB", "MLB", "DB", "CB", "S", "SS", "FS",
+]);
+
 // deno-lint-ignore no-explicit-any
 type Json = any;
 
@@ -146,6 +156,12 @@ Deno.serve(async (req) => {
     const playerRows = await fetchAll<PlayerRating>(supabase, "community_ratings", "player_id, rating, rd, volatility, matches");
     const pickRows = await fetchAll<PickRating>(supabase, "community_pick_ratings", "pick_key, pick_year, pick_round, rating, rd, volatility, matches");
 
+    // Position map to split the display board (offense vs IDP). Ratings stay
+    // unified; only the rank→value mapping differs by class.
+    const posRows = await fetchAll<{ player_id: string; position: string | null }>(supabase, "players", "player_id, position");
+    const positionById = new Map(posRows.map((p) => [p.player_id, (p.position ?? "").toUpperCase()]));
+    const isIdpPlayer = (ref: string) => IDP_POSITIONS.has(positionById.get(ref.slice(2)) ?? "");
+
     const assets = new Map<string, Asset>();
     for (const r of playerRows) assets.set(playerRef(r.player_id), { ref: playerRef(r.player_id), rating: r.rating, rd: r.rd, volatility: r.volatility, matches: r.matches });
     for (const r of pickRows) assets.set(pickRef(r.pick_key), { ref: pickRef(r.pick_key), rating: r.rating, rd: r.rd, volatility: r.volatility, matches: r.matches });
@@ -210,16 +226,27 @@ Deno.serve(async (req) => {
       asset.matches += ms.length;
     }
 
-    // Step 4 — derive the board.
-    const players = [...assets.values()].filter((a) => a.ref.startsWith("p:")).sort((a, b) => b.rating - a.rating);
+    // Step 4 — derive the board, SPLIT BY CLASS so IDP never displace offense.
+    const allPlayers = [...assets.values()].filter((a) => a.ref.startsWith("p:"));
+    const offense = allPlayers.filter((a) => !isIdpPlayer(a.ref)).sort((a, b) => b.rating - a.rating);
+    const idp = allPlayers.filter((a) => isIdpPlayer(a.ref)).sort((a, b) => b.rating - a.rating);
     const picks = [...assets.values()].filter((a) => a.ref.startsWith("k:"));
-    // player rows + a (rating → value) curve for pick interpolation
+
     const playerValueRows: Json[] = [];
     const playerHistoryRows: Json[] = [];
+    // Offense on the canonical 0–9999 curve; its (rating → value) points drive
+    // pick interpolation (picks are offensive-scale assets).
     const curve: { rating: number; value: number }[] = [];
-    players.forEach((a, i) => {
+    offense.forEach((a, i) => {
       const value = valueForRank(i);
       curve.push({ rating: a.rating, value });
+      const player_id = a.ref.slice(2);
+      playerValueRows.push({ player_id, value, rank: i + 1, superflex: true, source: "community", rating_deviation: a.rd, fetched_at: nowIso, updated_at: nowIso });
+      playerHistoryRows.push({ player_id, value, rank: i + 1, date: nowIso.slice(0, 10), source: "community", rating_deviation: a.rd });
+    });
+    // IDP on their own compressed curve, ranked within IDP.
+    idp.forEach((a, i) => {
+      const value = idpValueForRank(i);
       const player_id = a.ref.slice(2);
       playerValueRows.push({ player_id, value, rank: i + 1, superflex: true, source: "community", rating_deviation: a.rd, fetched_at: nowIso, updated_at: nowIso });
       playerHistoryRows.push({ player_id, value, rank: i + 1, date: nowIso.slice(0, 10), source: "community", rating_deviation: a.rd });
@@ -258,7 +285,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    const playerRatingRows: Json[] = players.map((a) => ({
+    const playerRatingRows: Json[] = allPlayers.map((a) => ({
       player_id: a.ref.slice(2), rating: a.rating, rd: a.rd, volatility: a.volatility, matches: a.matches, updated_at: nowIso,
     }));
 
@@ -285,7 +312,7 @@ Deno.serve(async (req) => {
 
     return jsonResponse({
       success: true, tradesIngested, eventsProcessed: processedIds.length,
-      playersRated: players.length, picksRated: picks.length, durationMs: Date.now() - startTime,
+      playersRated: offense.length, idpRated: idp.length, picksRated: picks.length, durationMs: Date.now() - startTime,
     });
   } catch (error) {
     console.error("compute-community-values error:", error);

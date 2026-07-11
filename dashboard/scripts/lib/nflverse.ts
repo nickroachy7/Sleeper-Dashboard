@@ -185,6 +185,63 @@ export async function loadSeasonProduction(season: number): Promise<Map<string, 
 }
 
 /**
+ * IDP fantasy points from a defensive stat row, using a balanced/moderate IDP
+ * scoring (a mix of tackle and big-play weight). This is the shared prior — real
+ * IDP leagues score differently, so the crowd/trades refine from here.
+ */
+export function idpPointsFromRow(r: Record<string, string>): number {
+  const n = (k: string) => num(r[k]) ?? 0;
+  return (
+    1.0 * n('def_tackles_solo') +
+    0.5 * n('def_tackle_assists') +
+    3.0 * n('def_sacks') +
+    1.0 * n('def_tackles_for_loss') +
+    1.0 * n('def_qb_hits') +
+    4.0 * n('def_interceptions') +
+    1.5 * n('def_pass_defended') +
+    4.0 * n('def_fumbles_forced') +
+    2.0 * n('fumble_recovery_opp') +
+    6.0 * n('def_tds') +
+    2.0 * n('def_safeties')
+  );
+}
+
+/**
+ * Aggregate weekly IDP fantasy points into per-season production, keyed by
+ * gsis_id — the defensive counterpart to loadSeasonProduction.
+ */
+export async function loadDefensiveProduction(season: number): Promise<Map<string, SeasonProduction>> {
+  let raw: Record<string, string>[] | null = null;
+  for (const url of [NFLVERSE_URLS.weeklyStats(season), NFLVERSE_URLS.weeklyStatsLegacy(season)]) {
+    try { raw = await fetchCsv(url); break; } catch { /* try next */ }
+  }
+  if (!raw) {
+    console.warn(`  no weekly stats for ${season} (asset not published); skipping IDP production`);
+    return new Map();
+  }
+  const agg = new Map<string, SeasonProduction>();
+  for (const r of raw) {
+    const type = (r.season_type || r.game_type || 'REG').toUpperCase();
+    if (type && type !== 'REG') continue;
+    const gsis = r.player_id || r.gsis_id;
+    if (!gsis) continue;
+    const pts = idpPointsFromRow(r);
+    // Only count weeks where the player actually recorded defensive activity,
+    // so games-played reflects real snaps (a pure-offense row scores 0 here).
+    if (pts === 0) continue;
+    const cur = agg.get(gsis) ?? { gsis_id: gsis, season, games: 0, fantasy_total: 0, fantasy_ppg: 0 };
+    cur.games += 1;
+    cur.fantasy_total += pts;
+    agg.set(gsis, cur);
+  }
+  for (const p of agg.values()) {
+    p.fantasy_ppg = p.games ? Math.round((p.fantasy_total / p.games) * 100) / 100 : 0;
+    p.fantasy_total = Math.round(p.fantasy_total * 10) / 10;
+  }
+  return agg;
+}
+
+/**
  * Per-week PPR points for a season, keyed by gsis_id. Lets a caller compute
  * production-to-date at any point in the season (for dense value history that
  * moves as the season unfolds, instead of one annual snapshot).
