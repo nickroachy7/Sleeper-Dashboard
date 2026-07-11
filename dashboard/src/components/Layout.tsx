@@ -18,6 +18,7 @@ import { LookupSearch } from './LookupSearch';
 import { TopBar } from './TopBar';
 import { LeagueSwitcher } from './LeagueSwitcher';
 import { AddLeagueModal } from './AddLeagueModal';
+import { SessionContributeModal } from './SessionContributeModal';
 import { openLookup } from '../lib/lookup';
 
 // ── Nav Configuration ───────────────────────────────────────────────
@@ -259,6 +260,7 @@ export default function Layout() {
         <LookupSearch />
       </div>
       <AddLeagueModal />
+      <SessionContributeModal />
     </div>
   );
 }
