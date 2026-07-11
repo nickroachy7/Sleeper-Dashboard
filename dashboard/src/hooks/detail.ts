@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { playerMoves, txDraftPicks } from '../lib/trade-shared';
 import { VALUE_SOURCE } from '../lib/value-source';
+import { useLeagueIds } from './queries';
 import type { TransactionRow, PickResolution } from '../types/domain';
 
 // ── Detail-page data hooks (player / team deep dives) ──────────────
@@ -25,29 +26,38 @@ async function fetchAllRows<T>(fetchPage: (from: number, to: number) => PromiseL
   return all;
 }
 
-function fetchAllTransactions(): Promise<TransactionRow[]> {
+// Scoped to the active dynasty's season chain — an empty chain matches nothing,
+// so a fresh visitor (or a second dynasty in the DB) never leaks in.
+function fetchAllTransactions(chain: string[]): Promise<TransactionRow[]> {
   return fetchAllRows<TransactionRow>((from, to) =>
-    supabase.from('transactions').select('*').order('created', { ascending: false }).range(from, to)
+    supabase.from('transactions').select('*').in('league_id', chain).order('created', { ascending: false }).range(from, to)
   );
 }
 
 /** League directory: every season, roster, and team name in one cached blob. */
 export function useLeagueDirectory() {
+  // Scope to the active dynasty's season chain so switching leagues shows the
+  // right rosters/team names (and multiple dynasties in the DB don't bleed
+  // together). An empty chain (no active league) filters to nothing rather
+  // than leaking another league's data to a fresh visitor.
+  const { data: ids } = useLeagueIds();
+  const activeCurrentId = ids?.current ?? null;
+  const chain = ids?.chain ?? [];
   return useQuery({
-    queryKey: ['league-directory'],
+    queryKey: ['league-directory', activeCurrentId, chain.join(',') || 'none'],
     staleTime: 5 * 60_000,
     queryFn: async () => {
       const [{ data: leagues }, { data: rosters }, { data: users }, { data: leagueUsers }] =
         await Promise.all([
-          supabase.from('leagues').select('league_id, season, name').order('season', { ascending: false }),
-          supabase.from('rosters').select('league_id, roster_id, owner_id, players, wins, losses, ties, fpts, fpts_against'),
+          supabase.from('leagues').select('league_id, season, name').in('league_id', chain).order('season', { ascending: false }),
+          supabase.from('rosters').select('league_id, roster_id, owner_id, players, wins, losses, ties, fpts, fpts_against').in('league_id', chain),
           supabase.from('users').select('user_id, display_name, username, avatar'),
-          supabase.from('league_users').select('league_id, user_id, team_name, display_name, avatar'),
+          supabase.from('league_users').select('league_id, user_id, team_name, display_name, avatar').in('league_id', chain),
         ]);
 
       const seasonByLeague = new Map<string, string>();
       (leagues || []).forEach((l) => seasonByLeague.set(l.league_id, l.season));
-      const currentLeagueId = leagues?.[0]?.league_id ?? null;
+      const currentLeagueId = activeCurrentId ?? null;
 
       // Sleeper stores a manager's CUSTOM team logo in metadata.avatar (a full
       // uploads URL), separate from their personal user avatar. We don't sync
@@ -112,8 +122,10 @@ export function useLeagueDirectory() {
 
 /** All data for the player detail page. */
 export function usePlayerDetail(playerId: string | undefined) {
+  const { data: ids } = useLeagueIds();
+  const chain = ids?.chain ?? [];
   return useQuery({
-    queryKey: ['player-detail', playerId],
+    queryKey: ['player-detail', playerId, chain.join(',') || 'none'],
     enabled: !!playerId,
     queryFn: async () => {
       const pid = playerId!;
@@ -129,8 +141,9 @@ export function usePlayerDetail(playerId: string | undefined) {
         supabase.from('player_values').select('*').eq('player_id', pid).eq('source', VALUE_SOURCE).maybeSingle(),
         supabase.from('player_value_history').select('date, value').eq('player_id', pid).eq('source', VALUE_SOURCE).order('date', { ascending: true }),
         supabase.from('draft_picks').select('*, drafts(season, league_id, type)').eq('player_id', pid),
-        fetchAllTransactions(),
-        supabase.from('rosters').select('league_id, roster_id, owner_id').contains('players', [pid]),
+        // Player's transactions + owning teams scoped to the active dynasty only.
+        fetchAllTransactions(chain),
+        supabase.from('rosters').select('league_id, roster_id, owner_id').contains('players', [pid]).in('league_id', chain),
       ]);
 
       // PostgREST can't filter JSON keys that look like array indexes
@@ -204,16 +217,20 @@ export interface SeasonRankPoint {
  * `ownerId` ties the team across seasons (roster_id can differ).
  */
 export function useSeasonRanks(ownerId: string | null | undefined) {
+  const { data: ids } = useLeagueIds();
+  const chain = ids?.chain ?? [];
   return useQuery({
-    queryKey: ['season-ranks', ownerId],
+    queryKey: ['season-ranks', ownerId, chain.join(',') || 'none'],
     enabled: !!ownerId,
     queryFn: async (): Promise<SeasonRankPoint[]> => {
+      // Scope to the active dynasty's seasons so a manager who also plays in
+      // another league doesn't get both dynasties' ranks mixed together.
       const { data: leagues } = await supabase
-        .from('leagues').select('league_id, season').order('season', { ascending: true });
+        .from('leagues').select('league_id, season').in('league_id', chain).order('season', { ascending: true });
       if (!leagues?.length) return [];
 
       const { data: rosters } = await supabase
-        .from('rosters').select('league_id, roster_id, owner_id, players, wins, losses, fpts');
+        .from('rosters').select('league_id, roster_id, owner_id, players, wins, losses, fpts').in('league_id', chain);
 
       const points: SeasonRankPoint[] = [];
       for (const lg of leagues) {
@@ -307,19 +324,23 @@ export interface TeamAnalytics {
  *  3. Positional edge — current roster value per position vs the league.
  */
 export function useTeamAnalytics(rosterId: number | undefined, ownerId: string | null | undefined) {
+  const { data: ids } = useLeagueIds();
+  const chain = ids?.chain ?? [];
   return useQuery({
-    queryKey: ['team-analytics', rosterId, ownerId],
+    queryKey: ['team-analytics', rosterId, ownerId, chain.join(',') || 'none'],
     enabled: rosterId !== undefined && !!ownerId,
     queryFn: async (): Promise<TeamAnalytics> => {
+      // League-scoped tables (leagues/rosters/matchups) filtered to the active
+      // dynasty; players/player_values are global (league-agnostic).
       const [{ data: leagues }, { data: rosters }, players, pvRows, matchups] = await Promise.all([
-        supabase.from('leagues').select('league_id, season').order('season', { ascending: true }),
-        supabase.from('rosters').select('league_id, roster_id, owner_id, players'),
+        supabase.from('leagues').select('league_id, season').in('league_id', chain).order('season', { ascending: true }),
+        supabase.from('rosters').select('league_id, roster_id, owner_id, players').in('league_id', chain),
         fetchAllRows<{ player_id: string; position: string | null; age: number | null }>((from, to) =>
           supabase.from('players').select('player_id, position, age').range(from, to)),
         fetchAllRows<{ player_id: string; value: number }>((from, to) =>
           supabase.from('player_values').select('player_id, value').eq('source', VALUE_SOURCE).range(from, to)),
         fetchAllRows<{ league_id: string; week: number; roster_id: number; points: number | null; matchup_id: number | null }>((from, to) =>
-          supabase.from('matchups').select('league_id, week, roster_id, points, matchup_id').range(from, to)),
+          supabase.from('matchups').select('league_id, week, roster_id, points, matchup_id').in('league_id', chain).range(from, to)),
       ]);
 
       const currentLeagueId = leagues?.[leagues.length - 1]?.league_id ?? null;
@@ -515,11 +536,13 @@ export type { PickResolution } from '../types/domain';
  * Early/Mid/Late tier from the original owner's current roster-value rank.
  */
 export function useLeaguePickResolutions() {
+  const { data: ids } = useLeagueIds();
+  const chain = ids?.chain ?? [];
   return useQuery({
-    queryKey: ['league-pick-resolutions'],
+    queryKey: ['league-pick-resolutions', chain.join(',') || 'none'],
     staleTime: 5 * 60_000,
     queryFn: async () => {
-      const map = await resolveAllPicks();
+      const map = await resolveAllPicks(chain);
       // Return a stable closure so callers read like `resolve(season, round, rosterId)`.
       return {
         map,
@@ -536,15 +559,16 @@ export function useLeaguePickResolutions() {
  * single trade (detail page) instead of the whole league.
  */
 async function resolveAllPicks(
+  chain: string[],
   pickFilter?: { season: string; round: number; roster_id: number }[]
 ): Promise<Map<string, PickResolution>> {
   const pickResolution = new Map<string, PickResolution>();
 
   // Which picks to resolve: a caller-supplied subset, or every traded pick in
-  // the league (from the transactions table).
+  // the active dynasty (from the transactions table).
   let picks = pickFilter;
   if (!picks) {
-    const txs = await fetchAllTransactions();
+    const txs = await fetchAllTransactions(chain);
     const seen = new Set<string>();
     picks = [];
     for (const tx of txs) {
@@ -560,8 +584,8 @@ async function resolveAllPicks(
 
   const seasons = [...new Set(picks.map((p) => String(p.season)))];
   const [{ data: leagues }, { data: drafts }] = await Promise.all([
-    supabase.from('leagues').select('league_id, season').order('season', { ascending: false }),
-    supabase.from('drafts').select('draft_id, league_id, season, status, draft_order, slot_to_roster_id').in('season', seasons),
+    supabase.from('leagues').select('league_id, season').in('league_id', chain).order('season', { ascending: false }),
+    supabase.from('drafts').select('draft_id, league_id, season, status, draft_order, slot_to_roster_id').in('league_id', chain).in('season', seasons),
   ]);
   const currentLeagueId = leagues?.[0]?.league_id ?? null;
 
@@ -660,8 +684,10 @@ async function resolveAllPicks(
  *    (past picks, resolved via draft_order) or its projected tier (future picks).
  */
 export function useTradeDetail(transactionId: string | undefined) {
+  const { data: ids } = useLeagueIds();
+  const chain = ids?.chain ?? [];
   return useQuery({
-    queryKey: ['trade-detail', transactionId],
+    queryKey: ['trade-detail', transactionId, chain.join(',') || 'none'],
     enabled: !!transactionId,
     queryFn: async () => {
       const { data: transaction } = await supabase
@@ -680,6 +706,7 @@ export function useTradeDetail(transactionId: string | undefined) {
       // ── Resolve picks (shared engine, scoped to just this trade's picks) ──
       if (picks.length > 0) {
         const resolved = await resolveAllPicks(
+          chain,
           picks.map((p) => ({ season: String(p.season), round: Number(p.round), roster_id: Number(p.roster_id) }))
         );
         resolved.forEach((v, k) => pickResolution.set(k, v));
@@ -706,15 +733,20 @@ export function useTradeDetail(transactionId: string | undefined) {
   });
 }
 
-/** All trades involving a roster, across every season. */
+/** All trades involving a roster, across every season of the active dynasty. */
 export function useTeamTrades(rosterId: number | undefined) {
+  const { data: ids } = useLeagueIds();
+  const chain = ids?.chain ?? [];
   return useQuery({
-    queryKey: ['team-trades', rosterId],
+    queryKey: ['team-trades', rosterId, chain.join(',') || 'none'],
     enabled: rosterId !== undefined,
     queryFn: async () => {
+      // roster_id 1..N repeats in every league, so scope to the active chain
+      // or a roster N in another dynasty would surface here.
       const { data } = await supabase
         .from('transactions')
         .select('*')
+        .in('league_id', chain)
         .eq('type', 'trade')
         .eq('status', 'complete')
         .contains('roster_ids', [rosterId!])
@@ -726,13 +758,16 @@ export function useTeamTrades(rosterId: number | undefined) {
 
 /** Non-trade moves (waivers, free-agent adds/drops) for one roster, newest first. */
 export function useTeamMoves(rosterId: number | undefined) {
+  const { data: ids } = useLeagueIds();
+  const chain = ids?.chain ?? [];
   return useQuery({
-    queryKey: ['team-moves', rosterId],
+    queryKey: ['team-moves', rosterId, chain.join(',') || 'none'],
     enabled: rosterId !== undefined,
     queryFn: async () => {
       const { data } = await supabase
         .from('transactions')
         .select('*')
+        .in('league_id', chain)
         .neq('type', 'trade')
         .contains('roster_ids', [rosterId!])
         .order('created', { ascending: false });

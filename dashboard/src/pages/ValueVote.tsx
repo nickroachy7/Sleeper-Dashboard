@@ -52,8 +52,9 @@ export default function ValueVote() {
     try {
       await recordPairwiseVote({ winnerId: winner.player_id, loserId: loser.player_id });
       setVotes((v) => v + 1);
-    } catch {
-      setFlash('Could not save — try again');
+    } catch (e) {
+      // Surface the server's rate-limit message ("slow down…") when present.
+      setFlash(e instanceof Error && e.message ? e.message : 'Could not save — try again');
     } finally {
       setTimeout(() => { setFlash(null); setPending(false); nextPair(); }, 260);
     }

@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
-import { fetchAllRows } from '../hooks/queries';
+import { fetchAllRows, useLeagueIds } from '../hooks/queries';
 import {
   FileText,
   ArrowRightLeft,
@@ -19,6 +19,8 @@ import { useState, useMemo } from 'react';
 import { useUrlState } from '../hooks/useUrlState';
 import { PageHeader } from '../components/PageHeader';
 import { PlayerRow } from '../components/PlayerRow';
+import { NoLeagueState } from '../components/NoLeagueState';
+import { useActiveLeague } from '../lib/active-league';
 import type { DraftPickRow } from '../types/domain';
 
 interface Player {
@@ -71,19 +73,36 @@ export default function Drafts() {
     },
   });
 
+  const { data: leagueIds } = useLeagueIds();
+  const { hasLeague } = useActiveLeague();
+  const chain = leagueIds?.chain ?? null;
+
   const { data, isLoading } = useQuery({
-    queryKey: ['drafts-data'],
+    queryKey: ['drafts-data', chain?.join(',') ?? 'all'],
+    enabled: !!leagueIds,
     queryFn: async () => {
-      const { data: drafts } = await supabase.from('drafts').select('*').order('season', { ascending: false });
-      const { data: draftPicks } = await supabase.from('draft_picks').select('*').order('pick_no', { ascending: true });
-      const { data: tradedPicks } = await supabase.from('traded_picks').select('*').order('season', { ascending: false });
+      // Scope everything to the active dynasty's season chain. An empty chain
+      // (no active league) matches nothing rather than leaking global data.
+      const inChain = chain ?? [];
+      const { data: drafts } = await supabase.from('drafts').select('*').in('league_id', inChain).order('season', { ascending: false });
+      const { data: tradedPicks } = await supabase.from('traded_picks').select('*').in('league_id', inChain).order('season', { ascending: false });
       const { data: users } = await supabase.from('users').select('*');
-      const { data: rosters } = await supabase.from('rosters').select('*');
-      const { data: leagueUsers } = await supabase.from('league_users').select('user_id, team_name, display_name');
-      const { data: league } = await supabase.from('leagues').select('*').order('season', { ascending: false }).limit(1);
+      const { data: rosters } = await supabase.from('rosters').select('*').in('league_id', inChain);
+      const { data: leagueUsers } = await supabase.from('league_users').select('league_id, user_id, team_name, display_name').in('league_id', inChain);
+      const { data: league } = await supabase.from('leagues').select('*').in('league_id', inChain).order('season', { ascending: false });
+
+      // draft_picks are keyed by draft_id (no league_id), so scope by the
+      // chain's draft ids.
+      const draftIds = (drafts || []).map((d) => d.draft_id);
+      let draftPicks: any[] = [];
+      if (draftIds.length) {
+        const { data: dp } = await supabase
+          .from('draft_picks').select('*').in('draft_id', draftIds).order('pick_no', { ascending: true });
+        draftPicks = dp || [];
+      }
 
       return {
-        drafts: drafts || [], draftPicks: draftPicks || [], tradedPicks: tradedPicks || [],
+        drafts: drafts || [], draftPicks, tradedPicks: tradedPicks || [],
         users: users || [], rosters: rosters || [], leagueUsers: leagueUsers || [],
         league: league?.[0]
       };
@@ -183,6 +202,17 @@ export default function Drafts() {
       return next;
     });
   };
+
+  // Fresh visitor with no league: onboarding, not the "no data" state.
+  if (!hasLeague) {
+    return (
+      <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto">
+        <PageHeader title="Drafts" />
+        <NoLeagueState heading="Add your league to see drafts"
+          sub="Rookie draft history, pick trades, and future draft capital for your league." compact />
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (

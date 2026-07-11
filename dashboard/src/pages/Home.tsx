@@ -2,8 +2,10 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useLeague, usePlayerValuesList } from '../hooks/queries';
 import { usePlayerMap, useTradeData } from '../hooks/useLeagueData';
-import { Zap } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { useActiveLeague } from '../lib/active-league';
+import { openAddLeague } from '../lib/add-league-modal';
+import { NoLeagueState } from '../components/NoLeagueState';
+import { Plus } from 'lucide-react';
 import { useCallback, useMemo } from 'react';
 import { PowerRankings } from '../components/PowerRankings';
 import { RecentTrades } from '../components/RecentTrades';
@@ -37,6 +39,7 @@ const STATUS_LABEL: Record<string, string> = {
 // ─── Component ───────────────────────────────────────────────────────
 
 export default function Home() {
+  const { hasLeague, isPreview } = useActiveLeague();
   const { data: league, isLoading: leagueLoading } = useLeague();
   const { data: playersMap } = usePlayerMap();
   const { data: playerValues } = usePlayerValuesList();
@@ -302,7 +305,18 @@ export default function Home() {
     return { risers, fallers };
   }, [rostersData, playerValues, playersMap, moverValues, resolveTeamName]);
 
-  // ─── Loading / Empty states ──────────────────────────────────────
+  // ─── New-user / Loading / Empty states ───────────────────────────
+
+  // Fresh visitor with no league: show the onboarding funnel, not a demo.
+  if (!hasLeague) {
+    return (
+      <div className="min-h-dvh">
+        <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto">
+          <NoLeagueState />
+        </div>
+      </div>
+    );
+  }
 
   if (leagueLoading) {
     return (
@@ -352,25 +366,16 @@ export default function Home() {
     );
   }
 
+  // hasLeague is true but no current league resolved — the added/previewed
+  // league isn't in the DB yet (still importing, or an unknown ?league= id).
   if (!league) {
     return (
-      <div className="min-h-dvh p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
-        <div className="flex flex-col items-center justify-center py-20">
-          <div className="text-center max-w-sm">
-            <div className="w-16 h-16 bg-accent-500/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
-              <Zap className="h-8 w-8 text-accent-400" />
-            </div>
-            <h2 className="text-2xl font-bold text-white mb-2">Welcome to Sleeper Dashboard</h2>
-            <p className="text-[#80808c] text-sm mb-8">Connect your Sleeper fantasy league to get started with dynasty trade intelligence.</p>
-            <Link
-              to="/settings"
-              className="inline-flex items-center gap-2 px-5 py-3 bg-accent-500 text-white text-sm font-semibold rounded-xl hover:bg-accent-600 transition-all shadow-[0_0_16px_rgba(34,197,94,0.2)]"
-            >
-              <Zap className="h-4 w-4" />
-              Connect Your League
-            </Link>
-          </div>
-        </div>
+      <div className="min-h-dvh p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto">
+        <NoLeagueState
+          heading="Getting your league ready…"
+          sub="If you just added a league, its data is still importing — this can take a moment. Otherwise, add your Sleeper league to get started."
+          compact
+        />
       </div>
     );
   }
@@ -380,6 +385,21 @@ export default function Home() {
   return (
     <div className="min-h-dvh">
     <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6 lg:space-y-8">
+
+      {/* ── Sample-preview banner ── */}
+      {isPreview && (
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 rounded-xl bg-accent-500/10 border border-accent-500/25 px-4 py-3">
+          <p className="text-[13px] text-[#c4c4cd] flex-1">
+            You're viewing a <span className="font-semibold text-white">sample league</span>. Add your own to see your rosters, values, and trades.
+          </p>
+          <button
+            onClick={openAddLeague}
+            className="inline-flex items-center justify-center gap-1.5 h-9 px-4 rounded-lg bg-accent-500 text-[#06110a] text-[13px] font-semibold hover:bg-accent-400 transition-colors shrink-0"
+          >
+            <Plus className="h-4 w-4" /> Add your league
+          </button>
+        </div>
+      )}
 
       {/* ── Splash Hero ── */}
       <HomeSplash

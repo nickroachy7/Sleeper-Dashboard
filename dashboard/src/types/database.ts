@@ -39,128 +39,73 @@ export type Database = {
   }
   public: {
     Tables: {
-      value_events: {
+      community_pick_ratings: {
         Row: {
-          id: string
-          kind: string
-          side_a: Json
-          side_b: Json
-          outcome: number
-          weight: number
-          voter_id: string | null
-          league_id: string | null
-          source_ref: string | null
-          format_sf: boolean
-          processed_at: string | null
-          created_at: string | null
-        }
-        Insert: {
-          id?: string
-          kind: string
-          side_a: Json
-          side_b: Json
-          outcome?: number
-          weight?: number
-          voter_id?: string | null
-          league_id?: string | null
-          source_ref?: string | null
-          format_sf?: boolean
-          processed_at?: string | null
-          created_at?: string | null
-        }
-        Update: {
-          id?: string
-          kind?: string
-          side_a?: Json
-          side_b?: Json
-          outcome?: number
-          weight?: number
-          voter_id?: string | null
-          league_id?: string | null
-          source_ref?: string | null
-          format_sf?: boolean
-          processed_at?: string | null
-          created_at?: string | null
-        }
-        Relationships: []
-      }
-      player_facts: {
-        Row: {
-          id: string
-          player_id: string
-          season: number
-          age: number | null
-          years_exp: number | null
-          draft_round: number | null
-          draft_pick: number | null
-          games: number | null
-          fantasy_ppg: number | null
-          fantasy_total: number | null
-          snap_share: number | null
-          gsis_id: string | null
-          source: string
+          matches: number
+          pick_key: string
+          pick_round: number
+          pick_year: number
+          rating: number
+          rd: number
           updated_at: string | null
+          volatility: number
         }
         Insert: {
-          id?: string
-          player_id: string
-          season: number
-          age?: number | null
-          years_exp?: number | null
-          draft_round?: number | null
-          draft_pick?: number | null
-          games?: number | null
-          fantasy_ppg?: number | null
-          fantasy_total?: number | null
-          snap_share?: number | null
-          gsis_id?: string | null
-          source?: string
+          matches?: number
+          pick_key: string
+          pick_round: number
+          pick_year: number
+          rating?: number
+          rd?: number
           updated_at?: string | null
+          volatility?: number
         }
         Update: {
-          id?: string
-          player_id?: string
-          season?: number
-          age?: number | null
-          years_exp?: number | null
-          draft_round?: number | null
-          draft_pick?: number | null
-          games?: number | null
-          fantasy_ppg?: number | null
-          fantasy_total?: number | null
-          snap_share?: number | null
-          gsis_id?: string | null
-          source?: string
+          matches?: number
+          pick_key?: string
+          pick_round?: number
+          pick_year?: number
+          rating?: number
+          rd?: number
           updated_at?: string | null
+          volatility?: number
         }
         Relationships: []
       }
       community_ratings: {
         Row: {
+          matches: number
           player_id: string
           rating: number
           rd: number
-          volatility: number
-          matches: number
           updated_at: string | null
+          volatility: number
         }
         Insert: {
+          matches?: number
           player_id: string
           rating?: number
           rd?: number
-          volatility?: number
-          matches?: number
           updated_at?: string | null
+          volatility?: number
         }
         Update: {
+          matches?: number
           player_id?: string
           rating?: number
           rd?: number
-          volatility?: number
-          matches?: number
           updated_at?: string | null
+          volatility?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "community_ratings_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: true
+            referencedRelation: "players"
+            referencedColumns: ["player_id"]
+          },
+        ]
       }
       draft_picks: {
         Row: {
@@ -510,6 +455,65 @@ export type Database = {
         }
         Relationships: []
       }
+      player_facts: {
+        Row: {
+          age: number | null
+          draft_pick: number | null
+          draft_round: number | null
+          fantasy_ppg: number | null
+          fantasy_total: number | null
+          games: number | null
+          gsis_id: string | null
+          id: string
+          player_id: string
+          season: number
+          snap_share: number | null
+          source: string
+          updated_at: string | null
+          years_exp: number | null
+        }
+        Insert: {
+          age?: number | null
+          draft_pick?: number | null
+          draft_round?: number | null
+          fantasy_ppg?: number | null
+          fantasy_total?: number | null
+          games?: number | null
+          gsis_id?: string | null
+          id?: string
+          player_id: string
+          season: number
+          snap_share?: number | null
+          source?: string
+          updated_at?: string | null
+          years_exp?: number | null
+        }
+        Update: {
+          age?: number | null
+          draft_pick?: number | null
+          draft_round?: number | null
+          fantasy_ppg?: number | null
+          fantasy_total?: number | null
+          games?: number | null
+          gsis_id?: string | null
+          id?: string
+          player_id?: string
+          season?: number
+          snap_share?: number | null
+          source?: string
+          updated_at?: string | null
+          years_exp?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "player_facts_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["player_id"]
+          },
+        ]
+      }
       player_value_history: {
         Row: {
           date: string
@@ -670,6 +674,27 @@ export type Database = {
         }
         Relationships: []
       }
+      rate_limits: {
+        Row: {
+          bucket: string
+          created_at: string
+          id: number
+          key: string
+        }
+        Insert: {
+          bucket: string
+          created_at?: string
+          id?: never
+          key: string
+        }
+        Update: {
+          bucket?: string
+          created_at?: string
+          id?: never
+          key?: string
+        }
+        Relationships: []
+      }
       rosters: {
         Row: {
           co_owners: string[] | null
@@ -797,6 +822,39 @@ export type Database = {
             referencedColumns: ["league_id"]
           },
         ]
+      }
+      tracked_leagues: {
+        Row: {
+          added_at: string
+          last_sync_status: string | null
+          last_synced_at: string | null
+          last_viewed_at: string | null
+          name: string
+          root_league_id: string
+          season: string
+          sync_error: string | null
+        }
+        Insert: {
+          added_at?: string
+          last_sync_status?: string | null
+          last_synced_at?: string | null
+          last_viewed_at?: string | null
+          name: string
+          root_league_id: string
+          season: string
+          sync_error?: string | null
+        }
+        Update: {
+          added_at?: string
+          last_sync_status?: string | null
+          last_synced_at?: string | null
+          last_viewed_at?: string | null
+          name?: string
+          root_league_id?: string
+          season?: string
+          sync_error?: string | null
+        }
+        Relationships: []
       }
       traded_picks: {
         Row: {
@@ -947,13 +1005,68 @@ export type Database = {
         }
         Relationships: []
       }
+      value_events: {
+        Row: {
+          created_at: string | null
+          format_sf: boolean
+          id: string
+          kind: string
+          league_id: string | null
+          outcome: number
+          processed_at: string | null
+          side_a: Json
+          side_b: Json
+          source_ref: string | null
+          voter_id: string | null
+          weight: number
+        }
+        Insert: {
+          created_at?: string | null
+          format_sf?: boolean
+          id?: string
+          kind: string
+          league_id?: string | null
+          outcome?: number
+          processed_at?: string | null
+          side_a: Json
+          side_b: Json
+          source_ref?: string | null
+          voter_id?: string | null
+          weight?: number
+        }
+        Update: {
+          created_at?: string | null
+          format_sf?: boolean
+          id?: string
+          kind?: string
+          league_id?: string | null
+          outcome?: number
+          processed_at?: string | null
+          side_a?: Json
+          side_b?: Json
+          source_ref?: string | null
+          voter_id?: string | null
+          weight?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "value_events_league_id_fkey"
+            columns: ["league_id"]
+            isOneToOne: false
+            referencedRelation: "leagues"
+            referencedColumns: ["league_id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      execute_readonly_sql: { Args: { query: string }; Returns: Json }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
+      touch_tracked_league: { Args: { p_root: string }; Returns: undefined }
     }
     Enums: {
       [_ in never]: never

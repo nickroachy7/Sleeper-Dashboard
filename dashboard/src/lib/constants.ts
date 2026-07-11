@@ -1,3 +1,9 @@
+// ── Sample league ─────────────────────────────────────────────────
+// The league shown when a new visitor clicks "explore a sample league"
+// (via ?league=). Dynasty Reloaded — the founding league — doubles as the
+// public demo. Previewing does not add it to the visitor's leagues.
+export const SAMPLE_LEAGUE_ID = '1312080194361638912';
+
 // ── Pagination ────────────────────────────────────────────────────
 export const ITEMS_PER_PAGE = 50;
 

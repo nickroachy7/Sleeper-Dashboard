@@ -4,6 +4,8 @@ import { Scale, Target } from 'lucide-react';
 import { TradeEvaluator } from './TradeEvaluator';
 import { TradeFinder } from './TradeFinder';
 import { PageHeader } from '../components/PageHeader';
+import { NoLeagueState } from '../components/NoLeagueState';
+import { useActiveLeague } from '../lib/active-league';
 import { useUrlState } from '../hooks/useUrlState';
 import type { TradeAsset } from '../lib/trade-shared';
 
@@ -21,6 +23,7 @@ interface InitialTradeState {
 export default function TradeTools() {
   const location = useLocation();
   const { get, setMany } = useUrlState();
+  const { hasLeague } = useActiveLeague();
   const activeTab = get('tab', 'evaluate') as TabId;
 
   // Router state handoff: Trade Finder's "Open in Evaluator" button navigates
@@ -52,7 +55,10 @@ export default function TradeTools() {
           onTabChange={(id) => setMany({ tab: id === 'evaluate' ? null : id })}
         />
 
-        {activeTab === 'evaluate' ? (
+        {!hasLeague ? (
+          <NoLeagueState heading="Add your league to build trades"
+            sub="Trade tools work off your league's rosters — add your league to evaluate and find trades." compact />
+        ) : activeTab === 'evaluate' ? (
           <TradeEvaluator key={evaluatorKey} initialSides={initialSides} />
         ) : (
           <TradeFinder />

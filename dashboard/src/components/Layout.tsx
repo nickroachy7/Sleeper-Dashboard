@@ -13,11 +13,11 @@ import {
   X,
   Search,
 } from 'lucide-react';
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '../lib/supabase';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
 import { LookupSearch } from './LookupSearch';
 import { TopBar } from './TopBar';
+import { LeagueSwitcher } from './LeagueSwitcher';
+import { AddLeagueModal } from './AddLeagueModal';
 import { openLookup } from '../lib/lookup';
 
 // ── Nav Configuration ───────────────────────────────────────────────
@@ -75,19 +75,6 @@ export default function Layout() {
   const location = useLocation();
   const [navOpen, setNavOpen] = useState(false);
   useRealtimeSync();
-
-  const { data: league } = useQuery({
-    queryKey: ['layout-league'],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from('leagues')
-        .select('name, season, total_rosters, status')
-        .order('season', { ascending: false })
-        .limit(1);
-      return data?.[0] || null;
-    },
-    staleTime: 5 * 60 * 1000,
-  });
 
   const isNavItemActive = (to: string) => {
     if (to === '/') return location.pathname === '/';
@@ -172,18 +159,9 @@ export default function Layout() {
             onClick={() => setNavOpen(false)}
           />
           <div className="absolute inset-x-0 top-[calc(56px+env(safe-area-inset-top))] max-h-[calc(100dvh-56px-env(safe-area-inset-top))] overflow-y-auto bg-[#0f0f14] border-b border-[#2a2a34] shadow-2xl animate-menu-drop">
-            {league && (
-              <div className="px-4 py-3.5 border-b border-[#1b1b22]">
-                <div className="flex items-center gap-2">
-                  <span className={`w-2 h-2 rounded-full shrink-0 ${
-                    league.status === 'in_season' || league.status === 'drafting' ? 'bg-emerald-500'
-                      : league.status === 'complete' ? 'bg-[#75757f]' : 'bg-amber-500'
-                  }`} />
-                  <span className="text-[13px] font-bold text-white truncate">{league.name}</span>
-                </div>
-                <p className="text-[11px] text-[#75757f] pl-4">{league.season} Season · {league.total_rosters} Teams</p>
-              </div>
-            )}
+            <div className="px-4 py-3.5 border-b border-[#1b1b22]">
+              <LeagueSwitcher onNavigate={() => setNavOpen(false)} />
+            </div>
 
             <nav className="px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
               {drawerSections.map((section, si) => (
@@ -228,26 +206,10 @@ export default function Layout() {
           />
         </div>
 
-        {/* League Identity */}
-        {league && (
-          <div className="px-5 py-4 border-b border-[#1b1b22] shrink-0">
-            <div className="flex items-center gap-2 mb-1">
-              <span
-                className={`w-2 h-2 rounded-full shrink-0 ${
-                  league.status === 'in_season' || league.status === 'drafting'
-                    ? 'bg-emerald-500'
-                    : league.status === 'complete'
-                      ? 'bg-[#75757f]'
-                      : 'bg-amber-500'
-                }`}
-              />
-              <span className="text-xs font-semibold text-white truncate">{league.name}</span>
-            </div>
-            <p className="text-[11px] text-[#75757f] pl-4">
-              {league.season} Season · {league.total_rosters} Teams
-            </p>
-          </div>
-        )}
+        {/* League Identity + Switcher */}
+        <div className="px-5 py-4 border-b border-[#1b1b22] shrink-0">
+          <LeagueSwitcher />
+        </div>
 
         {/* Navigation */}
         <nav className="flex-1 p-3 overflow-y-auto">
@@ -296,6 +258,7 @@ export default function Layout() {
         </main>
         <LookupSearch />
       </div>
+      <AddLeagueModal />
     </div>
   );
 }

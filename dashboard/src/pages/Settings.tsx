@@ -25,6 +25,8 @@ import {
 import { PageHeader } from '../components/PageHeader';
 import { StatCard } from '../components/StatCard';
 import { PositionBadge } from '../components/PositionBadge';
+import { MyLeaguesSection } from '../components/MyLeaguesSection';
+import { useLeague } from '../hooks/queries';
 
 // ─── Sync Types ─────────────────────────────────────────────────────
 
@@ -156,19 +158,8 @@ export default function Settings() {
   const [triggeringSync, setTriggeringSync] = useState<string | null>(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
 
-  // League data
-  const { data: league, isLoading } = useQuery({
-    queryKey: ['league'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('leagues')
-        .select('*')
-        .order('season', { ascending: false })
-        .limit(1);
-      if (error) throw error;
-      return data?.[0] || null;
-    },
-  });
+  // League data (active league, not just the most-recent row)
+  const { data: league, isLoading } = useLeague();
 
   const { data: stats } = useQuery({
     queryKey: ['league-stats'],
@@ -254,6 +245,8 @@ export default function Settings() {
     <div className="min-h-dvh">
       <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto">
         <PageHeader title="Settings" />
+
+        <MyLeaguesSection />
 
         {league ? (
           <>

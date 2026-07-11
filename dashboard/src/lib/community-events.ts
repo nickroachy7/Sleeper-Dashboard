@@ -40,7 +40,7 @@ export async function recordPairwiseVote(args: PairwiseVoteArgs): Promise<void> 
     voter_id: voterId(),
     format_sf: args.superflex ?? true,
   });
-  if (error) throw error;
+  if (error) throw new Error(error.message);
 }
 
 export interface CalculatorVoteArgs {
@@ -62,5 +62,5 @@ export async function recordCalculatorVote(args: CalculatorVoteArgs): Promise<vo
     voter_id: voterId(),
     format_sf: args.superflex ?? true,
   });
-  if (error) throw error;
+  if (error) throw new Error(error.message);
 }

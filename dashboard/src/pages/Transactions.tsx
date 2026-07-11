@@ -11,9 +11,11 @@ import { useUrlState } from '../hooks/useUrlState';
 import { PageHeader } from '../components/PageHeader';
 import { Pagination } from '../components/Pagination';
 import { FilterBar, FilterPills, SortSelect } from '../components/FilterBar';
+import { NoLeagueState } from '../components/NoLeagueState';
+import { useActiveLeague } from '../lib/active-league';
 
 import { usePlayerMap } from '../hooks/useLeagueData';
-import { usePlayerValuesList, usePickValues } from '../hooks/queries';
+import { usePlayerValuesList, usePickValues, useLeagueIds } from '../hooks/queries';
 import { useLeaguePickResolutions, useLeagueDirectory } from '../hooks/detail';
 import { TradeCard as SharedTradeCard, type TradeSide } from '../components/TradeCard';
 import { PlayerRow } from '../components/PlayerRow';
@@ -49,18 +51,25 @@ export default function Transactions() {
   const { data: pickValuesData } = usePickValues();
   const { data: pickResolutions } = useLeaguePickResolutions();
   const { data: directory } = useLeagueDirectory();
+  const { data: leagueIds } = useLeagueIds();
+  const { hasLeague } = useActiveLeague();
+  const chain = leagueIds?.chain ?? null;
+  const currentLeagueId = leagueIds?.current ?? null;
 
   const { data: txData, isLoading } = useQuery({
-    queryKey: ['transactions'],
+    queryKey: ['transactions', chain?.join(',') ?? 'all'],
+    enabled: !!leagueIds,
     queryFn: async () => {
       let allTransactions: TransactionRow[] = [];
       let from = 0;
       const pageSize = 1000;
 
       while (true) {
-        const { data, error } = await supabase
-          .from('transactions')
-          .select('*')
+        // Scope to the active dynasty's season chain so switching leagues (or
+        // multiple dynasties in the DB) never mixes another league's history in.
+        // An empty chain (no active league) matches nothing — no data leak.
+        const { data, error } = await supabase.from('transactions').select('*')
+          .in('league_id', chain ?? [])
           .range(from, from + pageSize - 1)
           .order('created', { ascending: false, nullsFirst: false });
 
@@ -75,13 +84,10 @@ export default function Transactions() {
       // rather than whatever it was called the season the trade happened
       // ("Revenge of the Smith"). Roster ids are stable across the dynasty's
       // season chain, so current roster → current owner → current name holds.
-      const { data: currentLeague } = await supabase
-        .from('leagues').select('league_id').order('season', { ascending: false }).limit(1);
-      const currentLeagueId = currentLeague?.[0]?.league_id ?? null;
-
+      const scopeChain = chain ?? [];
       const { data: users } = await supabase.from('users').select('*');
-      const { data: rosters } = await supabase.from('rosters').select('*');
-      const { data: leagueUsers } = await supabase.from('league_users').select('league_id, user_id, team_name, display_name');
+      const { data: rosters } = await supabase.from('rosters').select('*').in('league_id', scopeChain);
+      const { data: leagueUsers } = await supabase.from('league_users').select('league_id, user_id, team_name, display_name').in('league_id', scopeChain);
 
       if (!allTransactions.length) return { transactions: [] as TransactionWithTeams[], rosters: [] as Roster[] };
 
@@ -285,6 +291,17 @@ export default function Transactions() {
 
   const handleFilterChange = (newFilter: string) => setMany({ type: newFilter === 'all' ? null : newFilter, page: null });
   const handleSortChange = (newSort: string) => setMany({ sort: newSort === 'recent' ? null : newSort, page: null });
+
+  // Fresh visitor with no league: onboarding, not the "no data" state.
+  if (!hasLeague) {
+    return (
+      <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto">
+        <PageHeader title="Transactions" />
+        <NoLeagueState heading="Add your league to see transactions"
+          sub="Every trade, waiver, and roster move in your league — graded and searchable." compact />
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (

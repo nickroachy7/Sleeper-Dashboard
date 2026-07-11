@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { VALUE_SOURCE } from '../lib/value-source';
+import { useActiveLeague } from '../lib/active-league';
 import type { Player, PlayerValue, PickValue, Roster } from '../types/domain';
 
 // ── Pagination ────────────────────────────────────────────────────
@@ -25,8 +26,8 @@ export async function fetchAllRows<T>(
 // ── Query Key Factory ─────────────────────────────────────────────
 
 export const queryKeys = {
-  league: () => ['league'] as const,
-  leagueIds: () => ['leagueIds'] as const,
+  league: (activeId: string | null) => ['league', activeId] as const,
+  leagueIds: (activeId: string | null) => ['leagueIds', activeId] as const,
   players: () => ['players'] as const,
   playerValues: () => ['playerValues'] as const,
   pickValues: () => ['pickValues'] as const,
@@ -43,33 +44,55 @@ export const queryKeys = {
 
 // ── Base Query Hooks ──────────────────────────────────────────────
 
-export function useLeague() {
+// Resolve the active dynasty's season chain by walking `previous_league_id`
+// from the active root league. When the visitor has NO active league
+// (activeLeagueId null — a fresh public visitor), this returns a null current
+// and an empty chain: no league data, so the app shows onboarding instead of
+// defaulting to someone else's league.
+export function useLeagueIds() {
+  const { activeLeagueId } = useActiveLeague();
   return useQuery({
-    queryKey: queryKeys.league(),
+    queryKey: queryKeys.leagueIds(activeLeagueId),
     queryFn: async () => {
+      if (!activeLeagueId) return { current: null, previous: null, chain: [] as string[] };
+
       const { data } = await supabase
         .from('leagues')
-        .select('*')
-        .order('season', { ascending: false })
-        .limit(1);
-      return data?.[0] ?? null;
+        .select('league_id, season, previous_league_id')
+        .order('season', { ascending: false });
+      const rows = data ?? [];
+      const byId = new Map(rows.map((l) => [l.league_id, l]));
+
+      // Walk the previous_league_id chain from the active root (guarding
+      // against cycles / rows not yet synced).
+      const chain: string[] = [];
+      const seen = new Set<string>();
+      let cursor: string | null = byId.has(activeLeagueId) ? activeLeagueId : null;
+      while (cursor && byId.has(cursor) && !seen.has(cursor)) {
+        seen.add(cursor);
+        chain.push(cursor);
+        cursor = byId.get(cursor)?.previous_league_id ?? null;
+      }
+
+      return {
+        current: chain[0] ?? null,
+        previous: chain[1] ?? null,
+        chain,
+      };
     },
   });
 }
 
-export function useLeagueIds() {
+export function useLeague() {
+  const { activeLeagueId } = useActiveLeague();
+  const { data: ids } = useLeagueIds();
+  const currentLeagueId = ids?.current ?? null;
   return useQuery({
-    queryKey: queryKeys.leagueIds(),
+    queryKey: queryKeys.league(activeLeagueId),
+    enabled: !!currentLeagueId,
     queryFn: async () => {
-      const { data } = await supabase
-        .from('leagues')
-        .select('league_id')
-        .order('season', { ascending: false })
-        .limit(2);
-      return {
-        current: data?.[0]?.league_id ?? null,
-        previous: data?.[1]?.league_id ?? null,
-      };
+      const { data } = await supabase.from('leagues').select('*').eq('league_id', currentLeagueId!).single();
+      return data ?? null;
     },
   });
 }
