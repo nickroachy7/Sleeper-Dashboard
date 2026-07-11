@@ -38,12 +38,14 @@ function txKind(type: string): TimelineEvent['kind'] {
   return 'free_agent';
 }
 
+// All transaction types share one neutral badge — the label carries the meaning.
+const BADGE_CLS = 'bg-[#22222b] text-[#9c9ca7] border border-[#2e2e38]';
 const KIND_BADGE: Record<TimelineEvent['kind'], { label: string; cls: string }> = {
-  draft: { label: 'DRAFTED', cls: 'bg-amber-500/15 text-amber-400' },
-  trade: { label: 'TRADE', cls: 'bg-white text-black' },
-  waiver: { label: 'WAIVER', cls: 'bg-amber-500/90 text-black' },
-  free_agent: { label: 'FREE AGENT', cls: 'bg-emerald-500/90 text-black' },
-  commissioner: { label: 'COMMISH', cls: 'bg-[#4c4c56] text-white' },
+  draft: { label: 'DRAFTED', cls: BADGE_CLS },
+  trade: { label: 'TRADE', cls: BADGE_CLS },
+  waiver: { label: 'WAIVER', cls: BADGE_CLS },
+  free_agent: { label: 'FREE AGENT', cls: BADGE_CLS },
+  commissioner: { label: 'COMMISH', cls: BADGE_CLS },
 };
 
 export default function PlayerDetail() {
@@ -119,9 +121,15 @@ export default function PlayerDetail() {
         received = [...playerAssets('to'), ...pickAssets('to')];
         sent = [...playerAssets('other'), ...pickAssets('other')];
         if (!received.length && !sent.length) received = undefined;
-      } else if (kind === 'waiver') {
-        const bid = (tx.settings as { waiver_bid?: number } | null)?.waiver_bid;
-        if (bid !== undefined) detail = `$${bid} FAAB`;
+      } else {
+        // Add / drop / commish: show which player moved (this one), + or −.
+        const self: TradeAsset = { text: shortName(nameOf.get(playerId) ?? playerId), isPick: false, isSubject: true };
+        if (toRoster !== undefined) received = [self];
+        else if (fromRoster !== undefined) sent = [self];
+        if (kind === 'waiver') {
+          const bid = (tx.settings as { waiver_bid?: number } | null)?.waiver_bid;
+          if (bid !== undefined) detail = `$${bid} FAAB`;
+        }
       }
 
       events.push({
@@ -259,7 +267,9 @@ export default function PlayerDetail() {
                     <p className="text-[13px] text-white font-medium leading-snug">{ev.headline}</p>
                     {ev.detail && <p className="text-[11px] text-[#75757f] mt-0.5">{ev.detail}</p>}
                     {(ev.received?.length || ev.sent?.length) ? (
-                      <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1">
+                      // Two columns when a trade has both sides; a single left
+                      // column for a one-sided add/drop.
+                      <div className={ev.received?.length && ev.sent?.length ? 'mt-2 grid grid-cols-2 gap-x-3 gap-y-1' : 'mt-1.5'}>
                         <div className="space-y-1">
                           {ev.received?.map((a, i) => (
                             <div key={`r${i}`} className="flex items-baseline gap-1.5 text-[12px] leading-tight">
@@ -268,14 +278,16 @@ export default function PlayerDetail() {
                             </div>
                           ))}
                         </div>
-                        <div className="space-y-1">
-                          {ev.sent?.map((a, i) => (
-                            <div key={`s${i}`} className="flex items-baseline gap-1.5 text-[12px] leading-tight">
-                              <span className="text-red-400 font-bold shrink-0">−</span>
-                              <span className={`truncate ${a.isPick ? 'text-[#75757f]' : 'text-[#9c9ca7]'}`}>{a.text}</span>
-                            </div>
-                          ))}
-                        </div>
+                        {ev.sent?.length ? (
+                          <div className="space-y-1">
+                            {ev.sent.map((a, i) => (
+                              <div key={`s${i}`} className="flex items-baseline gap-1.5 text-[12px] leading-tight">
+                                <span className="text-red-400 font-bold shrink-0">−</span>
+                                <span className={`truncate ${a.isSubject ? 'text-white font-medium' : a.isPick ? 'text-[#75757f]' : 'text-[#9c9ca7]'}`}>{a.text}</span>
+                              </div>
+                            ))}
+                          </div>
+                        ) : null}
                       </div>
                     ) : null}
                   </div>
