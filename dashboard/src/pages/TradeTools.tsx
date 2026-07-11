@@ -55,13 +55,14 @@ export default function TradeTools() {
           onTabChange={(id) => setMany({ tab: id === 'evaluate' ? null : id })}
         />
 
-        {!hasLeague ? (
-          <NoLeagueState heading="Add your league to build trades"
-            sub="Trade tools work off your league's rosters — add your league to evaluate and find trades." compact />
-        ) : activeTab === 'evaluate' ? (
+        {activeTab === 'evaluate' ? (
+          // The Evaluator works without a league (global value calculator).
           <TradeEvaluator key={evaluatorKey} initialSides={initialSides} />
-        ) : (
+        ) : hasLeague ? (
           <TradeFinder />
+        ) : (
+          <NoLeagueState heading="Add your league to find trades"
+            sub="Trade Finder scans your league's rosters for fair deals. The Evaluator (above) works without a league." compact />
         )}
       </div>
     </div>

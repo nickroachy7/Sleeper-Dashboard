@@ -30,6 +30,7 @@ import {
 import { AssetDropdown } from '../components/AssetDropdown';
 import { TeamDropdown } from '../components/TeamDropdown';
 import { AssetRow } from '../components/AssetRow';
+import { useActiveLeague } from '../lib/active-league';
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -50,6 +51,13 @@ export interface TradeEvaluatorProps {
 // ── Main Component ─────────────────────────────────────────────────
 
 export function TradeEvaluator({ initialSides }: TradeEvaluatorProps = {}) {
+  // Global (no-league) mode: the evaluator becomes a pure value calculator —
+  // add any player/pick by search instead of from a league's rosters. Sentinel
+  // roster ids (1, 2) keep the per-side asset UI + analysis working without a
+  // league (they're just non-zero placeholders; there are no real rosters).
+  const { hasLeague } = useActiveLeague();
+  const globalMode = !hasLeague;
+
   // NOTE: to re-seed with new initial sides, the parent should remount this
   // component by changing its `key` prop. We intentionally do not sync
   // `initialSides` into state via useEffect — that pattern fights React and
@@ -58,8 +66,8 @@ export function TradeEvaluator({ initialSides }: TradeEvaluatorProps = {}) {
     initialSides && initialSides.length === 2
       ? initialSides
       : [
-          { rosterId: 0, assets: [] },
-          { rosterId: 0, assets: [] },
+          { rosterId: globalMode ? 1 : 0, assets: [] },
+          { rosterId: globalMode ? 2 : 0, assets: [] },
         ]
   );
   const [activeDropdown, setActiveDropdown] = useState<{ side: number; type: 'player' | 'pick' | 'team' } | null>(null);
@@ -96,12 +104,40 @@ export function TradeEvaluator({ initialSides }: TradeEvaluatorProps = {}) {
     return buildPlayersForRoster(roster, playerValues, players);
   }, [rosters, playerValues, players]);
 
+  // Global pools (no-league): every valued player + every pick tier, so the
+  // evaluator works as a pure value calculator without any rosters.
+  const globalPlayers = useMemo<TradeAsset[]>(() => {
+    if (!globalMode) return [];
+    const out: TradeAsset[] = [];
+    for (const [pid, pv] of playerValues) {
+      if (!pv?.value) continue;
+      out.push({ id: `player-${pid}`, type: 'player', name: pv.player?.full_name ?? pid, value: pv.value, position: pv.player?.position, team: pv.player?.team ?? null });
+    }
+    return out.sort((a, b) => b.value - a.value);
+  }, [globalMode, playerValues]);
+
+  const globalPicks = useMemo<TradeAsset[]>(() => {
+    if (!globalMode) return [];
+    const ord = (r: number) => (r === 1 ? '1st' : r === 2 ? '2nd' : r === 3 ? '3rd' : `${r}th`);
+    return (pickValues ?? []).map((pk) => {
+      const tier = pk.pick_tier ?? 'Mid';
+      return {
+        id: `pick-${pk.pick_year}-${pk.pick_round}-${tier}`,
+        type: 'pick' as const,
+        name: `${pk.pick_year} ${tier} ${ord(pk.pick_round)}`,
+        value: pk.value, pickYear: String(pk.pick_year), pickRound: pk.pick_round, pickTier: tier,
+      };
+    }).sort((a, b) => b.value - a.value);
+  }, [globalMode, pickValues]);
+
   const getAvailableAssets = useCallback((sideIndex: number, type: 'player' | 'pick') => {
     const rosterId = tradeSides[sideIndex].rosterId;
-    const assets = type === 'player' ? getPlayersOwnedByRoster(rosterId) : getPicksOwnedByRoster(rosterId);
+    const assets = globalMode
+      ? (type === 'player' ? globalPlayers : globalPicks)
+      : (type === 'player' ? getPlayersOwnedByRoster(rosterId) : getPicksOwnedByRoster(rosterId));
     const addedIds = new Set(tradeSides[sideIndex].assets.filter((a) => a.type === type).map((a) => a.id));
     return assets.filter((a) => !addedIds.has(a.id));
-  }, [tradeSides, getPlayersOwnedByRoster, getPicksOwnedByRoster]);
+  }, [tradeSides, globalMode, globalPlayers, globalPicks, getPlayersOwnedByRoster, getPicksOwnedByRoster]);
 
   const addAsset = useCallback((sideIndex: number, asset: TradeAsset) => {
     setTradeSides((prev) => {
@@ -153,6 +189,7 @@ export function TradeEvaluator({ initialSides }: TradeEvaluatorProps = {}) {
   // This is the "what does this do for my team?" answer the old UI was missing.
   const rosterImpacts = useMemo(() => {
     if (!tradeAnalysis) return null;
+    if (globalMode) return null; // no rosters to simulate against
     if (tradeSides.some((s) => s.rosterId === 0)) return null;
 
     const side0Current = [
@@ -226,14 +263,15 @@ export function TradeEvaluator({ initialSides }: TradeEvaluatorProps = {}) {
       <div>
         {/* Team header — matches TradeCard style */}
         <button
-          onClick={() => setActiveDropdown({ side: sideIndex, type: 'team' })}
+          onClick={() => { if (!globalMode) setActiveDropdown({ side: sideIndex, type: 'team' }); }}
+          disabled={globalMode}
           className={`w-full flex items-center justify-between bg-[#1b1b22] px-4 sm:px-5 py-2.5 group ${sideIndex > 0 ? 'border-t border-[#26262f]' : ''}`}
         >
           <div className="flex items-center gap-2 min-w-0">
-            <span className={`font-bold text-sm truncate ${roster ? 'text-white' : 'text-[#75757f]'}`}>
-              {roster ? getTeamDisplayName(roster) : 'Select team...'}
+            <span className={`font-bold text-sm truncate ${(globalMode || roster) ? 'text-white' : 'text-[#75757f]'}`}>
+              {globalMode ? `Side ${sideIndex === 0 ? 'A' : 'B'}` : roster ? getTeamDisplayName(roster) : 'Select team...'}
             </span>
-            {roster && tradeAnalysis && (
+            {(globalMode || roster) && tradeAnalysis && (
               isNearEven ? (
                 <span className="text-[10px] font-bold text-blue-400 bg-blue-500/10 px-1.5 py-0.5 rounded leading-none">
                   =
@@ -268,7 +306,7 @@ export function TradeEvaluator({ initialSides }: TradeEvaluatorProps = {}) {
                 {sideTotal.adjustedTotal.toLocaleString()} CV
               </span>
             ) : null}
-            <ChevronDown className="h-4 w-4 text-[#4c4c56] group-hover:text-[#75757f] transition-colors" />
+            {!globalMode && <ChevronDown className="h-4 w-4 text-[#4c4c56] group-hover:text-[#75757f] transition-colors" />}
           </div>
         </button>
 
@@ -399,7 +437,7 @@ export function TradeEvaluator({ initialSides }: TradeEvaluatorProps = {}) {
                 <span className="text-xs text-blue-400 font-medium">Even Trade</span>
               ) : (
                 <span className="text-xs text-emerald-400 font-semibold">
-                  {winnerName ? getTeamDisplayName(winnerName) : ''} +{diff.toLocaleString()}
+                  {globalMode ? `Side ${winnerIdx === 0 ? 'A' : 'B'}` : winnerName ? getTeamDisplayName(winnerName) : ''} +{diff.toLocaleString()}
                 </span>
               )}
             </div>
@@ -414,7 +452,7 @@ export function TradeEvaluator({ initialSides }: TradeEvaluatorProps = {}) {
                   <div key={sideIndex}>
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-[11px] font-medium text-[#9c9ca7]">
-                        {roster ? getTeamDisplayName(roster) : ''}
+                        {globalMode ? `Side ${sideIndex === 0 ? 'A' : 'B'}` : roster ? getTeamDisplayName(roster) : ''}
                         <span className="text-[#60606a] ml-1">gives</span>
                       </span>
                       <span className={`text-xs font-bold tabular-nums ${isW ? 'text-emerald-400' : 'text-[#9c9ca7]'}`}>

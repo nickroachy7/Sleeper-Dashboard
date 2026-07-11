@@ -36,6 +36,20 @@ const STATUS_LABEL: Record<string, string> = {
   pre_draft: 'Pre-Draft',
 };
 
+// Buttons for a league that's been added (league-specific destinations).
+const LEAGUE_ACTIONS = [
+  { to: '/trade', label: 'Trade Tools' },
+  { to: '/transactions', label: 'Transactions' },
+  { to: '/chat', label: 'League Chat' },
+] as const;
+
+// Buttons for a logged-out visitor — only tools that work WITHOUT a league.
+const GLOBAL_ACTIONS = [
+  { to: '/trade', label: 'Trade Tools' },
+  { to: '/ktc-values', label: 'Player Values' },
+  { to: '/value-vote', label: 'Value Vote' },
+] as const;
+
 // ─── Component ───────────────────────────────────────────────────────
 
 export default function Home() {
@@ -307,12 +321,21 @@ export default function Home() {
 
   // ─── New-user / Loading / Empty states ───────────────────────────
 
-  // Fresh visitor with no league: show the onboarding funnel, not a demo.
+  // Fresh visitor with no league: the same splash as the league home, minus all
+  // league-specific sections, with global tools + an "Add your league" CTA.
   if (!hasLeague) {
     return (
       <div className="min-h-dvh">
-        <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto">
-          <NoLeagueState />
+        <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
+          <HomeSplash
+            title="Dynasty fantasy,"
+            tagline="decoded."
+            eyebrow="Community-powered values"
+            live={false}
+            description="Community-driven player values, instant trade grades, and rankings — free for any Sleeper league. Add yours to unlock your rosters, trades, and power rankings."
+            actions={GLOBAL_ACTIONS}
+            addLeagueCta
+          />
         </div>
       </div>
     );
@@ -403,10 +426,11 @@ export default function Home() {
 
       {/* ── Splash Hero ── */}
       <HomeSplash
-        leagueName={league.name}
-        season={league.season}
-        totalRosters={league.total_rosters ?? powerRankings.length}
-        statusLabel={league.status ? (STATUS_LABEL[league.status] ?? league.status) : undefined}
+        title={league.name}
+        eyebrow={`${league.status ? (STATUS_LABEL[league.status] ?? league.status) + ' · ' : ''}${league.season} Season`}
+        live={league.status === 'in_season' || league.status === 'drafting'}
+        description={`Live community-driven values, instant trade grades, and every roster move your ${league.total_rosters ?? powerRankings.length}-team league makes — all in one place.`}
+        actions={LEAGUE_ACTIONS}
       />
 
       {/* ── League Pulse (at-a-glance highlights) ── */}
