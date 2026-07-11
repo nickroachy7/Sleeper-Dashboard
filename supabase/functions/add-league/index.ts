@@ -94,6 +94,25 @@ Deno.serve(async (req) => {
         .update({ last_synced_at: new Date().toISOString(), last_sync_status: "ok", sync_error: null })
         .eq("root_league_id", root.league_id);
 
+      // Backfill player rows for this league. The curated players table only
+      // holds offensive skill players + whatever was rostered in already-synced
+      // leagues, so a new league (especially an IDP league) references players
+      // with no name row yet. sync-players scans all rosters — including the one
+      // we just wrote — so invoking it names every player in this league.
+      // Awaited so names are present when the client loads; non-fatal (the
+      // weekly cron is the backstop).
+      try {
+        await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/sync-players`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+            "Content-Type": "application/json",
+          },
+        });
+      } catch (e) {
+        console.error("player backfill (sync-players) failed — cron will catch up:", e);
+      }
+
       return jsonResponse({
         success: true,
         league: { rootLeagueId: root.league_id, name: root.name, season: root.season },

@@ -12,7 +12,18 @@ import { fetchWithRetry } from "../_shared/fetch-with-retry.ts";
 import { startSyncLog } from "../_shared/sync-logger.ts";
 
 const SLEEPER_API = "https://api.sleeper.app/v1";
-const FANTASY_POSITIONS = ["QB", "RB", "WR", "TE", "K", "DEF"];
+// Every rosterable position across offense, kicker, team defense, AND IDP, so
+// the shared players table is comprehensive for ALL league types (an IDP league
+// rosters DB/LB/DL players that offense-only leagues never referenced). Only
+// non-rosterable line/special-teams positions (OL, LS, P long snappers) are
+// excluded to keep the table lean.
+const ROSTERABLE_POSITIONS = [
+  "QB", "RB", "FB", "WR", "TE", "K", "DEF",
+  // IDP — Sleeper's defensive position codes
+  "DL", "DE", "DT", "NT", "EDGE",
+  "LB", "ILB", "OLB", "MLB",
+  "DB", "CB", "S", "SS", "FS",
+];
 const BATCH_SIZE = 100;
 
 Deno.serve(async (req) => {
@@ -65,7 +76,7 @@ Deno.serve(async (req) => {
         rosteredPlayerIds.has(id) ||
         transactionPlayerIds.has(id) ||
         draftPlayerIds.has(id) ||
-        (FANTASY_POSITIONS.includes(player.position) && (player.status === "Active" || player.status === "Inactive") && !!player.team)
+        (ROSTERABLE_POSITIONS.includes(player.position) && (player.status === "Active" || player.status === "Inactive") && !!player.team)
       );
     });
     console.log(`Filtering to ${relevantPlayers.length} relevant players`);

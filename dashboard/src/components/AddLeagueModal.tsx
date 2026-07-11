@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { X, Search, Loader2, Check, AlertCircle, Users } from 'lucide-react';
 import { useActiveLeague } from '../lib/active-league';
 import { OPEN_ADD_LEAGUE_EVENT } from '../lib/add-league-modal';
@@ -9,6 +10,7 @@ type Phase = 'input' | 'searching' | 'results' | 'importing';
 
 export function AddLeagueModal() {
   const { leagues: added, addLeague } = useActiveLeague();
+  const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [phase, setPhase] = useState<Phase>('input');
   const [username, setUsername] = useState('');
@@ -78,6 +80,10 @@ export function AddLeagueModal() {
     try {
       const res = await ingestLeague(league.league_id);
       addLeague({ rootLeagueId: res.rootLeagueId, name: res.name, season: res.season });
+      // add-league backfilled player rows (incl. IDP), so refresh the cached
+      // player name/value maps or freshly imported players render as raw ids.
+      queryClient.invalidateQueries({ queryKey: ['players'] });
+      queryClient.invalidateQueries({ queryKey: ['playerValues'] });
       setOpen(false);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Import failed');
