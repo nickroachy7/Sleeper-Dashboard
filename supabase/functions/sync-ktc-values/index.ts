@@ -279,6 +279,7 @@ Deno.serve(async (req) => {
             value: tepValues?.value || ktcPlayer.superflexValues?.value || 0,
             rank: tepValues?.rank || ktcPlayer.superflexValues?.rank || null,
             superflex: true,
+            source: "keeptradecut",
           });
         }
         continue;
@@ -390,7 +391,7 @@ Deno.serve(async (req) => {
     for (let i = 0; i < pickValues.length; i += BATCH_SIZE) {
       const batch = pickValues.slice(i, i + BATCH_SIZE);
       const { error } = await supabase.from("pick_values").upsert(batch, {
-        onConflict: "pick_year,pick_round,pick_tier",
+        onConflict: "pick_year,pick_round,pick_tier,source",
         ignoreDuplicates: false,
       });
       if (!error) insertedPicks += batch.length;
