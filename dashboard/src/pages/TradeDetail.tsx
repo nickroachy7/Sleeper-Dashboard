@@ -179,7 +179,7 @@ export default function TradeDetail() {
       <div className="bg-[#141419] rounded-2xl p-4 sm:p-5 border border-[#22222b]">
         <p className="text-[11px] font-bold text-white tracking-[0.18em] uppercase mb-0.5">Value Since The Trade</p>
         <p className="text-[10px] text-[#75757f] mb-4">
-          KTC value of what each side received, over time. Used picks are tracked as the player drafted;
+          Community value of what each side received, over time. Used picks are tracked as the player drafted;
           future picks are charted at their projected tier value.
         </p>
 

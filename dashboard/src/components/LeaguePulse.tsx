@@ -91,7 +91,7 @@ export function LeaguePulse({ topTeam, topAsset }: LeaguePulseProps) {
     stats.push({ icon: Trophy, image: topTeam.image, imageShape: 'circle', label: 'Top Team', value: topTeam.name, sub: `${topTeam.value.toLocaleString()} pts`, to: topTeam.to });
   }
   if (topAsset) {
-    stats.push({ icon: Flame, image: topAsset.image, imageShape: 'square', label: 'Top Asset', value: topAsset.name, sub: `${topAsset.value.toLocaleString()} KTC`, to: topAsset.to });
+    stats.push({ icon: Flame, image: topAsset.image, imageShape: 'square', label: 'Top Asset', value: topAsset.name, sub: `${topAsset.value.toLocaleString()} CV`, to: topAsset.to });
   }
 
   if (stats.length === 0) return null;

@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useTradeData } from '../hooks/useLeagueData';
 import {
   ArrowLeftRight,
@@ -16,6 +16,7 @@ import {
   calculateSideValue,
   type TradeAsset as ValueAdjustmentAsset,
 } from '../lib/trade-value-adjustment';
+import { recordCalculatorVote } from '../lib/community-events';
 import {
   type Roster,
   type TradeAsset,
@@ -62,6 +63,24 @@ export function TradeEvaluator({ initialSides }: TradeEvaluatorProps = {}) {
         ]
   );
   const [activeDropdown, setActiveDropdown] = useState<{ side: number; type: 'player' | 'pick' | 'team' } | null>(null);
+  // Community feedback: the manager's own read on fairness. A real human signal
+  // distinct from the calculator's math — feeds the value engine as a vote.
+  const [feedbackSent, setFeedbackSent] = useState(false);
+
+  const submitFeedback = useCallback(async (verdict: number) => {
+    const sideA = tradeSides[0].assets
+      .filter((a) => a.type === 'player').map((a) => a.id.replace('player-', ''));
+    const sideB = tradeSides[1].assets
+      .filter((a) => a.type === 'player').map((a) => a.id.replace('player-', ''));
+    if (!sideA.length || !sideB.length) return;
+    setFeedbackSent(true);
+    try { await recordCalculatorVote({ sideA, sideB, verdict }); }
+    catch { setFeedbackSent(false); }
+  }, [tradeSides]);
+
+  // A new trade composition can be rated again.
+  const tradeKey = tradeSides.map((s) => s.assets.map((a) => a.id).join(',')).join('|');
+  useEffect(() => { setFeedbackSent(false); }, [tradeKey]);
 
   const { rosters, players, playerValues, pickValues, tradedPicks, isLoading: dataLoading } = useTradeData();
 
@@ -242,11 +261,11 @@ export function TradeEvaluator({ initialSides }: TradeEvaluatorProps = {}) {
               <span className={`text-[11px] font-semibold tabular-nums ${
                 isNearEven ? 'text-[#75757f]' : net > 0 ? 'text-emerald-400' : 'text-red-400'
               }`}>
-                {net > 0 ? '+' : ''}{net.toLocaleString()} KTC
+                {net > 0 ? '+' : ''}{net.toLocaleString()} CV
               </span>
             ) : side.assets.length > 0 ? (
               <span className="text-[11px] text-[#75757f] font-medium tabular-nums">
-                {sideTotal.adjustedTotal.toLocaleString()} KTC
+                {sideTotal.adjustedTotal.toLocaleString()} CV
               </span>
             ) : null}
             <ChevronDown className="h-4 w-4 text-[#4c4c56] group-hover:text-[#75757f] transition-colors" />
@@ -462,6 +481,41 @@ export function TradeEvaluator({ initialSides }: TradeEvaluatorProps = {}) {
           </div>
         );
       })()}
+
+      {/* ── Community feedback: your own read on fairness ── */}
+      {tradeAnalysis && tradeSides[0].assets.some((a) => a.type === 'player')
+        && tradeSides[1].assets.some((a) => a.type === 'player') && (
+        <div className="mt-4 bg-[#141419] rounded-xl p-4 sm:p-5">
+          {feedbackSent ? (
+            <p className="text-[12px] text-emerald-400 text-center">
+              Thanks — your take was added to the community values.
+            </p>
+          ) : (
+            <>
+              <p className="text-[11px] font-bold text-white uppercase tracking-wider text-center mb-1">
+                Who wins this trade?
+              </p>
+              <p className="text-[10px] text-[#75757f] text-center mb-3">
+                Your call trains community values — separate from the math above.
+              </p>
+              <div className="grid grid-cols-3 gap-2">
+                <button onClick={() => submitFeedback(1)}
+                  className="rounded-lg border border-[#2a2a34] bg-[#1b1b22] py-2 text-[11px] font-medium text-white hover:border-emerald-500 hover:bg-emerald-500/10 transition-colors">
+                  Side 1
+                </button>
+                <button onClick={() => submitFeedback(0.5)}
+                  className="rounded-lg border border-[#2a2a34] bg-[#1b1b22] py-2 text-[11px] font-medium text-white hover:border-accent-500 hover:bg-accent-500/10 transition-colors">
+                  Fair
+                </button>
+                <button onClick={() => submitFeedback(0)}
+                  className="rounded-lg border border-[#2a2a34] bg-[#1b1b22] py-2 text-[11px] font-medium text-white hover:border-emerald-500 hover:bg-emerald-500/10 transition-colors">
+                  Side 2
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      )}
 
       {/* ── Post-Trade Roster Impact ── */}
       {tradeAnalysis && rosterImpacts && (

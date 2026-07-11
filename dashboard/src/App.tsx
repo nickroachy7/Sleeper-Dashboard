@@ -6,6 +6,7 @@ import Settings from './pages/Settings';
 import Transactions from './pages/Transactions';
 import Drafts from './pages/Drafts';
 import { KTCValues } from './pages/KTCValues';
+import ValueVote from './pages/ValueVote';
 import TradeTools from './pages/TradeTools';
 import PlayerDetail from './pages/PlayerDetail';
 import TeamDetail from './pages/TeamDetail';
@@ -21,6 +22,7 @@ function App() {
         <Route index element={<Home />} />
         <Route path="trade" element={<TradeTools />} />
         <Route path="ktc-values" element={<KTCValues />} />
+        <Route path="value-vote" element={<ValueVote />} />
         <Route path="chat" element={<Chat />} />
         <Route path="transactions" element={<Transactions />} />
         <Route path="drafts" element={<Drafts />} />

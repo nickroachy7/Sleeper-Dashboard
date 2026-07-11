@@ -3,9 +3,19 @@ import { useMemo } from 'react';
 import { TrendingUp, TrendingDown, Minus, ChevronRight } from 'lucide-react';
 import { ValueChart } from '../components/charts/ValueChart';
 import { PositionBadge } from '../components/PositionBadge';
+import { ConfidenceBadge } from '../components/ConfidenceBadge';
 import { usePlayerDetail, useLeagueDirectory } from '../hooks/detail';
-import { getPlayerImageUrl, playerMoves, txDraftPicks } from '../lib/trade-shared';
+import { usePlayers } from '../hooks/queries';
+import { getPlayerImageUrl, playerMoves, txDraftPicks, ordinalRound } from '../lib/trade-shared';
 import type { TransactionRow } from '../types/domain';
+
+/** "Ladd McConkey" → "L. McConkey" to match the compact transaction style. */
+function shortName(full: string): string {
+  const parts = full.trim().split(/\s+/);
+  return parts.length < 2 ? full : `${parts[0][0]}. ${parts.slice(1).join(' ')}`;
+}
+
+interface TradeAsset { text: string; isPick: boolean; isSubject: boolean; }
 
 interface TimelineEvent {
   key: string;
@@ -14,6 +24,9 @@ interface TimelineEvent {
   kind: 'draft' | 'trade' | 'waiver' | 'free_agent' | 'commissioner';
   headline: string;
   detail?: string;
+  /** For trades: what the acquiring side received (+) vs gave up (−). */
+  received?: TradeAsset[];
+  sent?: TradeAsset[];
   teamRosterId?: number;
   transactionId?: string;
 }
@@ -37,6 +50,11 @@ export default function PlayerDetail() {
   const { playerId } = useParams<{ playerId: string }>();
   const { data, isLoading } = usePlayerDetail(playerId);
   const { data: directory } = useLeagueDirectory();
+  const { data: allPlayers } = usePlayers();
+  const nameOf = useMemo(
+    () => new Map((allPlayers ?? []).map((p) => [p.player_id, p.full_name])),
+    [allPlayers],
+  );
 
   const currentOwner = useMemo(() => {
     if (!data || !directory) return null;
@@ -83,9 +101,24 @@ export default function PlayerDetail() {
       }
 
       let detail: string | undefined;
-      if (kind === 'trade') {
-        const others = Object.keys(adds).filter((p) => p !== playerId).length + txDraftPicks(tx.draft_picks).length;
-        if (others > 0) detail = `Part of a ${others + 1}-asset trade · tap to see value`;
+      let received: TradeAsset[] | undefined;
+      let sent: TradeAsset[] | undefined;
+      if (kind === 'trade' && toRoster !== undefined) {
+        const picks = txDraftPicks(tx.draft_picks);
+        // The acquiring team's package (+) vs the other side's package (−).
+        // "Other side" = where this player came from (2-team) or everyone else.
+        const isOther = (rid: number) => (fromRoster !== undefined ? rid === fromRoster : rid !== toRoster);
+        const playerAssets = (side: 'to' | 'other'): TradeAsset[] =>
+          Object.entries(adds)
+            .filter(([, rid]) => (side === 'to' ? rid === toRoster : isOther(rid)))
+            .map(([pid]) => ({ text: shortName(nameOf.get(pid) ?? pid), isPick: false, isSubject: pid === playerId }));
+        const pickAssets = (side: 'to' | 'other'): TradeAsset[] =>
+          picks
+            .filter((p) => (side === 'to' ? p.owner_id === toRoster : isOther(p.owner_id)))
+            .map((p) => ({ text: `${p.season} ${ordinalRound(p.round)}`, isPick: true, isSubject: false }));
+        received = [...playerAssets('to'), ...pickAssets('to')];
+        sent = [...playerAssets('other'), ...pickAssets('other')];
+        if (!received.length && !sent.length) received = undefined;
       } else if (kind === 'waiver') {
         const bid = (tx.settings as { waiver_bid?: number } | null)?.waiver_bid;
         if (bid !== undefined) detail = `$${bid} FAAB`;
@@ -98,13 +131,15 @@ export default function PlayerDetail() {
         kind,
         headline,
         detail,
+        received,
+        sent,
         teamRosterId: toRoster ?? fromRoster,
         transactionId: kind === 'trade' ? tx.transaction_id : undefined,
       });
     });
 
     return events.sort((a, b) => b.timestamp - a.timestamp);
-  }, [data, directory, playerId]);
+  }, [data, directory, playerId, nameOf]);
 
   if (isLoading || !data) {
     return (
@@ -174,8 +209,9 @@ export default function PlayerDetail() {
           {/* Stat tiles */}
           <div className="grid grid-cols-3 gap-2.5 mt-4 sm:mt-5">
             <div className="rounded-xl border border-[#22222b] bg-[#101015]/60 px-3 py-2.5">
-              <p className="text-[10px] text-[#75757f] uppercase tracking-[0.12em] font-bold">KTC value</p>
+              <p className="text-[10px] text-[#75757f] uppercase tracking-[0.12em] font-bold">Community value</p>
               <p className="font-display text-xl font-bold text-white tabular-nums mt-0.5">{value ? value.value.toLocaleString() : '—'}</p>
+              {value && <div className="mt-1"><ConfidenceBadge rd={value.rating_deviation} size="sm" /></div>}
             </div>
             <div className="rounded-xl border border-[#22222b] bg-[#101015]/60 px-3 py-2.5">
               <p className="text-[10px] text-[#75757f] uppercase tracking-[0.12em] font-bold">Rank</p>
@@ -198,7 +234,7 @@ export default function PlayerDetail() {
       {/* ── Value history ── */}
       <section className="bg-[#141419] rounded-2xl p-4 sm:p-5 border border-[#22222b]">
         <p className="text-[11px] font-bold text-accent-500 tracking-[0.18em] uppercase mb-0.5">Value History</p>
-        <p className="text-[10px] text-[#75757f] mb-3">KTC superflex value · weekly before the last 90 days, daily after</p>
+        <p className="text-[10px] text-[#75757f] mb-3">Community superflex value · seeded from prior seasons, updated by trades &amp; votes</p>
         <ValueChart data={history} height={240} />
       </section>
 
@@ -213,7 +249,7 @@ export default function PlayerDetail() {
           </p>
         ) : (
           <div>
-            {timeline.map((ev) => {
+            {timeline.map((ev, idx) => {
               const inner = (
                 <>
                   <span className={`px-2 py-0.5 text-[9px] font-extrabold tracking-[1px] rounded shrink-0 mt-0.5 ${KIND_BADGE[ev.kind].cls}`}>
@@ -222,6 +258,26 @@ export default function PlayerDetail() {
                   <div className="min-w-0 flex-1">
                     <p className="text-[13px] text-white font-medium leading-snug">{ev.headline}</p>
                     {ev.detail && <p className="text-[11px] text-[#75757f] mt-0.5">{ev.detail}</p>}
+                    {(ev.received?.length || ev.sent?.length) ? (
+                      <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1">
+                        <div className="space-y-1">
+                          {ev.received?.map((a, i) => (
+                            <div key={`r${i}`} className="flex items-baseline gap-1.5 text-[12px] leading-tight">
+                              <span className="text-emerald-400 font-bold shrink-0">+</span>
+                              <span className={`truncate ${a.isSubject ? 'text-white font-medium' : a.isPick ? 'text-[#9c9ca7]' : 'text-[#d6d6de]'}`}>{a.text}</span>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="space-y-1">
+                          {ev.sent?.map((a, i) => (
+                            <div key={`s${i}`} className="flex items-baseline gap-1.5 text-[12px] leading-tight">
+                              <span className="text-red-400 font-bold shrink-0">−</span>
+                              <span className={`truncate ${a.isPick ? 'text-[#75757f]' : 'text-[#9c9ca7]'}`}>{a.text}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
                   <span className="text-[10px] text-[#60606a] shrink-0 tabular-nums mt-0.5">
                     {ev.kind === 'draft' ? ev.season : ev.timestamp ? dateStr(ev.timestamp) : ev.season}
@@ -229,7 +285,8 @@ export default function PlayerDetail() {
                   {ev.transactionId && <ChevronRight className="h-4 w-4 text-[#4c4c56] group-hover:text-accent-400 shrink-0 mt-0.5 transition-colors" />}
                 </>
               );
-              const rowCls = 'group flex items-start gap-3 px-4 sm:px-5 py-3 border-t border-[#1b1b22] transition-colors';
+              const stripe = idx % 2 === 1 ? 'bg-[#17171d]' : '';
+              const rowCls = `group flex items-start gap-3 px-4 sm:px-5 py-3 border-t border-[#1b1b22] transition-colors ${stripe}`;
               return ev.transactionId ? (
                 <Link key={ev.key} to={`/trades/${ev.transactionId}`} className={`${rowCls} hover:bg-[#1b1b22] active:bg-[#22222b]`}>
                   {inner}

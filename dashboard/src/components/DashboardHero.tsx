@@ -62,7 +62,7 @@ export function DashboardHero({
       icon: Flame,
       label: 'Top Asset',
       value: topAsset.name,
-      sub: `${topAsset.value.toLocaleString()} KTC`,
+      sub: `${topAsset.value.toLocaleString()} CV`,
       accent: '#f97316',
       to: topAsset.to,
     });

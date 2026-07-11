@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { playerMoves, txDraftPicks } from '../lib/trade-shared';
+import { VALUE_SOURCE } from '../lib/value-source';
 import type { TransactionRow, PickResolution } from '../types/domain';
 
 // ── Detail-page data hooks (player / team deep dives) ──────────────
@@ -125,8 +126,8 @@ export function usePlayerDetail(playerId: string | undefined) {
         { data: owningRosters },
       ] = await Promise.all([
         supabase.from('players').select('*').eq('player_id', pid).maybeSingle(),
-        supabase.from('player_values').select('*').eq('player_id', pid).maybeSingle(),
-        supabase.from('player_value_history').select('date, value').eq('player_id', pid).order('date', { ascending: true }),
+        supabase.from('player_values').select('*').eq('player_id', pid).eq('source', VALUE_SOURCE).maybeSingle(),
+        supabase.from('player_value_history').select('date, value').eq('player_id', pid).eq('source', VALUE_SOURCE).order('date', { ascending: true }),
         supabase.from('draft_picks').select('*, drafts(season, league_id, type)').eq('player_id', pid),
         fetchAllTransactions(),
         supabase.from('rosters').select('league_id, roster_id, owner_id').contains('players', [pid]),
@@ -162,6 +163,7 @@ export function useRosterValueHistory(playerIds: string[] | undefined) {
           .from('player_value_history')
           .select('player_id, date, value')
           .in('player_id', playerIds!)
+          .eq('source', VALUE_SOURCE)
           .order('date', { ascending: true })
           .range(from, to)
       );
@@ -235,6 +237,7 @@ export function useSeasonRanks(ownerId: string | null | undefined) {
             .from('player_value_history')
             .select('player_id, value, date')
             .in('player_id', allPlayerIds)
+            .eq('source', VALUE_SOURCE)
             .lte('date', asOf)
             .gte('date', loIso)
             .order('date', { ascending: false })
@@ -314,7 +317,7 @@ export function useTeamAnalytics(rosterId: number | undefined, ownerId: string |
         fetchAllRows<{ player_id: string; position: string | null; age: number | null }>((from, to) =>
           supabase.from('players').select('player_id, position, age').range(from, to)),
         fetchAllRows<{ player_id: string; value: number }>((from, to) =>
-          supabase.from('player_values').select('player_id, value').range(from, to)),
+          supabase.from('player_values').select('player_id, value').eq('source', VALUE_SOURCE).range(from, to)),
         fetchAllRows<{ league_id: string; week: number; roster_id: number; points: number | null; matchup_id: number | null }>((from, to) =>
           supabase.from('matchups').select('league_id, week, roster_id, points, matchup_id').range(from, to)),
       ]);
@@ -417,6 +420,7 @@ export function useMultiRosterValueHistory(
           .from('player_value_history')
           .select('player_id, date, value')
           .in('player_id', allIds)
+          .eq('source', VALUE_SOURCE)
           .order('date', { ascending: true })
           .range(from, to)
       );
@@ -478,6 +482,7 @@ export function useValueMovers(daysAgo: number) {
           supabase
             .from('player_value_history')
             .select('player_id, date, value')
+            .eq('source', VALUE_SOURCE)
             .gte('date', loStr)
             .lte('date', hiStr)
             .order('date', { ascending: false })
@@ -602,7 +607,7 @@ async function resolveAllPicks(
   const tierByRoster = new Map<number, string>();
   if (currentRosters.length) {
     const pvRows = await fetchAllRows<{ player_id: string; value: number }>((from, to) =>
-      supabase.from('player_values').select('player_id, value').range(from, to)
+      supabase.from('player_values').select('player_id, value').eq('source', VALUE_SOURCE).range(from, to)
     );
     const valMap = new Map(pvRows.map((v) => [v.player_id, v.value]));
     const totals = currentRosters.map((r) => ({
@@ -689,6 +694,7 @@ export function useTradeDetail(transactionId: string | undefined) {
             .from('player_value_history')
             .select('player_id, value, date')
             .in('player_id', [...involved])
+            .eq('source', VALUE_SOURCE)
             .order('date', { ascending: false })
             .range(from, to)
         );

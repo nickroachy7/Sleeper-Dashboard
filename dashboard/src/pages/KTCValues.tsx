@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useUrlState } from '../hooks/useUrlState';
 import { PageHeader } from '../components/PageHeader';
+import { VALUE_SOURCE } from '../lib/value-source';
 import { Pagination } from '../components/Pagination';
 import { FilterBar, SearchInput, FilterPills, SortSelect } from '../components/FilterBar';
 import { PlayerRow } from '../components/PlayerRow';
@@ -71,6 +72,7 @@ async function fetchPlayerValues(): Promise<PlayerValueDetailed[]> {
       id, player_id, value, rank, position_rank, tier, trend, superflex, fetched_at,
       player:players(full_name, position, team, age, injury_status)
     `)
+    .eq('source', VALUE_SOURCE)
     .order('rank', { ascending: true });
 
   if (error) throw error;
@@ -85,6 +87,7 @@ async function fetchPickValues(): Promise<PickValueDetailed[]> {
   const { data, error } = await supabase
     .from('pick_values')
     .select('*')
+    .eq('source', VALUE_SOURCE)
     .order('value', { ascending: false });
 
   if (error) throw error;
@@ -646,8 +649,8 @@ export function KTCValues() {
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto">
       <PageHeader
-        title="KTC Values"
-        subtitle="Superflex Dynasty Rankings"
+        title="Player Values"
+        subtitle="Community superflex dynasty rankings"
         tabs={[
           { id: 'players', label: 'Players' },
           { id: 'teams', label: 'Teams' },

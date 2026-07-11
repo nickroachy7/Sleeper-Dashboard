@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
+import { VALUE_SOURCE } from '../lib/value-source';
 import type { Player, PlayerValue, PickValue, Roster } from '../types/domain';
 
 // ── Pagination ────────────────────────────────────────────────────
@@ -93,6 +94,7 @@ export function usePlayerValues() {
         supabase
           .from('player_values')
           .select('player_id, value, player:players(full_name, position, team)')
+          .eq('source', VALUE_SOURCE)
           .range(from, to)
       );
       const valueMap = new Map<string, PlayerValue>();
@@ -117,7 +119,7 @@ export function usePlayerValuesList() {
     queryKey: [...queryKeys.playerValues(), 'list'],
     queryFn: async () => {
       const data = await fetchAllRows<{ player_id: string; value: number }>((from, to) =>
-        supabase.from('player_values').select('player_id, value').range(from, to)
+        supabase.from('player_values').select('player_id, value').eq('source', VALUE_SOURCE).range(from, to)
       );
       const map = new Map<string, number>();
       for (const pv of data) {
@@ -135,7 +137,8 @@ export function usePickValues() {
     queryFn: async () => {
       const { data } = await supabase
         .from('pick_values')
-        .select('pick_year, pick_round, pick_tier, value');
+        .select('pick_year, pick_round, pick_tier, value')
+        .eq('source', VALUE_SOURCE);
       return (data || []) as PickValue[];
     },
   });

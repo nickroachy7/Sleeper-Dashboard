@@ -39,6 +39,129 @@ export type Database = {
   }
   public: {
     Tables: {
+      value_events: {
+        Row: {
+          id: string
+          kind: string
+          side_a: Json
+          side_b: Json
+          outcome: number
+          weight: number
+          voter_id: string | null
+          league_id: string | null
+          source_ref: string | null
+          format_sf: boolean
+          processed_at: string | null
+          created_at: string | null
+        }
+        Insert: {
+          id?: string
+          kind: string
+          side_a: Json
+          side_b: Json
+          outcome?: number
+          weight?: number
+          voter_id?: string | null
+          league_id?: string | null
+          source_ref?: string | null
+          format_sf?: boolean
+          processed_at?: string | null
+          created_at?: string | null
+        }
+        Update: {
+          id?: string
+          kind?: string
+          side_a?: Json
+          side_b?: Json
+          outcome?: number
+          weight?: number
+          voter_id?: string | null
+          league_id?: string | null
+          source_ref?: string | null
+          format_sf?: boolean
+          processed_at?: string | null
+          created_at?: string | null
+        }
+        Relationships: []
+      }
+      player_facts: {
+        Row: {
+          id: string
+          player_id: string
+          season: number
+          age: number | null
+          years_exp: number | null
+          draft_round: number | null
+          draft_pick: number | null
+          games: number | null
+          fantasy_ppg: number | null
+          fantasy_total: number | null
+          snap_share: number | null
+          gsis_id: string | null
+          source: string
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          player_id: string
+          season: number
+          age?: number | null
+          years_exp?: number | null
+          draft_round?: number | null
+          draft_pick?: number | null
+          games?: number | null
+          fantasy_ppg?: number | null
+          fantasy_total?: number | null
+          snap_share?: number | null
+          gsis_id?: string | null
+          source?: string
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          player_id?: string
+          season?: number
+          age?: number | null
+          years_exp?: number | null
+          draft_round?: number | null
+          draft_pick?: number | null
+          games?: number | null
+          fantasy_ppg?: number | null
+          fantasy_total?: number | null
+          snap_share?: number | null
+          gsis_id?: string | null
+          source?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      community_ratings: {
+        Row: {
+          player_id: string
+          rating: number
+          rd: number
+          volatility: number
+          matches: number
+          updated_at: string | null
+        }
+        Insert: {
+          player_id: string
+          rating?: number
+          rd?: number
+          volatility?: number
+          matches?: number
+          updated_at?: string | null
+        }
+        Update: {
+          player_id?: string
+          rating?: number
+          rd?: number
+          volatility?: number
+          matches?: number
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       draft_picks: {
         Row: {
           created_at: string | null
@@ -349,6 +472,8 @@ export type Database = {
           pick_type: string
           pick_year: string
           rank: number | null
+          rating_deviation: number | null
+          source: string
           superflex: boolean | null
           updated_at: string | null
           value: number
@@ -362,6 +487,8 @@ export type Database = {
           pick_type: string
           pick_year: string
           rank?: number | null
+          rating_deviation?: number | null
+          source?: string
           superflex?: boolean | null
           updated_at?: string | null
           value?: number
@@ -375,6 +502,8 @@ export type Database = {
           pick_type?: string
           pick_year?: string
           rank?: number | null
+          rating_deviation?: number | null
+          source?: string
           superflex?: boolean | null
           updated_at?: string | null
           value?: number
@@ -387,6 +516,7 @@ export type Database = {
           id: string
           player_id: string
           rank: number | null
+          rating_deviation: number | null
           source: string
           value: number
         }
@@ -395,6 +525,7 @@ export type Database = {
           id?: string
           player_id: string
           rank?: number | null
+          rating_deviation?: number | null
           source?: string
           value: number
         }
@@ -403,6 +534,7 @@ export type Database = {
           id?: string
           player_id?: string
           rank?: number | null
+          rating_deviation?: number | null
           source?: string
           value?: number
         }
@@ -424,6 +556,7 @@ export type Database = {
           player_id: string
           position_rank: number | null
           rank: number | null
+          rating_deviation: number | null
           source: string
           superflex: boolean | null
           tier: number | null
@@ -438,6 +571,7 @@ export type Database = {
           player_id: string
           position_rank?: number | null
           rank?: number | null
+          rating_deviation?: number | null
           source?: string
           superflex?: boolean | null
           tier?: number | null
@@ -452,6 +586,7 @@ export type Database = {
           player_id?: string
           position_rank?: number | null
           rank?: number | null
+          rating_deviation?: number | null
           source?: string
           superflex?: boolean | null
           tier?: number | null

@@ -63,7 +63,7 @@ export function HomeSplash({
             {tagline}
           </p>
           <p className="mx-auto mt-5 max-w-md text-[14px] leading-relaxed text-[#9c9ca7] sm:text-[15px]">
-            Live KeepTradeCut values, instant trade grades, and every roster move
+            Live community-driven values, instant trade grades, and every roster move
             your {totalRosters}-team league makes — all in one place.
           </p>
 

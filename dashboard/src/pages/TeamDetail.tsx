@@ -206,7 +206,7 @@ export default function TeamDetail() {
             {stat('Trades', ledger.length)}
             <div
               className="rounded-xl border border-[#22222b] bg-[#101015]/60 px-3 py-2.5 cursor-help"
-              title="Everything received minus everything given across all trades, priced at TODAY's KTC. Shows how traded assets aged — not whether trades were fair when made."
+              title="Everything received minus everything given across all trades, priced at TODAY's community value. Shows how traded assets aged — not whether trades were fair when made."
             >
               <p className="text-[10px] text-[#75757f] uppercase tracking-[0.12em] font-bold">Trade net (today) ⓘ</p>
               <p className={`font-display text-lg font-bold tabular-nums mt-0.5 ${tradeNet > 0 ? 'text-accent-500' : tradeNet < 0 ? 'text-red-400' : 'text-[#75757f]'}`}>
@@ -286,7 +286,7 @@ export default function TeamDetail() {
       <section className="bg-[#141419] rounded-2xl p-4 sm:p-5 border border-[#22222b]">
         <p className="text-[11px] font-bold text-accent-500 tracking-[0.18em] uppercase mb-0.5">Trade Plus/Minus</p>
         <p className="text-[10px] text-[#75757f] mb-3">
-          Running value gained or lost across {ledger.length} trades, priced at today's KTC (consumed past picks count as 0)
+          Running value gained or lost across {ledger.length} trades, priced at today's community value (consumed past picks count as 0)
         </p>
         <ValueChart data={cumulativeTradeSeries} height={200} diverging step />
 

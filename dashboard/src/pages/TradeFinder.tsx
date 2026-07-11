@@ -650,7 +650,7 @@ export function TradeFinder() {
           <div className="flex items-center gap-2 shrink-0">
             {selectedAssets.length > 0 && (
               <span className="text-[11px] text-[#75757f] font-medium tabular-nums">
-                {selectedValueInfo.adjusted.toLocaleString()} KTC
+                {selectedValueInfo.adjusted.toLocaleString()} CV
               </span>
             )}
             <ChevronDown className="h-4 w-4 text-[#4c4c56] group-hover:text-[#75757f] transition-colors" />

@@ -7,6 +7,7 @@ import {
   Settings,
   TrendingUp,
   Sparkles,
+  Swords,
   Layers,
   Menu,
   X,
@@ -31,7 +32,8 @@ interface NavItem {
 const primaryNav: NavItem[] = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/trade', icon: Scale, label: 'Trade Tools' },
-  { to: '/ktc-values', icon: TrendingUp, iconImage: '/ktc-logo.png', label: 'KTC Values' },
+  { to: '/ktc-values', icon: TrendingUp, label: 'Player Values' },
+  { to: '/value-vote', icon: Swords, label: 'Value Vote' },
   { to: '/chat', icon: Sparkles, label: 'League Chat' },
 ];
 
@@ -52,7 +54,8 @@ const drawerSections: NavSection[] = [
     items: [
       { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
       { to: '/trade', icon: Scale, label: 'Trade Tools' },
-      { to: '/ktc-values', icon: TrendingUp, iconImage: '/ktc-logo.png', label: 'KTC Values' },
+      { to: '/ktc-values', icon: TrendingUp, label: 'Player Values' },
+      { to: '/value-vote', icon: Swords, label: 'Value Vote' },
       { to: '/chat', icon: Sparkles, label: 'League Chat' },
     ],
   },
@@ -280,7 +283,7 @@ export default function Layout() {
             <span className="font-medium">Settings</span>
           </NavLink>
           <p className="text-[10px] text-[#75757f] mt-2 px-2">
-            Values via KeepTradeCut.com
+            Community-powered values
           </p>
         </div>
       </aside>
