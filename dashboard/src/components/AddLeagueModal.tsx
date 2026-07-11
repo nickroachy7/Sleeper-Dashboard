@@ -15,6 +15,7 @@ export function AddLeagueModal() {
   const [error, setError] = useState<string | null>(null);
   const [discovered, setDiscovered] = useState<DiscoveredLeague[]>([]);
   const [displayName, setDisplayName] = useState('');
+  const [matchedBy, setMatchedBy] = useState<'league' | 'user'>('user');
   const [importingId, setImportingId] = useState<string | null>(null);
 
   const addedIds = new Set(added.map((l) => l.rootLeagueId));
@@ -53,9 +54,12 @@ export function AddLeagueModal() {
     try {
       const res = await findLeaguesForUsername(username);
       setDisplayName(res.displayName);
+      setMatchedBy(res.matchedBy);
       setDiscovered(res.leagues);
       setPhase('results');
-      if (res.leagues.length === 0) setError(`No ${res.season} leagues found for "${res.displayName}".`);
+      if (res.leagues.length === 0) {
+        setError(`No ${res.season} leagues found for "${res.displayName}". Try a league ID from your Sleeper URL instead.`);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Lookup failed');
       setPhase('input');
@@ -90,7 +94,7 @@ export function AddLeagueModal() {
         <div className="flex items-center justify-between px-5 py-4 border-b border-[#1b1b22]">
           <div>
             <h2 className="text-[15px] font-bold text-white">Add a league</h2>
-            <p className="text-[12px] text-[#75757f]">Enter your Sleeper username to import your league.</p>
+            <p className="text-[12px] text-[#75757f]">Enter your Sleeper username or league ID.</p>
           </div>
           <button
             onClick={close}
@@ -117,7 +121,7 @@ export function AddLeagueModal() {
                   autoFocus
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  placeholder="Sleeper username"
+                  placeholder="Sleeper username or league ID"
                   disabled={phase === 'importing'}
                   className="w-full h-10 pl-9 pr-3 rounded-lg bg-[#141419] border border-[#2a2a34] text-[14px] text-white placeholder:text-[#60606a] focus:outline-none focus:border-accent-500/60 disabled:opacity-50"
                 />
@@ -143,7 +147,7 @@ export function AddLeagueModal() {
           {(phase === 'results' || phase === 'importing') && discovered.length > 0 && (
             <div className="mt-4">
               <p className="text-[11px] uppercase tracking-[1.5px] text-[#60606a] font-semibold mb-2">
-                {displayName}'s leagues
+                {matchedBy === 'league' ? 'League found' : `${displayName}'s leagues`}
               </p>
               <div className="space-y-1.5 max-h-[40vh] overflow-y-auto">
                 {discovered.map((l) => {

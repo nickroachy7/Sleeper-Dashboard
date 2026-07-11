@@ -1,6 +1,7 @@
 // ── Add-league service ────────────────────────────────────────────
-// Client-side onboarding: resolve a Sleeper username to their leagues (pure
-// Sleeper API, CORS-open), then ask our edge function to ingest the chosen one.
+// Client-side onboarding: resolve a Sleeper username OR a league ID to a set of
+// leagues (pure Sleeper API, CORS-open), then ask our edge function to ingest
+// the chosen one.
 
 import { supabase } from './supabase';
 import { sleeperApi } from './sleeper-api';
@@ -13,36 +14,70 @@ export interface DiscoveredLeague {
   avatar: string | null;
 }
 
-/** Resolve a Sleeper username (or numeric user_id) to the leagues they're in for a season. */
-export async function findLeaguesForUsername(usernameOrId: string, season?: string): Promise<{
-  userId: string;
+export interface FindResult {
+  /** How the input matched — drives the results header. */
+  matchedBy: 'league' | 'user';
   displayName: string;
   season: string;
   leagues: DiscoveredLeague[];
-}> {
-  const handle = usernameOrId.trim();
-  if (!handle) throw new Error('Enter a Sleeper username');
+}
 
-  // Numeric input is already a user_id; otherwise resolve username → user_id.
-  const user = /^\d+$/.test(handle) ? { user_id: handle, display_name: handle } : await sleeperApi.getUser(handle);
-  if (!user?.user_id) throw new Error(`No Sleeper user "${handle}"`);
-
-  const resolvedSeason = season ?? (await sleeperApi.getNflState().then((s) => s.season).catch(() => `${new Date().getFullYear()}`));
-  const raw = await sleeperApi.getLeagues(user.user_id, resolvedSeason);
-
-  const leagues: DiscoveredLeague[] = (raw || []).map((l) => ({
+function toDiscovered(l: { league_id: string; name: string; season: string; total_rosters: number; avatar?: string | null }): DiscoveredLeague {
+  return {
     league_id: l.league_id,
     name: l.name,
     season: l.season,
     total_rosters: l.total_rosters,
     avatar: (l as { avatar?: string | null }).avatar ?? null,
-  }));
+  };
+}
+
+/**
+ * Resolve input to leagues. Accepts:
+ *  - a Sleeper username → their leagues for the current season
+ *  - a league ID (the big number in the Sleeper app URL) → that league directly
+ *  - a numeric user ID → that user's leagues
+ *
+ * Sleeper user IDs and league IDs are both numeric snowflakes, so for numeric
+ * input we try it as a league first (the common paste), then fall back to a user.
+ */
+export async function findLeaguesForUsername(input: string, season?: string): Promise<FindResult> {
+  const handle = input.trim();
+  if (!handle) throw new Error('Enter a Sleeper username or league ID');
+
+  const isNumeric = /^\d+$/.test(handle);
+
+  // Numeric → try as a league ID first.
+  if (isNumeric) {
+    try {
+      const league = await sleeperApi.getLeague(handle);
+      if (league?.league_id) {
+        return { matchedBy: 'league', displayName: league.name, season: league.season, leagues: [toDiscovered(league)] };
+      }
+    } catch { /* not a league — fall through to a user lookup */ }
+  }
+
+  // Otherwise treat as a username (or numeric user ID) and list their leagues.
+  let user: { user_id: string; display_name?: string } | null;
+  if (isNumeric) {
+    user = { user_id: handle, display_name: handle };
+  } else {
+    try {
+      user = await sleeperApi.getUser(handle);
+    } catch {
+      throw new Error(`No Sleeper user or league "${handle}"`);
+    }
+  }
+  if (!user?.user_id) throw new Error(`No Sleeper user or league "${handle}"`);
+
+  const resolvedSeason = season ?? (await sleeperApi.getNflState().then((s) => s.season).catch(() => `${new Date().getFullYear()}`));
+  const raw = await sleeperApi.getLeagues(user.user_id, resolvedSeason);
 
   return {
-    userId: user.user_id,
-    displayName: (user as { display_name?: string }).display_name || handle,
+    matchedBy: 'user',
+    displayName: user.display_name || handle,
     season: resolvedSeason,
-    leagues,
+    leagues: (raw || []).map(toDiscovered),
   };
 }
 
