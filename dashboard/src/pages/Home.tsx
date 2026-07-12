@@ -319,14 +319,48 @@ export default function Home() {
     return { risers, fallers };
   }, [rostersData, playerValues, playersMap, moverValues, resolveTeamName]);
 
+  // ─── Global (league-agnostic) sections for the logged-out home ────
+  // Risers/fallers and player rankings come from the shared community values,
+  // so they render without any league — across ALL players, not a roster.
+
+  const globalRankings = useMemo(() => {
+    if (!playerValues || !playersMap) return [] as { playerId: string; name: string; position: string; team: string | null; value: number; ownerTeam: string; rank: number }[];
+    const rows: { playerId: string; name: string; position: string; team: string | null; value: number; ownerTeam: string }[] = [];
+    for (const [pid, value] of playerValues) {
+      const p = playersMap.get(pid);
+      if (!p || !value) continue;
+      rows.push({ playerId: pid, name: p.full_name, position: p.position, team: p.team, value, ownerTeam: '' });
+    }
+    return rows.sort((a, b) => b.value - a.value).slice(0, 10).map((r, i) => ({ ...r, rank: i + 1 }));
+  }, [playerValues, playersMap]);
+
+  const globalMovers = useMemo((): { risers: Mover[]; fallers: Mover[] } => {
+    if (!moverValues || !playersMap || !playerValues) return { risers: [], fallers: [] };
+    const list: Mover[] = [];
+    for (const [pid, curBase] of moverValues.current) {
+      const past = moverValues.past.get(pid);
+      if (!curBase || !past) continue;
+      const delta = curBase - past;
+      if (Math.abs(delta) < 100) continue;
+      const p = playersMap.get(pid);
+      if (!p) continue;
+      list.push({ playerId: pid, name: p.full_name, position: p.position, team: p.team, value: playerValues.get(pid) || curBase, delta, pct: (delta / past) * 100, ownerTeam: '' });
+    }
+    const risers = [...list].sort((a, b) => b.delta - a.delta).slice(0, 5);
+    const fallers = [...list].sort((a, b) => a.delta - b.delta).slice(0, 5);
+    return { risers, fallers };
+  }, [moverValues, playersMap, playerValues]);
+
   // ─── New-user / Loading / Empty states ───────────────────────────
 
-  // Fresh visitor with no league: the same splash as the league home, minus all
-  // league-specific sections, with global tools + an "Add your league" CTA.
+  // Fresh visitor with no league: the same splash as the league home + the
+  // league-agnostic sections (risers/fallers + player rankings from the shared
+  // community values). Only truly league-specific blocks (top team, power
+  // rankings, recent trades) are omitted.
   if (!hasLeague) {
     return (
       <div className="min-h-dvh">
-        <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
+        <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6 lg:space-y-8">
           <HomeSplash
             title="Dynasty fantasy,"
             tagline="decoded."
@@ -336,6 +370,8 @@ export default function Home() {
             actions={GLOBAL_ACTIONS}
             addLeagueCta
           />
+          <BiggestMovers risers={globalMovers.risers} fallers={globalMovers.fallers} windowLabel="30d" />
+          <ValueWatch players={globalRankings} />
         </div>
       </div>
     );
