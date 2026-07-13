@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTradeData } from '../hooks/useLeagueData';
 import {
   Search,
@@ -189,6 +189,7 @@ function AssetDropdown({
 
 export function TradeFinder() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [tradeMode, setTradeMode] = useState<TradeMode>('dump');
   const [myRoster, setMyRoster] = useState<Roster | null>(null);
   const [targetRoster, setTargetRoster] = useState<Roster | null>(null);
@@ -214,6 +215,23 @@ export function TradeFinder() {
   // ── Data ──
 
   const { rosters, playerValues, pickValues, tradedPicks, isLoading: dataLoading } = useTradeData();
+
+  // Seed the "your team" side from a `?team=<rosterId>` param (once), so a
+  // team page's "Find trades" button lands here pre-scoped to that team in
+  // dump mode. Applied a single time when rosters load; the user can still
+  // switch teams freely afterward.
+  const seededTeamRef = useRef(false);
+  useEffect(() => {
+    if (seededTeamRef.current) return;
+    const teamParam = searchParams.get('team');
+    if (!teamParam || !rosters?.length) return;
+    const match = rosters.find((r) => r.roster_id === Number(teamParam));
+    if (match) {
+      setMyRoster(match);
+      setTradeMode('dump');
+    }
+    seededTeamRef.current = true;
+  }, [searchParams, rosters]);
 
   // ── Derived Data ──
 

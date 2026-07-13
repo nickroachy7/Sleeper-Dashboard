@@ -463,7 +463,7 @@ export default function TeamDetail() {
             {benchValue != null && (
               <span className="text-[#9c9ca7]">Bench depth: <span className="text-white font-semibold tabular-nums">{fmtVal(benchValue)}</span></span>
             )}
-            <Link to="/trade?tab=find" className="ml-auto inline-flex items-center gap-1 text-accent-400 hover:text-accent-300 font-semibold">
+            <Link to={`/trade?tab=find&team=${rosterId}`} className="ml-auto inline-flex items-center gap-1 text-accent-400 hover:text-accent-300 font-semibold">
               <Target className="h-3.5 w-3.5" /> Find trades
             </Link>
           </div>

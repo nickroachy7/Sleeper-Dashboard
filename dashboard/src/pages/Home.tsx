@@ -13,6 +13,7 @@ import { ValueWatch } from '../components/ValueWatch';
 import { HomeSplash } from '../components/HomeSplash';
 import { LeaguePulse } from '../components/LeaguePulse';
 import { BiggestMovers, type Mover } from '../components/BiggestMovers';
+import { LeagueSnapshot } from '../components/LeagueSnapshot';
 import { useValueMovers } from '../hooks/detail';
 import {
   calcWeightedPositionValue,
@@ -491,6 +492,7 @@ export default function Home() {
         {/* Side Column */}
         <div className="lg:col-span-2 space-y-8">
           <ValueWatch players={valueWatch} />
+          <LeagueSnapshot />
         </div>
       </div>
     </div>
