@@ -1,6 +1,6 @@
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useMemo, useState } from 'react';
-import { TrendingUp, TrendingDown, ChevronRight, Flame, Snowflake, BarChart3, Activity, ListChecks } from 'lucide-react';
+import { TrendingUp, TrendingDown, ChevronRight, Flame, Snowflake, BarChart3, Activity, ListChecks, ArrowRightLeft } from 'lucide-react';
 import { ValueChart } from '../components/charts/ValueChart';
 import { ProductionChart } from '../components/charts/ProductionChart';
 import { WeeklyPointsChart } from '../components/charts/WeeklyPointsChart';
@@ -13,7 +13,7 @@ import { usePlayers, useTrending } from '../hooks/queries';
 import { useUrlState } from '../hooks/useUrlState';
 import { useActiveLeague } from '../lib/active-league';
 import { getPlayerImageUrl, playerMoves, txDraftPicks, ordinalRound } from '../lib/trade-shared';
-import type { TransactionRow } from '../types/domain';
+import type { TransactionRow, TradeAsset as EvalAsset } from '../types/domain';
 
 /** "Ladd McConkey" → "L. McConkey" to match the compact transaction style. */
 function shortName(full: string): string {
@@ -82,6 +82,26 @@ export default function PlayerDetail() {
 
   // Tabs: Overview + Production always; League only once a league is added.
   const { get, set } = useUrlState();
+  const navigate = useNavigate();
+
+  // "Trade" → open the Evaluator with this player pre-loaded on one side.
+  const openTrade = () => {
+    if (!data?.player) return;
+    const asset: EvalAsset = {
+      id: `player-${data.player.player_id}`,
+      type: 'player',
+      name: data.player.full_name ?? data.player.player_id,
+      value: data.value?.value ?? 0,
+      position: data.player.position ?? undefined,
+      team: data.player.team ?? null,
+    };
+    const sides = [
+      { rosterId: hasLeague ? currentOwner?.rosterId ?? 0 : 1, assets: [asset] },
+      { rosterId: hasLeague ? 0 : 2, assets: [] },
+    ];
+    const league = get('league');
+    navigate({ pathname: '/trade', search: league ? `?league=${league}` : '' }, { state: { initialTrade: { sides } } });
+  };
   const tabs = useMemo(() => PLAYER_TABS.filter((t) => t.id !== 'league' || hasLeague), [hasLeague]);
   const requested = get('tab');
   const activeTab = (tabs.some((t) => t.id === requested) ? requested : 'overview') as PlayerTab;
@@ -229,7 +249,7 @@ export default function PlayerDetail() {
       <section className="relative overflow-hidden rounded-2xl border border-[#22222b] bg-gradient-to-br from-[#16161c] via-[#141419] to-[#111116]">
         <div className="pointer-events-none absolute -top-20 -right-12 h-48 w-48 rounded-full bg-accent-500/10 blur-3xl" />
         <div className="relative p-4 sm:p-6">
-          <div className="flex items-center gap-4">
+          <div className="flex items-start gap-4">
             <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full overflow-hidden bg-[#22222b] shrink-0 ring-1 ring-inset ring-white/10">
               <img
                 src={getPlayerImageUrl(player.player_id)}
@@ -278,36 +298,36 @@ export default function PlayerDetail() {
                 )
               )}
             </div>
+            <button
+              onClick={openTrade}
+              className="shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-accent-500 hover:bg-accent-400 active:bg-accent-600 text-white text-[12px] font-semibold px-3 h-9 shadow-[0_0_10px_rgba(34,197,94,0.2)] transition-colors"
+            >
+              <ArrowRightLeft className="h-4 w-4" /> Trade
+            </button>
           </div>
 
-          {/* Featured value — the number leads; rank + trend are secondary */}
-          <div className="mt-4 sm:mt-5 flex flex-wrap items-end justify-between gap-x-4 gap-y-3 border-t border-[#22222b]/70 pt-4">
-            <div className="min-w-0">
-              <p className="text-[10px] text-[#75757f] uppercase tracking-[0.12em] font-bold">Community value</p>
-              <div className="flex items-end gap-2.5 mt-1">
-                <span className="font-display text-3xl sm:text-4xl font-bold text-white tabular-nums leading-none">
-                  {value ? value.value.toLocaleString() : '—'}
-                </span>
-                {value && <ConfidenceBadge rd={value.rating_deviation} size="sm" />}
-              </div>
-              {value?.rank && (
-                <p className="text-[11px] text-[#9c9ca7] mt-1.5 tabular-nums">
-                  #{value.rank} overall
-                  {value.position_rank ? <span className="text-[#75757f]"> · {player.position}{value.position_rank}</span> : null}
-                </p>
-              )}
-            </div>
-            <div className="text-right">
-              <p className="text-[10px] text-[#75757f] uppercase tracking-[0.12em] font-bold">30-day trend</p>
-              {trend === 0 ? (
-                <p className="font-display text-xl font-bold text-[#75757f] mt-1">Flat</p>
-              ) : (
-                <p className={`font-display text-xl font-bold flex items-center gap-1 justify-end tabular-nums mt-1 ${trend > 0 ? 'text-accent-500' : 'text-red-400'}`}>
+          {/* Metrics row */}
+          <div className="grid grid-cols-3 gap-2.5 mt-4 sm:mt-5">
+            <StatTile
+              label="Community value"
+              foot={value ? <ConfidenceBadge rd={value.rating_deviation} size="sm" /> : undefined}
+            >
+              {value ? value.value.toLocaleString() : '—'}
+            </StatTile>
+            <StatTile label="Rank" sub={value?.rank && value.position_rank ? `${player.position}${value.position_rank}` : undefined}>
+              {value?.rank ? `#${value.rank}` : '—'}
+            </StatTile>
+            <StatTile
+              label="30-day trend"
+              valueClassName={trend > 0 ? 'text-accent-500' : trend < 0 ? 'text-red-400' : 'text-[#75757f]'}
+            >
+              {trend === 0 ? 'Flat' : (
+                <span className="flex items-center gap-1">
                   {trend > 0 ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
                   {trend > 0 ? '+' : ''}{trend.toLocaleString()}
-                </p>
+                </span>
               )}
-            </div>
+            </StatTile>
           </div>
         </div>
       </section>

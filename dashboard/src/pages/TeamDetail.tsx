@@ -1,4 +1,4 @@
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useMemo, useState } from 'react';
 import { ArrowRightLeft, ChevronRight, Users, LayoutGrid, ListChecks, BarChart3, Sparkles } from 'lucide-react';
 import { ValueChart } from '../components/charts/ValueChart';
@@ -55,7 +55,18 @@ export default function TeamDetail() {
   const [showFullRoster, setShowFullRoster] = useState(false);
 
   const { get, set } = useUrlState();
+  const navigate = useNavigate();
   const activeTab = (TEAM_TABS.some((t) => t.id === get('tab')) ? get('tab') : 'overview') as TeamTab;
+
+  // "Trade" → open the Evaluator with this team pre-selected on one side.
+  const openTrade = () => {
+    const sides = [
+      { rosterId, assets: [] },
+      { rosterId: 0, assets: [] },
+    ];
+    const league = get('league');
+    navigate({ pathname: '/trade', search: league ? `?league=${league}` : '' }, { state: { initialTrade: { sides } } });
+  };
 
   const currentRoster = useMemo(() => {
     if (!directory) return null;
@@ -229,7 +240,7 @@ export default function TeamDetail() {
       <section className="relative overflow-hidden rounded-2xl border border-[#22222b] bg-gradient-to-br from-[#16161c] via-[#141419] to-[#111116]">
         <div className="pointer-events-none absolute -top-20 -right-12 h-48 w-48 rounded-full bg-accent-500/10 blur-3xl" />
         <div className="relative p-4 sm:p-6">
-          <div className="flex items-center gap-4">
+          <div className="flex items-start gap-4">
             <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full overflow-hidden bg-[#22222b] shrink-0 ring-1 ring-inset ring-white/10 flex items-center justify-center">
               {directory.teamAvatar(rosterId) ? (
                 <img src={directory.teamAvatar(rosterId)!} alt="" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.visibility = 'hidden'; }} />
@@ -243,12 +254,17 @@ export default function TeamDetail() {
                 {owner?.display_name || owner?.username || 'Unknown owner'} · {seasons.length} season{seasons.length !== 1 ? 's' : ''} in league
               </p>
             </div>
+            <button
+              onClick={openTrade}
+              className="shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-accent-500 hover:bg-accent-400 active:bg-accent-600 text-white text-[12px] font-semibold px-3 h-9 shadow-[0_0_10px_rgba(34,197,94,0.2)] transition-colors"
+            >
+              <ArrowRightLeft className="h-4 w-4" /> Trade
+            </button>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mt-4 sm:mt-5">
+          <div className="grid grid-cols-3 gap-2.5 mt-4 sm:mt-5">
             <StatTile label="Roster value">{totalValue.toLocaleString()}</StatTile>
             <StatTile label="All-time">{allTime.w}-{allTime.l}</StatTile>
-            <StatTile label="Trades">{ledger.length}</StatTile>
             <StatTile
               label="Trade net (today)"
               hint="Everything received minus everything given across all trades, priced at TODAY's community value. Shows how traded assets aged — not whether trades were fair when made."
