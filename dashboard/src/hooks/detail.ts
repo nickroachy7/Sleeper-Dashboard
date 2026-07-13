@@ -390,17 +390,21 @@ export function useSeasonRanks(ownerId: string | null | undefined) {
         const mine = withVal.find((x) => x.roster.owner_id === ownerId);
         if (!mine) continue;
 
+        // Skip seasons that haven't kicked off yet (offseason/future): a 0-0
+        // season has no talent-vs-results story and shouldn't appear as a ranked
+        // season. This is data-driven, so a season joins the chart the moment
+        // its first games are synced.
+        const anyGames = leagueRosters.some((r) => (r.wins || 0) + (r.losses || 0) > 0);
+        if (!anyGames) continue;
+
         // Power rank: sort by value desc.
         const powerRank = [...withVal].sort((a, b) => b.value - a.value)
           .findIndex((x) => x.roster.owner_id === ownerId) + 1;
 
-        // Finish rank: wins then points. Null if no games played yet this season.
-        const anyGames = leagueRosters.some((r) => (r.wins || 0) + (r.losses || 0) > 0);
-        const finishRank = anyGames
-          ? [...leagueRosters].sort((a, b) =>
-              (b.wins || 0) - (a.wins || 0) || Number(b.fpts || 0) - Number(a.fpts || 0)
-            ).findIndex((r) => r.owner_id === ownerId) + 1
-          : null;
+        // Finish rank: wins then points.
+        const finishRank = [...leagueRosters].sort((a, b) =>
+          (b.wins || 0) - (a.wins || 0) || Number(b.fpts || 0) - Number(a.fpts || 0)
+        ).findIndex((r) => r.owner_id === ownerId) + 1;
 
         points.push({
           season: lg.season,

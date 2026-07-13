@@ -59,6 +59,8 @@ export default function Home() {
   const { data: playerValues } = usePlayerValuesList();
   const { rosters: tradeRosters, pickValues, tradedPicks } = useTradeData();
   const { data: moverValues } = useValueMovers(30);
+  // The movers need all three of these; show a skeleton until they're in.
+  const moversLoading = !moverValues || !playersMap || !playerValues;
 
   const { data: rostersData } = useQuery({
     queryKey: ['home-rosters', league?.league_id],
@@ -370,7 +372,7 @@ export default function Home() {
             actions={GLOBAL_ACTIONS}
             addLeagueCta
           />
-          <BiggestMovers risers={globalMovers.risers} fallers={globalMovers.fallers} windowLabel="30d" />
+          <BiggestMovers risers={globalMovers.risers} fallers={globalMovers.fallers} windowLabel="30d" loading={moversLoading} />
           <ValueWatch players={globalRankings} />
         </div>
       </div>
@@ -476,7 +478,7 @@ export default function Home() {
       />
 
       {/* ── Biggest Movers (30-day value change) ── */}
-      <BiggestMovers risers={movers.risers} fallers={movers.fallers} windowLabel="30d" />
+      <BiggestMovers risers={movers.risers} fallers={movers.fallers} windowLabel="30d" loading={moversLoading} />
 
       {/* ── Two-Column Layout ── */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 lg:gap-8">

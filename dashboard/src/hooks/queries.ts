@@ -84,6 +84,50 @@ export function useLeagueIds() {
   });
 }
 
+export interface NflState {
+  season: string;
+  seasonType: string;   // 'off' | 'pre' | 'regular' | 'post'
+  week: number;
+  displayWeek: number;
+  /** No games that count yet — offseason or preseason. */
+  isOffseason: boolean;
+}
+
+/**
+ * Current NFL season/week from the synced nfl_state table, with a live fallback
+ * to Sleeper. Drives offseason-aware UI so a season that hasn't kicked off isn't
+ * shown as a played/ranked season. Refetched on an interval so the app flips to
+ * in-season automatically when week 1 arrives.
+ */
+export function useNflState() {
+  return useQuery({
+    queryKey: queryKeys.nflState(),
+    staleTime: 10 * 60_000,
+    refetchInterval: 15 * 60_000,
+    queryFn: async (): Promise<NflState> => {
+      const { data } = await supabase
+        .from('nfl_state')
+        .select('season, season_type, week, display_week')
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      let row = data;
+      if (!row) {
+        const s = await sleeperApi.getNflState();
+        row = { season: s.season, season_type: s.season_type, week: s.week, display_week: s.display_week };
+      }
+      const seasonType = row.season_type ?? 'off';
+      return {
+        season: String(row.season),
+        seasonType,
+        week: row.week ?? 0,
+        displayWeek: row.display_week ?? row.week ?? 0,
+        isOffseason: seasonType === 'off' || seasonType === 'pre',
+      };
+    },
+  });
+}
+
 export interface TrendingInfo {
   addCount: number;   // leagues that ADDED this player in the window (0 if not trending)
   dropCount: number;  // leagues that DROPPED this player

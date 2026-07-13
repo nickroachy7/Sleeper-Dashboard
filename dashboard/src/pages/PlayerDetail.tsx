@@ -8,6 +8,7 @@ import { PositionBadge } from '../components/PositionBadge';
 import { ConfidenceBadge } from '../components/ConfidenceBadge';
 import { SectionCard } from '../components/SectionCard';
 import { StatTile } from '../components/StatTile';
+import { TabBar } from '../components/TabBar';
 import { usePlayerDetail, useLeagueDirectory, usePlayerFacts, usePlayerLeagueWeeks } from '../hooks/detail';
 import { usePlayers, useTrending } from '../hooks/queries';
 import { useUrlState } from '../hooks/useUrlState';
@@ -71,14 +72,29 @@ export default function PlayerDetail() {
   const { data: trending } = useTrending();
   const buzz = playerId && trending ? trending.lookup(playerId) : null;
   const { data: allPlayers } = usePlayers();
-  // Default to the most recent season that actually has scoring (skip the empty
-  // in-progress/offseason shell), but let the user pick any season explicitly.
+
+  // Only in-league seasons that have actually kicked off — a season whose league
+  // has no games on record (offseason/future) is dropped so the pills don't
+  // offer an empty year. Data-driven, so it appears once games are synced.
+  const leagueSeasonsPlayed = useMemo(() => {
+    if (!leagueSeasons?.length) return leagueSeasons;
+    const started = new Set(
+      (directory?.rosters ?? [])
+        .filter((r) => (r.wins || 0) + (r.losses || 0) + (r.ties || 0) > 0)
+        .map((r) => r.league_id),
+    );
+    // If we can't tell yet (no roster records loaded), don't hide anything.
+    if (started.size === 0) return leagueSeasons;
+    return leagueSeasons.filter((s) => started.has(s.leagueId));
+  }, [leagueSeasons, directory]);
+
+  // Default to the most recent played season; let the user pick any explicitly.
   const [pickedSeason, setPickedSeason] = useState<string | null>(null);
   const activeSeason = useMemo(() => {
-    if (!leagueSeasons?.length) return null;
-    if (pickedSeason) return leagueSeasons.find((s) => s.season === pickedSeason) ?? null;
-    return leagueSeasons.find((s) => s.weeks.some((w) => w.points > 0)) ?? leagueSeasons[0];
-  }, [leagueSeasons, pickedSeason]);
+    if (!leagueSeasonsPlayed?.length) return null;
+    if (pickedSeason) return leagueSeasonsPlayed.find((s) => s.season === pickedSeason) ?? null;
+    return leagueSeasonsPlayed.find((s) => s.weeks.some((w) => w.points > 0)) ?? leagueSeasonsPlayed[0];
+  }, [leagueSeasonsPlayed, pickedSeason]);
 
   // Tabs: Overview + Production always; League only once a league is added.
   const { get, set } = useUrlState();
@@ -333,22 +349,7 @@ export default function PlayerDetail() {
       </section>
 
       {/* ── Tab bar ── */}
-      <div className="flex gap-1 bg-[#141419] border border-[#22222b] rounded-xl p-1">
-        {tabs.map(({ id, label, icon: Icon }) => (
-          <button
-            key={id}
-            onClick={() => set('tab', id === 'overview' ? null : id)}
-            className={`flex-1 flex items-center justify-center gap-1 sm:gap-1.5 h-9 rounded-lg text-[11px] sm:text-[13px] font-medium transition-all ${
-              activeTab === id
-                ? 'bg-accent-500 text-white shadow-[0_0_10px_rgba(34,197,94,0.2)]'
-                : 'text-[#9c9ca7] hover:text-white hover:bg-[#1b1b22]'
-            }`}
-          >
-            <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
-            <span className="truncate">{label}</span>
-          </button>
-        ))}
-      </div>
+      <TabBar tabs={tabs} active={activeTab} onChange={(id) => set('tab', id === 'overview' ? null : id)} />
 
       {/* ═══ OVERVIEW: market value trajectory ═══ */}
       {activeTab === 'overview' && (
@@ -387,9 +388,9 @@ export default function PlayerDetail() {
         <SectionCard
           label="In-League Scoring"
           sub={`Weekly fantasy points in this league's scoring · ${activeSeason.season} season`}
-          right={leagueSeasons && leagueSeasons.length > 1 ? (
+          right={leagueSeasonsPlayed && leagueSeasonsPlayed.length > 1 ? (
             <div className="flex gap-1">
-              {leagueSeasons.map((s) => (
+              {leagueSeasonsPlayed.map((s) => (
                 <button
                   key={s.leagueId}
                   onClick={() => setPickedSeason(s.season)}

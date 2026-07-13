@@ -7,17 +7,18 @@ import { TeamAnalyticsCharts } from '../components/charts/TeamAnalytics';
 import { CHART_POS, CHART_NEG } from '../components/charts/theme';
 import { PlayerRow } from '../components/PlayerRow';
 import { StatTile } from '../components/StatTile';
+import { TabBar } from '../components/TabBar';
 import { useLeagueDirectory, useSeasonRanks, useTeamAnalytics, useTeamTrades, useTeamMoves, useLineupEfficiency, useHeadToHead, useTeamLineup } from '../hooks/detail';
 import { usePlayerMap } from '../hooks/useLeagueData';
-import { usePlayerValuesList, usePickValues } from '../hooks/queries';
+import { usePlayerValuesList, usePickValues, useNflState } from '../hooks/queries';
 import { useUrlState } from '../hooks/useUrlState';
 import { playerMoves, txDraftPicks, lookupPickValue } from '../lib/trade-shared';
 
-type TeamTab = 'overview' | 'analytics' | 'roster' | 'transactions';
+type TeamTab = 'overview' | 'roster' | 'analytics' | 'transactions';
 const TEAM_TABS: { id: TeamTab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { id: 'overview', label: 'Overview', icon: BarChart3 },
-  { id: 'analytics', label: 'Analytics', icon: Sparkles },
   { id: 'roster', label: 'Roster', icon: LayoutGrid },
+  { id: 'analytics', label: 'Analytics', icon: Sparkles },
   { id: 'transactions', label: 'Transactions', icon: ListChecks },
 ];
 
@@ -88,6 +89,7 @@ export default function TeamDetail() {
   const { data: h2h } = useHeadToHead(currentRoster?.owner_id);
   // Starting lineup + slots, to group the roster tab by lineup slot vs bench.
   const { data: teamLineup } = useTeamLineup(Number.isFinite(rosterId) ? rosterId : undefined);
+  const { data: nfl } = useNflState();
 
   // Season-by-season record with league finish (by wins, then fpts)
   const seasons = useMemo(() => {
@@ -100,6 +102,9 @@ export default function TeamDetail() {
         const standings = [...leagueRosters].sort(
           (a, b) => (b.wins || 0) - (a.wins || 0) || Number(b.fpts || 0) - Number(a.fpts || 0)
         );
+        // A season has started once any roster has a game on record; a 0-0
+        // season (offseason/future) has no real finish and is hidden until then.
+        const started = leagueRosters.some((r) => (r.wins || 0) + (r.losses || 0) + (r.ties || 0) > 0);
         return {
           season: league.season,
           wins: mine.wins || 0,
@@ -107,10 +112,29 @@ export default function TeamDetail() {
           fpts: Number(mine.fpts) || 0,
           finish: standings.findIndex((r) => r.roster_id === mine.roster_id) + 1,
           teams: leagueRosters.length,
+          started,
         };
       })
       .filter((s): s is NonNullable<typeof s> => s !== null);
   }, [directory, currentRoster]);
+
+  // Only seasons that have actually been played — drives the season history +
+  // tenure count so an unstarted (offseason) season isn't shown as a result.
+  const playedSeasons = useMemo(() => seasons.filter((s) => s.started), [seasons]);
+
+  // Live "where I stand now" — current roster-value rank in the league,
+  // independent of whether the season has started (updates as values move).
+  const currentPower = useMemo(() => {
+    if (!directory || !playerValues || !currentRoster) return null;
+    const leagueRosters = directory.rosters.filter((r) => r.league_id === directory.currentLeagueId);
+    const totals = leagueRosters.map((r) => ({
+      rosterId: r.roster_id,
+      total: ((r.players as string[]) || []).reduce((s, pid) => s + (playerValues.get(pid) || 0), 0),
+    }));
+    totals.sort((a, b) => b.total - a.total);
+    const rank = totals.findIndex((t) => t.rosterId === currentRoster.roster_id) + 1;
+    return rank > 0 ? { rank, teams: totals.length } : null;
+  }, [directory, playerValues, currentRoster]);
 
   // Trade ledger valued at TODAY's KTC (consumed past picks value at 0)
   const ledger = useMemo((): TradeLedgerEntry[] => {
@@ -229,7 +253,7 @@ export default function TeamDetail() {
     const d = analytics.weightedAge - analytics.leagueWeightedAge;
     gmTags.push(d < -0.6 ? 'Building young' : d > 0.6 ? 'Win-now roster' : 'Balanced age');
   }
-  const tradesPerSeason = seasons.length ? ledger.length / seasons.length : ledger.length;
+  const tradesPerSeason = playedSeasons.length ? ledger.length / playedSeasons.length : ledger.length;
   gmTags.push(tradesPerSeason >= 6 ? 'Wheeler-dealer' : tradesPerSeason >= 3 ? 'Active trader' : 'Stands pat');
   if (tradeNet > 3000) gmTags.push('Trades up in value');
   else if (tradeNet < -3000) gmTags.push('Sells the future');
@@ -251,7 +275,7 @@ export default function TeamDetail() {
             <div className="min-w-0 flex-1">
               <h1 className="font-display text-xl sm:text-3xl font-bold text-white tracking-tight truncate">{teamName}</h1>
               <p className="text-[12px] text-[#9c9ca7] mt-1">
-                {owner?.display_name || owner?.username || 'Unknown owner'} · {seasons.length} season{seasons.length !== 1 ? 's' : ''} in league
+                {owner?.display_name || owner?.username || 'Unknown owner'} · {playedSeasons.length} season{playedSeasons.length !== 1 ? 's' : ''} played
               </p>
             </div>
             <button
@@ -277,22 +301,7 @@ export default function TeamDetail() {
       </section>
 
       {/* ── Tab bar (under the team card, swaps the content below) ── */}
-      <div className="flex gap-1 bg-[#141419] border border-[#22222b] rounded-xl p-1">
-        {TEAM_TABS.map(({ id, label, icon: Icon }) => (
-          <button
-            key={id}
-            onClick={() => set('tab', id === 'overview' ? null : id)}
-            className={`flex-1 flex items-center justify-center gap-1 sm:gap-1.5 h-9 rounded-lg text-[11px] sm:text-[13px] font-medium transition-all ${
-              activeTab === id
-                ? 'bg-accent-500 text-white shadow-[0_0_10px_rgba(34,197,94,0.2)]'
-                : 'text-[#9c9ca7] hover:text-white hover:bg-[#1b1b22]'
-            }`}
-          >
-            <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
-            <span className="truncate">{label}</span>
-          </button>
-        ))}
-      </div>
+      <TabBar tabs={TEAM_TABS} active={activeTab} onChange={(id) => set('tab', id === 'overview' ? null : id)} />
 
       {/* ═══ OVERVIEW: value trajectory + season history ═══ */}
       {activeTab === 'overview' && (<>
@@ -308,32 +317,38 @@ export default function TeamDetail() {
           <div className="skeleton h-[240px] w-full rounded-xl" />
         ) : (
         <>
-        {/* Lead readout: current power rank + trajectory since first season */}
-        {(seasonRanks?.length ?? 0) > 0 && (() => {
-          const pts = seasonRanks!;
-          const first = pts[0];
-          const latest = pts[pts.length - 1];
+        {/* Lead readout: the team's CURRENT roster-value rank (live, works in the
+            offseason) + how far it has climbed across the played seasons. */}
+        {currentPower && (() => {
           const ord = (n: number) => {
             const s = ['th', 'st', 'nd', 'rd'], v = n % 100;
             return n + (s[(v - 20) % 10] || s[v] || s[0]);
           };
-          const moved = first.powerRank - latest.powerRank; // + = climbed (lower rank number)
+          const pts = seasonRanks ?? [];
+          const first = pts[0];
+          const moved = first ? first.powerRank - currentPower.rank : 0; // + = climbed
           return (
             <div className="flex flex-wrap items-baseline gap-x-5 gap-y-1 mb-3">
               <div>
-                <span className="font-display text-2xl font-bold text-accent-400 tabular-nums">{ord(latest.powerRank)}</span>
-                <span className="ml-2 text-[12px] text-[#75757f]">in roster talent, of {latest.teams}</span>
+                <span className="font-display text-2xl font-bold text-accent-400 tabular-nums">{ord(currentPower.rank)}</span>
+                <span className="ml-2 text-[12px] text-[#75757f]">in roster talent now, of {currentPower.teams}</span>
               </div>
-              {pts.length > 1 && (
-                <span className={`text-[11px] font-semibold ${moved > 0 ? 'text-accent-400' : moved < 0 ? 'text-red-400' : 'text-[#60606a]'}`}>
-                  {moved > 0 ? `▲ up ${moved}` : moved < 0 ? `▼ down ${Math.abs(moved)}` : '— flat'} since {first.season}
+              {first && moved !== 0 && (
+                <span className={`text-[11px] font-semibold ${moved > 0 ? 'text-accent-400' : 'text-red-400'}`}>
+                  {moved > 0 ? `▲ up ${moved}` : `▼ down ${Math.abs(moved)}`} since {first.season}
                 </span>
               )}
             </div>
           );
         })()}
 
-        <SeasonRankChart data={seasonRanks || []} height={240} />
+        {(seasonRanks?.length ?? 0) > 0 ? (
+          <SeasonRankChart data={seasonRanks || []} height={240} />
+        ) : (
+          <p className="text-[12px] text-[#60606a] py-8 text-center">
+            No completed seasons yet{nfl?.isOffseason ? ` — the ${nfl.season} season hasn't started` : ''}.
+          </p>
+        )}
         </>
         )}
       </section>
@@ -429,6 +444,11 @@ export default function TeamDetail() {
       {activeTab === 'overview' && (
       <section className="bg-[#141419] rounded-2xl p-4 sm:p-5 border border-[#22222b]">
         <p className="text-[11px] font-bold text-accent-500 tracking-[0.18em] uppercase mb-3">Season History</p>
+        {playedSeasons.length === 0 ? (
+          <p className="text-[12px] text-[#60606a] py-6 text-center">
+            No completed seasons yet{nfl?.isOffseason ? ` — the ${nfl.season} season hasn't started` : ''}.
+          </p>
+        ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead>
@@ -440,7 +460,7 @@ export default function TeamDetail() {
               </tr>
             </thead>
             <tbody>
-              {seasons.map((s) => (
+              {playedSeasons.map((s) => (
                 <tr key={s.season} className="border-t border-[#1b1b22] text-[12px]">
                   <td className="py-2 text-white font-semibold">{s.season}</td>
                   <td className="py-2 text-[#9c9ca7] tabular-nums">{s.wins}-{s.losses}</td>
@@ -451,6 +471,7 @@ export default function TeamDetail() {
             </tbody>
           </table>
         </div>
+        )}
       </section>
       )}
 

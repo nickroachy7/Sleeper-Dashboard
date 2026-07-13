@@ -17,13 +17,30 @@ interface BiggestMoversProps {
   fallers: Mover[];
   /** Window the deltas were measured over, e.g. "30d" */
   windowLabel?: string;
+  /** Show placeholder rows while the underlying values are still loading. */
+  loading?: boolean;
 }
 
-function MoverColumn({ title, icon: Icon, rows, empty }: {
+/** One placeholder row matching the compact PlayerRow layout. */
+function SkeletonRow() {
+  return (
+    <div className="flex items-center gap-3 px-3 py-2 border-b border-[#1b1b22] last:border-b-0">
+      <div className="skeleton h-8 w-8 rounded-full shrink-0" />
+      <div className="flex-1 min-w-0">
+        <div className="skeleton h-3 w-24 mb-1.5 rounded" />
+        <div className="skeleton h-2.5 w-16 rounded" />
+      </div>
+      <div className="skeleton h-3 w-10 rounded shrink-0" />
+    </div>
+  );
+}
+
+function MoverColumn({ title, icon: Icon, rows, empty, loading }: {
   title: string;
   icon: typeof TrendingUp;
   rows: Mover[];
   empty: string;
+  loading?: boolean;
 }) {
   return (
     <div className="bg-[#141419] rounded-2xl overflow-hidden border border-[#22222b]">
@@ -33,7 +50,9 @@ function MoverColumn({ title, icon: Icon, rows, empty }: {
           {title}
         </span>
       </div>
-      {rows.length === 0 ? (
+      {loading ? (
+        Array.from({ length: 5 }, (_, i) => <SkeletonRow key={i} />)
+      ) : rows.length === 0 ? (
         <p className="px-3 py-6 text-center text-[11px] text-[#60606a]">{empty}</p>
       ) : (
         rows.map((m) => (
@@ -55,8 +74,10 @@ function MoverColumn({ title, icon: Icon, rows, empty }: {
   );
 }
 
-export function BiggestMovers({ risers, fallers, windowLabel = '30d' }: BiggestMoversProps) {
-  if (risers.length === 0 && fallers.length === 0) return null;
+export function BiggestMovers({ risers, fallers, windowLabel = '30d', loading = false }: BiggestMoversProps) {
+  // Once loaded with genuinely no movement, collapse the section. While loading,
+  // render the skeleton so it doesn't pop in after a beat.
+  if (!loading && risers.length === 0 && fallers.length === 0) return null;
 
   return (
     <section>
@@ -69,8 +90,8 @@ export function BiggestMovers({ risers, fallers, windowLabel = '30d' }: BiggestM
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 lg:gap-4">
-        <MoverColumn title="Risers" icon={TrendingUp} rows={risers} empty="No movement yet." />
-        <MoverColumn title="Fallers" icon={TrendingDown} rows={fallers} empty="No movement yet." />
+        <MoverColumn title="Risers" icon={TrendingUp} rows={risers} empty="No movement yet." loading={loading} />
+        <MoverColumn title="Fallers" icon={TrendingDown} rows={fallers} empty="No movement yet." loading={loading} />
       </div>
     </section>
   );
