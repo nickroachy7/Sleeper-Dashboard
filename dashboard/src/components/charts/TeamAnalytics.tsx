@@ -1,27 +1,88 @@
 import { CHART_POS as POS, CHART_NEG as NEG } from './theme';
-import type { TeamAnalytics } from '../../hooks/detail';
+import type { TeamAnalytics, LineupEfficiency } from '../../hooks/detail';
 
 const fmt = (v: number) => Math.round(v).toLocaleString();
+const ordinal = (n: number) => {
+  const s = ['th', 'st', 'nd', 'rd'], v = n % 100;
+  return n + (s[(v - 20) % 10] || s[v] || s[0]);
+};
 
 /**
- * Three analytical views of a team, each answering a manager's real question:
+ * Analytical views of a team, each answering a manager's real question:
  *  1. Contention Window — roster value by age (prime now vs young/old).
- *  2. Scoring & Luck — actual record vs all-play (schedule-luck-neutral) record.
- *  3. Positional Edge — value per position vs the league.
+ *  2. Coach Rating — actual lineup output vs the best they could have set.
+ *  3. Scoring & Luck — actual record vs all-play (schedule-luck-neutral) record.
  */
-export function TeamAnalyticsCharts({ data }: { data: TeamAnalytics }) {
+export function TeamAnalyticsCharts({ data, lineup }: { data: TeamAnalytics; lineup?: LineupEfficiency | null }) {
   return (
     <div className="space-y-4">
       <ContentionWindow data={data} />
+      {lineup && <CoachRating data={lineup} />}
       <ScoringLuck data={data} />
     </div>
+  );
+}
+
+// ── Coach Rating: actual lineup output vs optimal ───────────────────
+function CoachRating({ data }: { data: LineupEfficiency }) {
+  const { weeks, efficiency, pointsLeft, rank, teams, leagueAvgEfficiency, season } = data;
+  const maxOptimal = Math.max(1, ...weeks.map((w) => w.optimal));
+  const avgLeft = weeks.length ? pointsLeft / weeks.length : 0;
+  const beatsAvg = efficiency >= leagueAvgEfficiency;
+
+  return (
+    <Card
+      title="Coach Rating"
+      sub={`How much of your roster's ceiling you actually started in ${season}. The gap on each bar is points left on your bench.`}
+    >
+      <div className="flex flex-wrap items-baseline gap-x-5 gap-y-1 mb-4">
+        <div>
+          <span className="font-display text-2xl font-bold text-white tabular-nums">{Math.round(efficiency * 100)}%</span>
+          <span className="ml-2 text-[12px] text-[#75757f]">of ceiling started</span>
+        </div>
+        <span className="text-[11px] font-semibold text-accent-400">
+          {ordinal(rank)} of {teams} lineup setters
+        </span>
+        <span className={`text-[11px] font-semibold ${beatsAvg ? 'text-accent-400' : 'text-amber-400/90'}`}>
+          {beatsAvg ? '▲' : '▼'} {Math.abs(Math.round((efficiency - leagueAvgEfficiency) * 100))} pts vs league avg
+        </span>
+        <span className="text-[11px] text-[#60606a] tabular-nums">
+          {fmt(pointsLeft)} left on bench · {avgLeft.toFixed(1)}/wk
+        </span>
+      </div>
+
+      {/* Per-week: muted bar = your best possible, green fill = what you started */}
+      <div className="flex items-end gap-1.5" style={{ height: 150 }}>
+        {weeks.map((w) => {
+          const eff = w.optimal > 0 ? w.actual / w.optimal : 1;
+          const trackH = Math.max(3, (w.optimal / maxOptimal) * 130);
+          const fillH = trackH * Math.min(eff, 1);
+          return (
+            <div key={w.week} className="flex-1 flex flex-col items-center justify-end gap-1 min-w-0 h-full">
+              <div
+                className="w-full max-w-[26px] rounded-t bg-[#3a3a44] relative flex items-end"
+                style={{ height: trackH }}
+                title={`Week ${w.week}: started ${w.actual.toFixed(1)} of ${w.optimal.toFixed(1)} (${Math.round(eff * 100)}%)`}
+              >
+                <div className="w-full rounded-t" style={{ height: fillH, backgroundColor: POS, opacity: 0.9 }} />
+              </div>
+              <span className="text-[9px] text-[#60606a] tabular-nums leading-none">{w.week}</span>
+            </div>
+          );
+        })}
+      </div>
+      <div className="flex items-center gap-3 text-[10px] text-[#75757f] mt-2">
+        <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: POS }} />Started</span>
+        <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-[#3a3a44]" />Bench ceiling</span>
+      </div>
+    </Card>
   );
 }
 
 function Card({ title, sub, children }: { title: string; sub: string; children: React.ReactNode }) {
   return (
     <section className="bg-[#141419] rounded-2xl p-4 sm:p-5 border border-[#22222b]">
-      <p className="text-[11px] font-bold text-white tracking-[0.18em] uppercase mb-0.5">{title}</p>
+      <p className="text-[11px] font-bold text-accent-500 tracking-[0.18em] uppercase mb-0.5">{title}</p>
       <p className="text-[10px] text-[#75757f] mb-4">{sub}</p>
       {children}
     </section>

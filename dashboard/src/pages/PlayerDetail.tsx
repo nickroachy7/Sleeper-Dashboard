@@ -1,11 +1,16 @@
 import { useParams, Link } from 'react-router-dom';
-import { useMemo } from 'react';
-import { TrendingUp, TrendingDown, Minus, ChevronRight } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { TrendingUp, TrendingDown, ChevronRight, Flame, Snowflake, BarChart3, Activity, ListChecks } from 'lucide-react';
 import { ValueChart } from '../components/charts/ValueChart';
+import { ProductionChart } from '../components/charts/ProductionChart';
+import { WeeklyPointsChart } from '../components/charts/WeeklyPointsChart';
 import { PositionBadge } from '../components/PositionBadge';
 import { ConfidenceBadge } from '../components/ConfidenceBadge';
-import { usePlayerDetail, useLeagueDirectory } from '../hooks/detail';
-import { usePlayers } from '../hooks/queries';
+import { SectionCard } from '../components/SectionCard';
+import { StatTile } from '../components/StatTile';
+import { usePlayerDetail, useLeagueDirectory, usePlayerFacts, usePlayerLeagueWeeks } from '../hooks/detail';
+import { usePlayers, useTrending } from '../hooks/queries';
+import { useUrlState } from '../hooks/useUrlState';
 import { useActiveLeague } from '../lib/active-league';
 import { getPlayerImageUrl, playerMoves, txDraftPicks, ordinalRound } from '../lib/trade-shared';
 import type { TransactionRow } from '../types/domain';
@@ -49,12 +54,54 @@ const KIND_BADGE: Record<TimelineEvent['kind'], { label: string; cls: string }> 
   commissioner: { label: 'COMMISH', cls: BADGE_CLS },
 };
 
+type PlayerTab = 'overview' | 'production' | 'league';
+const PLAYER_TABS: { id: PlayerTab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
+  { id: 'overview', label: 'Overview', icon: BarChart3 },
+  { id: 'production', label: 'Production', icon: Activity },
+  { id: 'league', label: 'League', icon: ListChecks },
+];
+
 export default function PlayerDetail() {
   const { playerId } = useParams<{ playerId: string }>();
   const { hasLeague } = useActiveLeague();
   const { data, isLoading } = usePlayerDetail(playerId);
   const { data: directory } = useLeagueDirectory();
+  const { data: facts } = usePlayerFacts(playerId);
+  const { data: leagueSeasons } = usePlayerLeagueWeeks(playerId);
+  const { data: trending } = useTrending();
+  const buzz = playerId && trending ? trending.lookup(playerId) : null;
   const { data: allPlayers } = usePlayers();
+  // Default to the most recent season that actually has scoring (skip the empty
+  // in-progress/offseason shell), but let the user pick any season explicitly.
+  const [pickedSeason, setPickedSeason] = useState<string | null>(null);
+  const activeSeason = useMemo(() => {
+    if (!leagueSeasons?.length) return null;
+    if (pickedSeason) return leagueSeasons.find((s) => s.season === pickedSeason) ?? null;
+    return leagueSeasons.find((s) => s.weeks.some((w) => w.points > 0)) ?? leagueSeasons[0];
+  }, [leagueSeasons, pickedSeason]);
+
+  // Tabs: Overview + Production always; League only once a league is added.
+  const { get, set } = useUrlState();
+  const tabs = useMemo(() => PLAYER_TABS.filter((t) => t.id !== 'league' || hasLeague), [hasLeague]);
+  const requested = get('tab');
+  const activeTab = (tabs.some((t) => t.id === requested) ? requested : 'overview') as PlayerTab;
+
+  // Career production summary derived from the nflverse season facts.
+  const career = useMemo(() => {
+    if (!facts?.length) return null;
+    const totalPts = facts.reduce((s, f) => s + (f.fantasy_total ?? 0), 0);
+    const totalGames = facts.reduce((s, f) => s + (f.games ?? 0), 0);
+    const best = facts.reduce((b, f) => ((f.fantasy_ppg ?? 0) > (b?.fantasy_ppg ?? -1) ? f : b), facts[0]);
+    const draft = facts.find((f) => f.draft_round != null);
+    return {
+      ppg: totalGames ? totalPts / totalGames : 0,
+      seasons: facts.length,
+      totalGames,
+      best,
+      draftRound: draft?.draft_round ?? null,
+      draftPick: draft?.draft_pick ?? null,
+    };
+  }, [facts]);
   const nameOf = useMemo(
     () => new Map((allPlayers ?? []).map((p) => [p.player_id, p.full_name])),
     [allPlayers],
@@ -216,43 +263,141 @@ export default function PlayerDetail() {
                   ) : 'Unowned in league'}
                 </p>
               )}
+              {/* Community buzz — Sleeper-wide add/drop trend (universal signal) */}
+              {buzz && (buzz.addCount > 0 || buzz.dropCount > 0) && (
+                buzz.addCount >= buzz.dropCount ? (
+                  <span className="mt-2 inline-flex items-center gap-1 rounded-full bg-orange-500/12 border border-orange-500/25 px-2 py-0.5 text-[11px] font-semibold text-orange-300">
+                    <Flame className="h-3 w-3" />
+                    Trending add · {buzz.addCount.toLocaleString()} in 24h
+                  </span>
+                ) : (
+                  <span className="mt-2 inline-flex items-center gap-1 rounded-full bg-sky-500/12 border border-sky-500/25 px-2 py-0.5 text-[11px] font-semibold text-sky-300">
+                    <Snowflake className="h-3 w-3" />
+                    Trending drop · {buzz.dropCount.toLocaleString()} in 24h
+                  </span>
+                )
+              )}
             </div>
           </div>
 
-          {/* Stat tiles */}
-          <div className="grid grid-cols-3 gap-2.5 mt-4 sm:mt-5">
-            <div className="rounded-xl border border-[#22222b] bg-[#101015]/60 px-3 py-2.5">
+          {/* Featured value — the number leads; rank + trend are secondary */}
+          <div className="mt-4 sm:mt-5 flex flex-wrap items-end justify-between gap-x-4 gap-y-3 border-t border-[#22222b]/70 pt-4">
+            <div className="min-w-0">
               <p className="text-[10px] text-[#75757f] uppercase tracking-[0.12em] font-bold">Community value</p>
-              <p className="font-display text-xl font-bold text-white tabular-nums mt-0.5">{value ? value.value.toLocaleString() : '—'}</p>
-              {value && <div className="mt-1"><ConfidenceBadge rd={value.rating_deviation} size="sm" /></div>}
+              <div className="flex items-end gap-2.5 mt-1">
+                <span className="font-display text-3xl sm:text-4xl font-bold text-white tabular-nums leading-none">
+                  {value ? value.value.toLocaleString() : '—'}
+                </span>
+                {value && <ConfidenceBadge rd={value.rating_deviation} size="sm" />}
+              </div>
+              {value?.rank && (
+                <p className="text-[11px] text-[#9c9ca7] mt-1.5 tabular-nums">
+                  #{value.rank} overall
+                  {value.position_rank ? <span className="text-[#75757f]"> · {player.position}{value.position_rank}</span> : null}
+                </p>
+              )}
             </div>
-            <div className="rounded-xl border border-[#22222b] bg-[#101015]/60 px-3 py-2.5">
-              <p className="text-[10px] text-[#75757f] uppercase tracking-[0.12em] font-bold">Rank</p>
-              <p className="font-display text-xl font-bold text-white tabular-nums mt-0.5">
-                {value?.rank ? `#${value.rank}` : '—'}
-                {value?.position_rank && <span className="text-[11px] text-[#75757f] ml-1.5 font-sans">{player.position}{value.position_rank}</span>}
-              </p>
-            </div>
-            <div className="rounded-xl border border-[#22222b] bg-[#101015]/60 px-3 py-2.5">
-              <p className="text-[10px] text-[#75757f] uppercase tracking-[0.12em] font-bold">30d trend</p>
-              <p className={`font-display text-xl font-bold flex items-center gap-1 tabular-nums mt-0.5 ${trend > 0 ? 'text-accent-500' : trend < 0 ? 'text-red-400' : 'text-[#75757f]'}`}>
-                {trend > 0 ? <TrendingUp className="h-4 w-4" /> : trend < 0 ? <TrendingDown className="h-4 w-4" /> : <Minus className="h-4 w-4" />}
-                {trend > 0 ? '+' : ''}{trend.toLocaleString()}
-              </p>
+            <div className="text-right">
+              <p className="text-[10px] text-[#75757f] uppercase tracking-[0.12em] font-bold">30-day trend</p>
+              {trend === 0 ? (
+                <p className="font-display text-xl font-bold text-[#75757f] mt-1">Flat</p>
+              ) : (
+                <p className={`font-display text-xl font-bold flex items-center gap-1 justify-end tabular-nums mt-1 ${trend > 0 ? 'text-accent-500' : 'text-red-400'}`}>
+                  {trend > 0 ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
+                  {trend > 0 ? '+' : ''}{trend.toLocaleString()}
+                </p>
+              )}
             </div>
           </div>
         </div>
       </section>
 
-      {/* ── Value history ── */}
-      <section className="bg-[#141419] rounded-2xl p-4 sm:p-5 border border-[#22222b]">
-        <p className="text-[11px] font-bold text-accent-500 tracking-[0.18em] uppercase mb-0.5">Value History</p>
-        <p className="text-[10px] text-[#75757f] mb-3">Community superflex value · seeded from prior seasons, updated by trades &amp; votes</p>
-        <ValueChart data={history} height={240} />
-      </section>
+      {/* ── Tab bar ── */}
+      <div className="flex gap-1 bg-[#141419] border border-[#22222b] rounded-xl p-1">
+        {tabs.map(({ id, label, icon: Icon }) => (
+          <button
+            key={id}
+            onClick={() => set('tab', id === 'overview' ? null : id)}
+            className={`flex-1 flex items-center justify-center gap-1 sm:gap-1.5 h-9 rounded-lg text-[11px] sm:text-[13px] font-medium transition-all ${
+              activeTab === id
+                ? 'bg-accent-500 text-white shadow-[0_0_10px_rgba(34,197,94,0.2)]'
+                : 'text-[#9c9ca7] hover:text-white hover:bg-[#1b1b22]'
+            }`}
+          >
+            <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
+            <span className="truncate">{label}</span>
+          </button>
+        ))}
+      </div>
 
-      {/* ── League history (league-specific — hidden until a league is added) ── */}
-      {hasLeague && (
+      {/* ═══ OVERVIEW: market value trajectory ═══ */}
+      {activeTab === 'overview' && (
+        <SectionCard label="Value History" sub="Community superflex value · seeded from prior seasons, updated by trades & votes">
+          <ValueChart data={history} height={240} />
+        </SectionCard>
+      )}
+
+      {/* ═══ PRODUCTION: career fantasy output from nflverse ═══ */}
+      {activeTab === 'production' && (
+        facts && facts.length > 0 && career ? (
+          <SectionCard
+            label="NFL Production"
+            sub={`Fantasy points per game by season (PPR) · ${career.seasons} season${career.seasons !== 1 ? 's' : ''} on record`}
+          >
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mb-4">
+              <StatTile label="Career PPG">{career.ppg.toFixed(1)}</StatTile>
+              <StatTile label="Best season" sub={career.best.season}>{(career.best.fantasy_ppg ?? 0).toFixed(1)}</StatTile>
+              <StatTile label="Games">{career.totalGames}</StatTile>
+              <StatTile label="Draft" sub={career.draftRound != null ? `#${career.draftPick}` : undefined}>
+                {career.draftRound != null ? <>Rd {career.draftRound}</> : <span className="text-[13px] text-[#9c9ca7] font-sans">Undrafted</span>}
+              </StatTile>
+            </div>
+            <ProductionChart data={facts} height={200} />
+          </SectionCard>
+        ) : (
+          <SectionCard label="NFL Production">
+            <p className="text-[12px] text-[#75757f] py-6 text-center">No NFL production on record yet.</p>
+          </SectionCard>
+        )
+      )}
+
+      {/* ═══ LEAGUE: in-league scoring + transaction history ═══ */}
+      {activeTab === 'league' && hasLeague && (<>
+      {activeSeason && activeSeason.games > 0 && (
+        <SectionCard
+          label="In-League Scoring"
+          sub={`Weekly fantasy points in this league's scoring · ${activeSeason.season} season`}
+          right={leagueSeasons && leagueSeasons.length > 1 ? (
+            <div className="flex gap-1">
+              {leagueSeasons.map((s) => (
+                <button
+                  key={s.leagueId}
+                  onClick={() => setPickedSeason(s.season)}
+                  className={`px-2 py-0.5 rounded-md text-[10px] font-semibold tabular-nums transition-colors ${
+                    s.season === activeSeason?.season ? 'bg-accent-500 text-white' : 'text-[#75757f] hover:text-white bg-[#1b1b22]'
+                  }`}
+                >
+                  {s.season}
+                </button>
+              ))}
+            </div>
+          ) : undefined}
+        >
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mb-4">
+            <StatTile label="Avg / week">{activeSeason.avg.toFixed(1)}</StatTile>
+            <StatTile label="Best week" sub={activeSeason.best ? `Wk ${activeSeason.best.week}` : undefined}>
+              {activeSeason.best ? activeSeason.best.points.toFixed(1) : '—'}
+            </StatTile>
+            <StatTile label="Weeks">{activeSeason.games}</StatTile>
+            <StatTile label="Start rate" hint="Share of rostered weeks the owning team put this player in their starting lineup.">
+              {Math.round(activeSeason.startRate * 100)}%
+            </StatTile>
+          </div>
+          <WeeklyPointsChart data={activeSeason.weeks} height={190} />
+        </SectionCard>
+      )}
+
+      {/* ── League history timeline ── */}
       <section className="bg-[#141419] rounded-2xl border border-[#22222b] overflow-hidden">
         <div className="px-4 sm:px-5 pt-4 pb-2">
           <p className="text-[11px] font-bold text-accent-500 tracking-[0.18em] uppercase">League History</p>
@@ -320,7 +465,7 @@ export default function PlayerDetail() {
           </div>
         )}
       </section>
-      )}
+      </>)}
     </div>
   );
 }

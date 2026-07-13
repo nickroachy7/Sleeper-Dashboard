@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
+import { sleeperApi } from '../lib/sleeper-api';
 import { VALUE_SOURCE } from '../lib/value-source';
 import { useActiveLeague } from '../lib/active-league';
 import type { Player, PlayerValue, PickValue, Roster } from '../types/domain';
@@ -79,6 +80,37 @@ export function useLeagueIds() {
         previous: chain[1] ?? null,
         chain,
       };
+    },
+  });
+}
+
+export interface TrendingInfo {
+  addCount: number;   // leagues that ADDED this player in the window (0 if not trending)
+  dropCount: number;  // leagues that DROPPED this player
+}
+
+/**
+ * Community-wide add/drop buzz from Sleeper, fetched once and shared. Returns a
+ * lookup so any player page can show whether the wider Sleeper community is
+ * buying or bailing on a player in the last 24h — a universal signal that works
+ * logged-out. Cached for 30 min; a miss just means "not trending".
+ */
+export function useTrending() {
+  return useQuery({
+    queryKey: ['trending', '24h'],
+    staleTime: 30 * 60_000,
+    queryFn: async () => {
+      const [add, drop] = await Promise.all([
+        sleeperApi.getTrending('add', 24, 250).catch(() => []),
+        sleeperApi.getTrending('drop', 24, 250).catch(() => []),
+      ]);
+      const addMap = new Map(add.map((r) => [r.player_id, r.count]));
+      const dropMap = new Map(drop.map((r) => [r.player_id, r.count]));
+      const lookup = (playerId: string): TrendingInfo => ({
+        addCount: addMap.get(playerId) ?? 0,
+        dropCount: dropMap.get(playerId) ?? 0,
+      });
+      return { addMap, dropMap, lookup };
     },
   });
 }

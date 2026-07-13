@@ -80,4 +80,15 @@ export const sleeperApi = {
     if (!res.ok) throw new Error('Failed to fetch NFL state');
     return res.json();
   },
+
+  /**
+   * Community-wide "buzz" — how many Sleeper leagues added (or dropped) each
+   * player in the lookback window. A universal signal (not league-specific), so
+   * it works logged-out too.
+   */
+  async getTrending(type: 'add' | 'drop', lookbackHours = 24, limit = 250): Promise<{ player_id: string; count: number }[]> {
+    const res = await fetch(`${SLEEPER_API_BASE}/players/nfl/trending/${type}?lookback_hours=${lookbackHours}&limit=${limit}`);
+    if (!res.ok) throw new Error('Failed to fetch trending players');
+    return res.json();
+  },
 };

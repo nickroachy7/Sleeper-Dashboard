@@ -164,6 +164,125 @@ export function usePlayerDetail(playerId: string | undefined) {
   });
 }
 
+export interface PlayerSeasonFact {
+  season: number;
+  age: number | null;
+  years_exp: number | null;
+  games: number | null;
+  /** PPR fantasy points per game that season. */
+  fantasy_ppg: number | null;
+  /** PPR fantasy points, full season. */
+  fantasy_total: number | null;
+  draft_round: number | null;
+  draft_pick: number | null;
+}
+
+/**
+ * Season-by-season NFL production for one player (nflverse facts) — the
+ * career-arc data the player page uses to show real on-field output, not just
+ * market value. Sorted oldest → newest. Empty for players with no NFL seasons
+ * on record (incoming rookies, most IDP, practice-squad names).
+ */
+export function usePlayerFacts(playerId: string | undefined) {
+  return useQuery({
+    queryKey: ['player-facts', playerId],
+    enabled: !!playerId,
+    staleTime: 30 * 60_000,
+    queryFn: async (): Promise<PlayerSeasonFact[]> => {
+      const { data } = await supabase
+        .from('player_facts')
+        .select('season, age, years_exp, games, fantasy_ppg, fantasy_total, draft_round, draft_pick')
+        .eq('player_id', playerId!)
+        .order('season', { ascending: true });
+      return (data || []) as PlayerSeasonFact[];
+    },
+  });
+}
+
+export interface PlayerWeek {
+  week: number;
+  points: number;
+  /** True if the owning team STARTED this player that week (vs benched). */
+  started: boolean;
+}
+
+export interface PlayerLeagueSeason {
+  season: string;
+  leagueId: string;
+  weeks: PlayerWeek[];
+  games: number;         // weeks the player was rostered & scored a line
+  avg: number;           // avg points across those weeks
+  best: PlayerWeek | null;
+  worst: PlayerWeek | null;
+  startRate: number;     // 0..1 share of rostered weeks the team started him
+  stdev: number;         // scoring consistency (lower = steadier)
+}
+
+/**
+ * A player's weekly fantasy output INSIDE the active dynasty, per season, from
+ * `matchups.players_points`. Each week the player appears in exactly one team's
+ * players_points (whoever rostered him); `starters` tells us whether that team
+ * actually started him. Seasons are newest-first. This is the "how did he score
+ * in OUR league, and did the owner trust him" view — league-specific, so it
+ * only renders once a league is added.
+ */
+export function usePlayerLeagueWeeks(playerId: string | undefined) {
+  const { data: ids } = useLeagueIds();
+  const chain = ids?.chain ?? [];
+  return useQuery({
+    queryKey: ['player-league-weeks', playerId, chain.join(',') || 'none'],
+    enabled: !!playerId && chain.length > 0,
+    queryFn: async (): Promise<PlayerLeagueSeason[]> => {
+      const pid = playerId!;
+      const [{ data: leagues }, rows] = await Promise.all([
+        supabase.from('leagues').select('league_id, season').in('league_id', chain),
+        fetchAllRows<{ league_id: string; week: number; starters: string[] | null; players_points: Record<string, number> | null }>((from, to) =>
+          supabase
+            .from('matchups')
+            .select('league_id, week, starters, players_points')
+            .in('league_id', chain)
+            .range(from, to)
+        ),
+      ]);
+      const seasonOf = new Map<string, string>((leagues || []).map((l) => [l.league_id, l.season]));
+
+      // Collect this player's weekly line, grouped by league (season).
+      const byLeague = new Map<string, PlayerWeek[]>();
+      for (const m of rows) {
+        const pp = m.players_points;
+        if (!pp || !(pid in pp)) continue;
+        const arr = byLeague.get(m.league_id) || [];
+        arr.push({ week: m.week, points: pp[pid] ?? 0, started: (m.starters || []).includes(pid) });
+        byLeague.set(m.league_id, arr);
+      }
+
+      const seasons: PlayerLeagueSeason[] = [];
+      for (const [leagueId, weeksRaw] of byLeague) {
+        const weeks = weeksRaw.sort((a, b) => a.week - b.week);
+        const pts = weeks.map((w) => w.points);
+        const games = weeks.length;
+        const avg = games ? pts.reduce((s, v) => s + v, 0) / games : 0;
+        const variance = games ? pts.reduce((s, v) => s + (v - avg) ** 2, 0) / games : 0;
+        const best = weeks.reduce<PlayerWeek | null>((b, w) => (b == null || w.points > b.points ? w : b), null);
+        const worst = weeks.reduce<PlayerWeek | null>((b, w) => (b == null || w.points < b.points ? w : b), null);
+        const started = weeks.filter((w) => w.started).length;
+        seasons.push({
+          season: seasonOf.get(leagueId) ?? leagueId,
+          leagueId,
+          weeks,
+          games,
+          avg,
+          best,
+          worst,
+          startRate: games ? started / games : 0,
+          stdev: Math.sqrt(variance),
+        });
+      }
+      return seasons.sort((a, b) => b.season.localeCompare(a.season));
+    },
+  });
+}
+
 /** Sum of value history across a set of players (team value over time). */
 export function useRosterValueHistory(playerIds: string[] | undefined) {
   const key = (playerIds || []).slice().sort().join(',');
@@ -293,6 +412,248 @@ export function useSeasonRanks(ownerId: string | null | undefined) {
         });
       }
       return points;
+    },
+  });
+}
+
+export interface TeamLineup {
+  /** League lineup slots in order (includes BN/TAXI/IR). */
+  slots: string[];
+  /** Player ids the team is starting, parallel to the non-bench slots. "0" = empty. */
+  starters: string[];
+  /** Every player id on the roster. */
+  players: string[];
+}
+
+/**
+ * The current roster's starting lineup + slots, so the roster tab can group
+ * players into the actual lineup (by slot) vs the bench, instead of a flat list.
+ */
+export function useTeamLineup(rosterId: number | undefined) {
+  const { data: ids } = useLeagueIds();
+  const current = ids?.current ?? null;
+  return useQuery({
+    queryKey: ['team-lineup', current, rosterId],
+    enabled: rosterId !== undefined && !!current,
+    queryFn: async (): Promise<TeamLineup> => {
+      const [{ data: league }, { data: roster }] = await Promise.all([
+        supabase.from('leagues').select('roster_positions').eq('league_id', current!).maybeSingle(),
+        supabase.from('rosters').select('starters, players').eq('league_id', current!).eq('roster_id', rosterId!).maybeSingle(),
+      ]);
+      return {
+        slots: (league?.roster_positions as string[] | null) ?? [],
+        starters: (roster?.starters as string[] | null) ?? [],
+        players: (roster?.players as string[] | null) ?? [],
+      };
+    },
+  });
+}
+
+export interface HeadToHead {
+  opponentOwnerId: string;
+  wins: number;
+  losses: number;
+  ties: number;
+  games: number;
+  pointsFor: number;
+  pointsAgainst: number;
+}
+
+/**
+ * A manager's all-time head-to-head record vs every other manager in the
+ * dynasty. Pairs the two rosters in each weekly matchup (`matchup_id`), decides
+ * the game by points, and tallies by OPPONENT OWNER so rivalries hold together
+ * across seasons even when roster_ids shuffle. Sorted by games played.
+ */
+export function useHeadToHead(ownerId: string | null | undefined) {
+  const { data: ids } = useLeagueIds();
+  const chain = ids?.chain ?? [];
+  return useQuery({
+    queryKey: ['head-to-head', ownerId, chain.join(',') || 'none'],
+    enabled: !!ownerId && chain.length > 0,
+    queryFn: async (): Promise<HeadToHead[]> => {
+      const [{ data: rosters }, matchups] = await Promise.all([
+        supabase.from('rosters').select('league_id, roster_id, owner_id').in('league_id', chain),
+        fetchAllRows<{ league_id: string; week: number; matchup_id: number | null; roster_id: number; points: number | null }>((from, to) =>
+          supabase.from('matchups').select('league_id, week, matchup_id, roster_id, points').in('league_id', chain).range(from, to)),
+      ]);
+      // (league_id, roster_id) → owner_id, for cross-season identity.
+      const ownerOf = new Map<string, string>();
+      (rosters || []).forEach((r) => { if (r.owner_id) ownerOf.set(`${r.league_id}-${r.roster_id}`, r.owner_id); });
+
+      const tally = new Map<string, HeadToHead>();
+      // Group matchup rows by league+week+matchup_id to find the two sides.
+      const groups = new Map<string, typeof matchups>();
+      for (const m of matchups) {
+        if (m.matchup_id == null || m.points == null) continue;
+        const key = `${m.league_id}-${m.week}-${m.matchup_id}`;
+        const arr = groups.get(key) || [];
+        arr.push(m);
+        groups.set(key, arr);
+      }
+      for (const [, pair] of groups) {
+        if (pair.length !== 2) continue; // ignore byes / medians / malformed
+        const [a, b] = pair;
+        const aOwner = ownerOf.get(`${a.league_id}-${a.roster_id}`);
+        const bOwner = ownerOf.get(`${b.league_id}-${b.roster_id}`);
+        if (!aOwner || !bOwner || aOwner === bOwner) continue;
+        // Only tally games involving the target manager.
+        let me: typeof a, opp: typeof b, oppOwner: string;
+        if (aOwner === ownerId) { me = a; opp = b; oppOwner = bOwner; }
+        else if (bOwner === ownerId) { me = b; opp = a; oppOwner = aOwner; }
+        else continue;
+
+        const rec = tally.get(oppOwner) || { opponentOwnerId: oppOwner, wins: 0, losses: 0, ties: 0, games: 0, pointsFor: 0, pointsAgainst: 0 };
+        rec.games++;
+        rec.pointsFor += me.points ?? 0;
+        rec.pointsAgainst += opp.points ?? 0;
+        if ((me.points ?? 0) > (opp.points ?? 0)) rec.wins++;
+        else if ((me.points ?? 0) < (opp.points ?? 0)) rec.losses++;
+        else rec.ties++;
+        tally.set(oppOwner, rec);
+      }
+      return [...tally.values()].sort((x, y) => y.games - x.games || y.wins - x.wins);
+    },
+  });
+}
+
+// ── Optimal-lineup efficiency ("coach rating") ─────────────────────────
+
+// Which player positions each lineup slot can hold. Nested eligibility (QB ⊂
+// SUPER_FLEX, RB/WR/TE ⊂ FLEX ⊂ SUPER_FLEX) makes greedy most-restrictive-first
+// assignment optimal.
+const SLOT_ELIGIBILITY: Record<string, string[]> = {
+  QB: ['QB'], RB: ['RB'], WR: ['WR'], TE: ['TE'], K: ['K'], DEF: ['DEF'],
+  FLEX: ['RB', 'WR', 'TE'],
+  WRRB_FLEX: ['RB', 'WR'],
+  REC_FLEX: ['WR', 'TE'],
+  SUPER_FLEX: ['QB', 'RB', 'WR', 'TE'],
+  DL: ['DL', 'DE', 'DT'], LB: ['LB'], DB: ['DB', 'CB', 'S'],
+  IDP_FLEX: ['DL', 'DE', 'DT', 'LB', 'DB', 'CB', 'S'],
+};
+const NON_STARTING = new Set(['BN', 'TAXI', 'IR']);
+
+/**
+ * Best-possible starting points from a set of scored players, given the league's
+ * lineup slots. Fills the most restrictive slots first, each time taking the
+ * highest-scoring still-unused eligible player — optimal because Sleeper's slot
+ * eligibilities are nested.
+ */
+export function optimalLineupPoints(
+  slots: string[],
+  playerPoints: Record<string, number>,
+  positionOf: (pid: string) => string | null | undefined,
+): number {
+  const pool = Object.entries(playerPoints).map(([pid, pts]) => ({
+    pid, pts: pts ?? 0, pos: positionOf(pid) || '',
+  }));
+  const starting = slots
+    .filter((s) => !NON_STARTING.has(s))
+    .map((s) => ({ slot: s, elig: SLOT_ELIGIBILITY[s] ?? [s] }))
+    .sort((a, b) => a.elig.length - b.elig.length); // most restrictive first
+
+  const used = new Set<string>();
+  let total = 0;
+  for (const { elig } of starting) {
+    let best: { pid: string; pts: number } | null = null;
+    for (const p of pool) {
+      if (used.has(p.pid) || !elig.includes(p.pos)) continue;
+      if (!best || p.pts > best.pts) best = p;
+    }
+    if (best) { used.add(best.pid); total += best.pts; }
+  }
+  return total;
+}
+
+export interface LineupWeek {
+  week: number;
+  actual: number;   // points the team's actual starters scored
+  optimal: number;  // best-possible from the same roster that week
+}
+
+export interface LineupEfficiency {
+  season: string;
+  weeks: LineupWeek[];
+  actual: number;
+  optimal: number;
+  pointsLeft: number;        // optimal − actual, summed
+  efficiency: number;        // 0..1 = actual / optimal
+  rank: number;              // coach rank in league (1 = best lineup setter)
+  teams: number;
+  leagueAvgEfficiency: number;
+}
+
+/**
+ * "Coach rating": how well a manager sets their lineup. For the most recent
+ * PLAYED season, compares each week's actual starter output to the best lineup
+ * they could have fielded from their roster (`players_points` + the league's
+ * slots), then ranks every team by season efficiency. Surfaces the points a
+ * manager left on their bench — a metric Sleeper itself never shows.
+ */
+export function useLineupEfficiency(ownerId: string | null | undefined) {
+  const { data: ids } = useLeagueIds();
+  const chain = ids?.chain ?? [];
+  return useQuery({
+    queryKey: ['lineup-efficiency', ownerId, chain.join(',') || 'none'],
+    enabled: !!ownerId && chain.length > 0,
+    queryFn: async (): Promise<LineupEfficiency | null> => {
+      const { data: leagues } = await supabase
+        .from('leagues').select('league_id, season, roster_positions').in('league_id', chain).order('season', { ascending: false });
+      if (!leagues?.length) return null;
+
+      // Lightweight scan to find the newest season that actually has scoring.
+      const light = await fetchAllRows<{ league_id: string; points: number | null }>((from, to) =>
+        supabase.from('matchups').select('league_id, points').in('league_id', chain).range(from, to));
+      const played = new Set(light.filter((m) => (m.points ?? 0) > 0).map((m) => m.league_id));
+      const target = leagues.find((l) => played.has(l.league_id));
+      if (!target) return null;
+
+      const [{ data: rosters }, heavy, players] = await Promise.all([
+        supabase.from('rosters').select('roster_id, owner_id').eq('league_id', target.league_id),
+        fetchAllRows<{ week: number; roster_id: number; starters_points: number[] | null; players_points: Record<string, number> | null }>((from, to) =>
+          supabase.from('matchups').select('week, roster_id, starters_points, players_points').eq('league_id', target.league_id).range(from, to)),
+        fetchAllRows<{ player_id: string; position: string | null }>((from, to) =>
+          supabase.from('players').select('player_id, position').range(from, to)),
+      ]);
+      const myRosterId = (rosters || []).find((r) => r.owner_id === ownerId)?.roster_id;
+      if (myRosterId === undefined) return null;
+      const posOf = new Map(players.map((p) => [p.player_id, p.position]));
+      const slots = target.roster_positions || [];
+      const posLookup = (pid: string) => posOf.get(pid);
+
+      // Per roster: sum actual + optimal across the season.
+      const byRoster = new Map<number, { actual: number; optimal: number; weeks: LineupWeek[] }>();
+      for (const m of heavy) {
+        if (!m.players_points) continue;
+        const actual = (m.starters_points || []).reduce((s, v) => s + (v ?? 0), 0);
+        const optimal = optimalLineupPoints(slots, m.players_points, posLookup);
+        const agg = byRoster.get(m.roster_id) || { actual: 0, optimal: 0, weeks: [] };
+        agg.actual += actual;
+        agg.optimal += optimal;
+        agg.weeks.push({ week: m.week, actual, optimal });
+        byRoster.set(m.roster_id, agg);
+      }
+
+      const effOf = (a: { actual: number; optimal: number }) => (a.optimal > 0 ? a.actual / a.optimal : 1);
+      const ranked = [...byRoster.entries()]
+        .map(([rid, a]) => ({ rid, eff: effOf(a) }))
+        .sort((x, y) => y.eff - x.eff);
+      const rank = ranked.findIndex((r) => r.rid === myRosterId) + 1;
+      const leagueAvgEfficiency = ranked.length ? ranked.reduce((s, r) => s + r.eff, 0) / ranked.length : 1;
+
+      const mine = byRoster.get(myRosterId);
+      if (!mine) return null;
+      return {
+        season: target.season,
+        weeks: mine.weeks.sort((a, b) => a.week - b.week),
+        actual: mine.actual,
+        optimal: mine.optimal,
+        pointsLeft: mine.optimal - mine.actual,
+        efficiency: effOf(mine),
+        rank,
+        teams: ranked.length,
+        leagueAvgEfficiency,
+      };
     },
   });
 }

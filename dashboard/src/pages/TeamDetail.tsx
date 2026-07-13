@@ -6,7 +6,8 @@ import { SeasonRankChart } from '../components/charts/SeasonRankChart';
 import { TeamAnalyticsCharts } from '../components/charts/TeamAnalytics';
 import { CHART_POS, CHART_NEG } from '../components/charts/theme';
 import { PlayerRow } from '../components/PlayerRow';
-import { useLeagueDirectory, useSeasonRanks, useTeamAnalytics, useTeamTrades, useTeamMoves } from '../hooks/detail';
+import { StatTile } from '../components/StatTile';
+import { useLeagueDirectory, useSeasonRanks, useTeamAnalytics, useTeamTrades, useTeamMoves, useLineupEfficiency, useHeadToHead, useTeamLineup } from '../hooks/detail';
 import { usePlayerMap } from '../hooks/useLeagueData';
 import { usePlayerValuesList, usePickValues } from '../hooks/queries';
 import { useUrlState } from '../hooks/useUrlState';
@@ -19,6 +20,14 @@ const TEAM_TABS: { id: TeamTab; label: string; icon: React.ComponentType<{ class
   { id: 'roster', label: 'Roster', icon: LayoutGrid },
   { id: 'transactions', label: 'Transactions', icon: ListChecks },
 ];
+
+// Readable lineup-slot labels + which slots don't count as starting.
+const SLOT_LABEL: Record<string, string> = {
+  QB: 'QB', RB: 'RB', WR: 'WR', TE: 'TE', K: 'K', DEF: 'DEF',
+  FLEX: 'FLEX', WRRB_FLEX: 'W/R', REC_FLEX: 'W/T', SUPER_FLEX: 'SFLX',
+  DL: 'DL', LB: 'LB', DB: 'DB', IDP_FLEX: 'IDP',
+};
+const BENCH_SLOTS = new Set(['BN', 'TAXI', 'IR']);
 
 interface TradeLedgerEntry {
   txId: string;
@@ -62,6 +71,12 @@ export default function TeamDetail() {
     Number.isFinite(rosterId) ? rosterId : undefined,
     currentRoster?.owner_id
   );
+  // Coach rating: actual lineup output vs the best they could have set.
+  const { data: lineup } = useLineupEfficiency(currentRoster?.owner_id);
+  // All-time head-to-head record vs every other manager.
+  const { data: h2h } = useHeadToHead(currentRoster?.owner_id);
+  // Starting lineup + slots, to group the roster tab by lineup slot vs bench.
+  const { data: teamLineup } = useTeamLineup(Number.isFinite(rosterId) ? rosterId : undefined);
 
   // Season-by-season record with league finish (by wins, then fpts)
   const seasons = useMemo(() => {
@@ -146,6 +161,23 @@ export default function TeamDetail() {
       .sort((a, b) => b.value - a.value);
   }, [currentRoster, playersMap, playerValues]);
 
+  // Roster split into the actual starting lineup (by slot) vs the bench.
+  const lineupGroups = useMemo(() => {
+    if (!teamLineup || !playersMap || !teamLineup.slots.length) return null;
+    const info = (pid: string) => {
+      const p = playersMap.get(pid);
+      return { id: pid, name: p?.full_name || pid, position: p?.position || '?', team: p?.team || null, value: playerValues?.get(pid) || 0 };
+    };
+    const startSlots = teamLineup.slots.filter((s) => !BENCH_SLOTS.has(s));
+    const starters = startSlots.map((slot, i) => {
+      const pid = teamLineup.starters[i];
+      return { slot: SLOT_LABEL[slot] || slot, player: pid && pid !== '0' ? info(pid) : null };
+    });
+    const startedIds = new Set(teamLineup.starters.filter((id) => id && id !== '0'));
+    const bench = teamLineup.players.filter((id) => !startedIds.has(id)).map(info).sort((a, b) => b.value - a.value);
+    return { starters, bench };
+  }, [teamLineup, playersMap, playerValues]);
+
   if (isLoading || !directory) {
     return (
       <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto space-y-4">
@@ -171,12 +203,25 @@ export default function TeamDetail() {
   const tradeNet = ledger.reduce((s, e) => s + e.net, 0);
   const visibleAssets = showFullRoster ? rosterAssets : rosterAssets.slice(0, 8);
 
-  const stat = (label: string, node: React.ReactNode) => (
-    <div className="rounded-xl border border-[#22222b] bg-[#101015]/60 px-3 py-2.5">
-      <p className="text-[10px] text-[#75757f] uppercase tracking-[0.12em] font-bold">{label}</p>
-      <p className="font-display text-lg font-bold text-white tabular-nums mt-0.5">{node}</p>
-    </div>
-  );
+  // Resolve an opponent owner → their current team name and roster (for links).
+  const ownerCurrentRoster = (oid: string) =>
+    directory.rosters.find((r) => r.owner_id === oid && r.league_id === directory.currentLeagueId)
+    ?? directory.rosters.find((r) => r.owner_id === oid);
+  const ownerName = (oid: string) => {
+    const r = ownerCurrentRoster(oid);
+    return r ? directory.teamName(r.roster_id, r.league_id) : 'Unknown';
+  };
+
+  // Playstyle tags, all derived from data already on the page.
+  const gmTags: string[] = [];
+  if (analytics && analytics.weightedAge > 0) {
+    const d = analytics.weightedAge - analytics.leagueWeightedAge;
+    gmTags.push(d < -0.6 ? 'Building young' : d > 0.6 ? 'Win-now roster' : 'Balanced age');
+  }
+  const tradesPerSeason = seasons.length ? ledger.length / seasons.length : ledger.length;
+  gmTags.push(tradesPerSeason >= 6 ? 'Wheeler-dealer' : tradesPerSeason >= 3 ? 'Active trader' : 'Stands pat');
+  if (tradeNet > 3000) gmTags.push('Trades up in value');
+  else if (tradeNet < -3000) gmTags.push('Sells the future');
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto space-y-4">
@@ -201,18 +246,16 @@ export default function TeamDetail() {
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mt-4 sm:mt-5">
-            {stat('Roster value', totalValue.toLocaleString())}
-            {stat('All-time', `${allTime.w}-${allTime.l}`)}
-            {stat('Trades', ledger.length)}
-            <div
-              className="rounded-xl border border-[#22222b] bg-[#101015]/60 px-3 py-2.5 cursor-help"
-              title="Everything received minus everything given across all trades, priced at TODAY's community value. Shows how traded assets aged — not whether trades were fair when made."
+            <StatTile label="Roster value">{totalValue.toLocaleString()}</StatTile>
+            <StatTile label="All-time">{allTime.w}-{allTime.l}</StatTile>
+            <StatTile label="Trades">{ledger.length}</StatTile>
+            <StatTile
+              label="Trade net (today)"
+              hint="Everything received minus everything given across all trades, priced at TODAY's community value. Shows how traded assets aged — not whether trades were fair when made."
+              valueClassName={tradeNet > 0 ? 'text-accent-500' : tradeNet < 0 ? 'text-red-400' : 'text-[#75757f]'}
             >
-              <p className="text-[10px] text-[#75757f] uppercase tracking-[0.12em] font-bold">Trade net (today) ⓘ</p>
-              <p className={`font-display text-lg font-bold tabular-nums mt-0.5 ${tradeNet > 0 ? 'text-accent-500' : tradeNet < 0 ? 'text-red-400' : 'text-[#75757f]'}`}>
-                {tradeNet > 0 ? '+' : ''}{tradeNet.toLocaleString()}
-              </p>
-            </div>
+              {tradeNet > 0 ? '+' : ''}{tradeNet.toLocaleString()}
+            </StatTile>
           </div>
         </div>
       </section>
@@ -239,7 +282,7 @@ export default function TeamDetail() {
       {activeTab === 'overview' && (<>
       {/* ── Roster value by season (vs league average) ── */}
       <section className="bg-[#141419] rounded-2xl p-4 sm:p-5 border border-[#22222b]">
-        <p className="text-[11px] font-bold text-white tracking-[0.18em] uppercase mb-0.5">Power &amp; Finish by Season</p>
+        <p className="text-[11px] font-bold text-accent-500 tracking-[0.18em] uppercase mb-0.5">Power &amp; Finish by Season</p>
         <p className="text-[10px] text-[#75757f] mb-3">
           Where this team ranked in roster talent (green) vs where it actually finished (purple), each season.
           Rising = climbing the league; a finish worse than power means underachieving, better means overachieving.
@@ -395,6 +438,61 @@ export default function TeamDetail() {
       </section>
       )}
 
+      {/* ═══ OVERVIEW (cont.): GM profile + head-to-head rivalries ═══ */}
+      {activeTab === 'overview' && (h2h && h2h.length > 0) && (
+      <section className="bg-[#141419] rounded-2xl p-4 sm:p-5 border border-[#22222b]">
+        <p className="text-[11px] font-bold text-accent-500 tracking-[0.18em] uppercase mb-0.5">Head-to-Head</p>
+        <p className="text-[10px] text-[#75757f] mb-3">All-time record vs each manager across every season of the dynasty</p>
+
+        {gmTags.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 mb-4">
+            {gmTags.map((t) => (
+              <span key={t} className="inline-flex items-center rounded-full bg-[#1b1b22] border border-[#2e2e38] px-2 py-0.5 text-[10px] font-semibold text-[#c4c4cc]">
+                {t}
+              </span>
+            ))}
+          </div>
+        )}
+
+        <div className="-mx-4 sm:-mx-5 border-t border-[#1b1b22]">
+          {h2h.map((r) => {
+            const oppRoster = ownerCurrentRoster(r.opponentOwnerId);
+            const winPct = r.games ? r.wins / r.games : 0;
+            const avgMargin = r.games ? (r.pointsFor - r.pointsAgainst) / r.games : 0;
+            const rowInner = (
+              <>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[13px] text-white font-medium truncate group-hover:text-accent-400 transition-colors">
+                    {ownerName(r.opponentOwnerId)}
+                  </p>
+                  <p className="text-[10px] text-[#75757f] tabular-nums">
+                    {r.games} game{r.games !== 1 ? 's' : ''} · {avgMargin >= 0 ? '+' : ''}{avgMargin.toFixed(1)} avg margin
+                  </p>
+                </div>
+                {/* Win-pct mini bar */}
+                <div className="w-16 h-1.5 rounded-full bg-[#22222b] overflow-hidden shrink-0">
+                  <div className="h-full rounded-full" style={{ width: `${winPct * 100}%`, backgroundColor: winPct >= 0.5 ? CHART_POS : CHART_NEG, opacity: 0.85 }} />
+                </div>
+                <div className="text-right shrink-0 w-14">
+                  <p className="font-display text-[13px] font-bold tabular-nums" style={{ color: r.wins > r.losses ? CHART_POS : r.wins < r.losses ? CHART_NEG : '#9c9ca7' }}>
+                    {r.wins}-{r.losses}{r.ties ? `-${r.ties}` : ''}
+                  </p>
+                </div>
+              </>
+            );
+            const cls = 'group flex items-center gap-3 px-4 sm:px-5 py-2.5 border-b border-[#1b1b22] last:border-b-0';
+            return oppRoster ? (
+              <Link key={r.opponentOwnerId} to={`/teams/${oppRoster.roster_id}`} className={`${cls} hover:bg-[#1b1b22] active:bg-[#22222b] transition-colors`}>
+                {rowInner}
+              </Link>
+            ) : (
+              <div key={r.opponentOwnerId} className={cls}>{rowInner}</div>
+            );
+          })}
+        </div>
+      </section>
+      )}
+
       {/* ═══ ANALYTICS: contention window, scoring/luck, positional edge ═══ */}
       {activeTab === 'analytics' && (
         analyticsLoading && !analytics ? (
@@ -403,37 +501,85 @@ export default function TeamDetail() {
             <div className="skeleton h-56 w-full rounded-2xl" />
           </div>
         ) : analytics ? (
-          <TeamAnalyticsCharts data={analytics} />
+          <TeamAnalyticsCharts data={analytics} lineup={lineup} />
         ) : null
       )}
 
-      {/* ═══ ROSTER: full player list ═══ */}
+      {/* ═══ ROSTER: starting lineup (by slot) + bench ═══ */}
       {activeTab === 'roster' && (
-      <section className="bg-[#141419] rounded-2xl border border-[#22222b] overflow-hidden">
-        <div className="px-4 sm:px-5 pt-4 pb-2 flex items-baseline justify-between">
-          <p className="text-[11px] font-bold text-accent-500 tracking-[0.18em] uppercase">Roster</p>
-          <span className="text-[10px] text-[#60606a]">{rosterAssets.length} players</span>
-        </div>
-        {visibleAssets.map((a) => (
-          <PlayerRow
-            key={a.id}
-            playerId={a.id}
-            name={a.name}
-            position={a.position}
-            team={a.team}
-            value={a.value}
-            divided
-          />
-        ))}
-        {rosterAssets.length > 8 && (
-          <button
-            onClick={() => setShowFullRoster((v) => !v)}
-            className="w-full py-2.5 text-[11px] text-[#75757f] hover:text-white active:text-white transition-colors border-t border-[#1b1b22]"
-          >
-            {showFullRoster ? 'Show less' : `Show all ${rosterAssets.length} players`}
-          </button>
-        )}
-      </section>
+        lineupGroups ? (
+          <div className="space-y-4">
+            {/* Starting lineup */}
+            <section className="bg-[#141419] rounded-2xl border border-[#22222b] overflow-hidden">
+              <div className="px-4 sm:px-5 pt-4 pb-2 flex items-baseline justify-between">
+                <p className="text-[11px] font-bold text-accent-500 tracking-[0.18em] uppercase">Starting Lineup</p>
+                <span className="text-[10px] text-[#60606a]">{lineupGroups.starters.length} slots</span>
+              </div>
+              {lineupGroups.starters.map((s, i) => {
+                const chip = (
+                  <span className="font-display text-[10px] font-bold w-9 text-center text-[#75757f] uppercase tracking-wide shrink-0">
+                    {s.slot}
+                  </span>
+                );
+                return s.player ? (
+                  <PlayerRow
+                    key={`${s.slot}-${i}`}
+                    playerId={s.player.id}
+                    name={s.player.name}
+                    position={s.player.position}
+                    team={s.player.team}
+                    value={s.player.value}
+                    lead={chip}
+                    divided
+                  />
+                ) : (
+                  <div key={`${s.slot}-${i}`} className="flex items-center gap-3 px-3 py-2.5 border-b border-[#1b1b22] last:border-b-0">
+                    {chip}
+                    <div className="w-9 h-9 rounded-full bg-[#161616] border border-[#22222b] shrink-0" />
+                    <span className="text-[13px] text-[#4c4c56] italic">Empty</span>
+                  </div>
+                );
+              })}
+            </section>
+
+            {/* Bench */}
+            <section className="bg-[#141419] rounded-2xl border border-[#22222b] overflow-hidden">
+              <div className="px-4 sm:px-5 pt-4 pb-2 flex items-baseline justify-between">
+                <p className="text-[11px] font-bold text-accent-500 tracking-[0.18em] uppercase">Bench</p>
+                <span className="text-[10px] text-[#60606a]">{lineupGroups.bench.length} players</span>
+              </div>
+              {(showFullRoster ? lineupGroups.bench : lineupGroups.bench.slice(0, 8)).map((a) => (
+                <PlayerRow key={a.id} playerId={a.id} name={a.name} position={a.position} team={a.team} value={a.value} divided />
+              ))}
+              {lineupGroups.bench.length > 8 && (
+                <button
+                  onClick={() => setShowFullRoster((v) => !v)}
+                  className="w-full py-2.5 text-[11px] text-[#75757f] hover:text-white active:text-white transition-colors border-t border-[#1b1b22]"
+                >
+                  {showFullRoster ? 'Show less' : `Show all ${lineupGroups.bench.length} bench players`}
+                </button>
+              )}
+            </section>
+          </div>
+        ) : (
+          <section className="bg-[#141419] rounded-2xl border border-[#22222b] overflow-hidden">
+            <div className="px-4 sm:px-5 pt-4 pb-2 flex items-baseline justify-between">
+              <p className="text-[11px] font-bold text-accent-500 tracking-[0.18em] uppercase">Roster</p>
+              <span className="text-[10px] text-[#60606a]">{rosterAssets.length} players</span>
+            </div>
+            {visibleAssets.map((a) => (
+              <PlayerRow key={a.id} playerId={a.id} name={a.name} position={a.position} team={a.team} value={a.value} divided />
+            ))}
+            {rosterAssets.length > 8 && (
+              <button
+                onClick={() => setShowFullRoster((v) => !v)}
+                className="w-full py-2.5 text-[11px] text-[#75757f] hover:text-white active:text-white transition-colors border-t border-[#1b1b22]"
+              >
+                {showFullRoster ? 'Show less' : `Show all ${rosterAssets.length} players`}
+              </button>
+            )}
+          </section>
+        )
       )}
     </div>
   );
