@@ -6,6 +6,7 @@ import { PositionBadge } from '../components/PositionBadge';
 import { ConfidenceBadge } from '../components/ConfidenceBadge';
 import { usePlayerDetail, useLeagueDirectory } from '../hooks/detail';
 import { usePlayers } from '../hooks/queries';
+import { useActiveLeague } from '../lib/active-league';
 import { getPlayerImageUrl, playerMoves, txDraftPicks, ordinalRound } from '../lib/trade-shared';
 import type { TransactionRow } from '../types/domain';
 
@@ -50,6 +51,7 @@ const KIND_BADGE: Record<TimelineEvent['kind'], { label: string; cls: string }> 
 
 export default function PlayerDetail() {
   const { playerId } = useParams<{ playerId: string }>();
+  const { hasLeague } = useActiveLeague();
   const { data, isLoading } = usePlayerDetail(playerId);
   const { data: directory } = useLeagueDirectory();
   const { data: allPlayers } = usePlayers();
@@ -201,16 +203,19 @@ export default function PlayerDetail() {
                 {player.age ? ` · ${player.age} yrs` : ''}
                 {player.years_exp != null ? ` · ${player.years_exp === 0 ? 'Rookie' : `${player.years_exp} yr exp`}` : ''}
               </p>
-              <p className="text-[12px] text-[#75757f] mt-0.5">
-                {currentOwner ? (
-                  <>
-                    Owned by{' '}
-                    <Link to={`/teams/${currentOwner.rosterId}`} className="text-accent-400 hover:text-accent-300 font-semibold">
-                      {currentOwner.name}
-                    </Link>
-                  </>
-                ) : 'Unowned in league'}
-              </p>
+              {/* Ownership is league-specific — only shown once a league is added. */}
+              {hasLeague && (
+                <p className="text-[12px] text-[#75757f] mt-0.5">
+                  {currentOwner ? (
+                    <>
+                      Owned by{' '}
+                      <Link to={`/teams/${currentOwner.rosterId}`} className="text-accent-400 hover:text-accent-300 font-semibold">
+                        {currentOwner.name}
+                      </Link>
+                    </>
+                  ) : 'Unowned in league'}
+                </p>
+              )}
             </div>
           </div>
 
@@ -246,7 +251,8 @@ export default function PlayerDetail() {
         <ValueChart data={history} height={240} />
       </section>
 
-      {/* ── League history ── */}
+      {/* ── League history (league-specific — hidden until a league is added) ── */}
+      {hasLeague && (
       <section className="bg-[#141419] rounded-2xl border border-[#22222b] overflow-hidden">
         <div className="px-4 sm:px-5 pt-4 pb-2">
           <p className="text-[11px] font-bold text-accent-500 tracking-[0.18em] uppercase">League History</p>
@@ -314,6 +320,7 @@ export default function PlayerDetail() {
           </div>
         )}
       </section>
+      )}
     </div>
   );
 }
