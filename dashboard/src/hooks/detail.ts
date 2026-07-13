@@ -242,6 +242,7 @@ export function usePlayerLeagueWeeks(playerId: string | undefined) {
             .select('league_id, week, starters, players_points')
             .in('league_id', chain)
             .range(from, to)
+            .returns<{ league_id: string; week: number; starters: string[] | null; players_points: Record<string, number> | null }[]>()
         ),
       ]);
       const seasonOf = new Map<string, string>((leagues || []).map((l) => [l.league_id, l.season]));
@@ -611,7 +612,8 @@ export function useLineupEfficiency(ownerId: string | null | undefined) {
       const [{ data: rosters }, heavy, players] = await Promise.all([
         supabase.from('rosters').select('roster_id, owner_id').eq('league_id', target.league_id),
         fetchAllRows<{ week: number; roster_id: number; starters_points: number[] | null; players_points: Record<string, number> | null }>((from, to) =>
-          supabase.from('matchups').select('week, roster_id, starters_points, players_points').eq('league_id', target.league_id).range(from, to)),
+          supabase.from('matchups').select('week, roster_id, starters_points, players_points').eq('league_id', target.league_id).range(from, to)
+            .returns<{ week: number; roster_id: number; starters_points: number[] | null; players_points: Record<string, number> | null }[]>()),
         fetchAllRows<{ player_id: string; position: string | null }>((from, to) =>
           supabase.from('players').select('player_id, position').range(from, to)),
       ]);
