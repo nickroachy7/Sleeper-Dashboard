@@ -1,18 +1,20 @@
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useMemo, useState } from 'react';
-import { ArrowRightLeft, ChevronRight, Users, LayoutGrid, ListChecks, BarChart3, Sparkles } from 'lucide-react';
+import { ArrowRightLeft, ChevronRight, Users, LayoutGrid, ListChecks, BarChart3, Sparkles, Target } from 'lucide-react';
 import { ValueChart } from '../components/charts/ValueChart';
 import { SeasonRankChart } from '../components/charts/SeasonRankChart';
 import { TeamAnalyticsCharts } from '../components/charts/TeamAnalytics';
 import { CHART_POS, CHART_NEG } from '../components/charts/theme';
 import { PlayerRow } from '../components/PlayerRow';
 import { StatTile } from '../components/StatTile';
+import { SectionCard } from '../components/SectionCard';
 import { TabBar } from '../components/TabBar';
 import { useLeagueDirectory, useSeasonRanks, useTeamAnalytics, useTeamTrades, useTeamMoves, useLineupEfficiency, useHeadToHead, useTeamLineup } from '../hooks/detail';
 import { usePlayerMap } from '../hooks/useLeagueData';
-import { usePlayerValuesList, usePickValues, useNflState } from '../hooks/queries';
+import { usePlayerValuesList, usePickValues, useTradedPicks, useNflState } from '../hooks/queries';
 import { useUrlState } from '../hooks/useUrlState';
-import { playerMoves, txDraftPicks, lookupPickValue } from '../lib/trade-shared';
+import { playerMoves, txDraftPicks, lookupPickValue, calcWeightedPositionValue, buildPicksForRoster, POSITION_WEIGHT_TIERS, type RosterPosition } from '../lib/trade-shared';
+import type { Roster } from '../types/domain';
 
 type TeamTab = 'overview' | 'roster' | 'analytics' | 'transactions';
 const TEAM_TABS: { id: TeamTab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
@@ -29,6 +31,9 @@ const SLOT_LABEL: Record<string, string> = {
   DL: 'DL', LB: 'LB', DB: 'DB', IDP_FLEX: 'IDP',
 };
 const BENCH_SLOTS = new Set(['BN', 'TAXI', 'IR']);
+
+const fmtVal = (n: number) => Math.round(n).toLocaleString();
+const POSITIONS: RosterPosition[] = ['QB', 'RB', 'WR', 'TE'];
 
 interface TradeLedgerEntry {
   txId: string;
@@ -51,6 +56,7 @@ export default function TeamDetail() {
   const { data: playersMap } = usePlayerMap();
   const { data: playerValues } = usePlayerValuesList();
   const { data: pickValues } = usePickValues();
+  const { data: tradedPicks } = useTradedPicks(directory?.currentLeagueId ?? null);
   const { data: trades } = useTeamTrades(Number.isFinite(rosterId) ? rosterId : undefined);
   const { data: moves } = useTeamMoves(Number.isFinite(rosterId) ? rosterId : undefined);
   const [showFullRoster, setShowFullRoster] = useState(false);
@@ -213,6 +219,75 @@ export default function TeamDetail() {
     return { starters, bench };
   }, [teamLineup, playersMap, playerValues]);
 
+  // ── Roster construction: weighted positional value vs the league average,
+  //    so a team's strengths and holes are legible at a glance. ──────────
+  const construction = useMemo(() => {
+    if (!directory || !playersMap || !playerValues) return null;
+    const leagueRosters = directory.rosters.filter((r) => r.league_id === directory.currentLeagueId);
+    if (!leagueRosters.length) return null;
+
+    const posValues = (playerIds: string[]): Record<RosterPosition, number> => {
+      const groups: Record<RosterPosition, { value: number }[]> = { QB: [], RB: [], WR: [], TE: [] };
+      for (const pid of playerIds) {
+        const p = playersMap.get(pid);
+        const val = playerValues.get(pid) || 0;
+        if (p && (p.position as RosterPosition) in POSITION_WEIGHT_TIERS) {
+          groups[p.position as RosterPosition].push({ value: val });
+        }
+      }
+      return {
+        QB: calcWeightedPositionValue(groups.QB, 'QB'),
+        RB: calcWeightedPositionValue(groups.RB, 'RB'),
+        WR: calcWeightedPositionValue(groups.WR, 'WR'),
+        TE: calcWeightedPositionValue(groups.TE, 'TE'),
+      };
+    };
+
+    const mine = posValues((currentRoster?.players as string[]) || []);
+    const leagueAvg: Record<RosterPosition, number> = { QB: 0, RB: 0, WR: 0, TE: 0 };
+    for (const r of leagueRosters) {
+      const pv = posValues((r.players as string[]) || []);
+      for (const pos of POSITIONS) leagueAvg[pos] += pv[pos];
+    }
+    for (const pos of POSITIONS) leagueAvg[pos] = leagueAvg[pos] / leagueRosters.length;
+
+    const rows = POSITIONS.map((pos) => {
+      const ratio = leagueAvg[pos] > 0 ? mine[pos] / leagueAvg[pos] : 1;
+      const label = ratio >= 1.2 ? 'Strong' : ratio <= 0.8 ? 'Thin' : 'Average';
+      return { pos, value: mine[pos], avg: leagueAvg[pos], ratio, label };
+    });
+    const max = Math.max(1, ...rows.flatMap((r) => [r.value, r.avg]));
+    const strongest = [...rows].sort((a, b) => b.ratio - a.ratio)[0];
+    const weakest = [...rows].sort((a, b) => a.ratio - b.ratio)[0];
+    return { rows, max, strongest, weakest };
+  }, [directory, playersMap, playerValues, currentRoster]);
+
+  // Bench value = tradeable depth sitting outside the starting lineup.
+  const benchValue = useMemo(
+    () => lineupGroups?.bench.reduce((s, p) => s + p.value, 0) ?? null,
+    [lineupGroups]
+  );
+
+  // ── Draft capital: this team's future picks, valued. ─────────────────
+  const draftCapital = useMemo(() => {
+    if (!directory || !pickValues || !tradedPicks) return null;
+    const leagueRosters = directory.rosters.filter((r) => r.league_id === directory.currentLeagueId);
+    if (!leagueRosters.length) return null;
+    const rosterList: Roster[] = leagueRosters.map((r) => ({
+      roster_id: r.roster_id,
+      owner_id: r.owner_id || '',
+      players: (r.players as string[]) || [],
+      wins: r.wins || 0,
+      losses: r.losses || 0,
+      fpts: Number(r.fpts) || 0,
+      ownerName: directory.teamName(r.roster_id),
+      teamName: null,
+    }));
+    const picks = buildPicksForRoster(rosterId, rosterList, pickValues, tradedPicks as { season: string; round: number; roster_id: number; owner_id: number }[]);
+    const total = picks.reduce((s, p) => s + p.value, 0);
+    return { picks, total };
+  }, [directory, pickValues, tradedPicks, rosterId]);
+
   if (isLoading || !directory) {
     return (
       <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto space-y-4">
@@ -353,6 +428,63 @@ export default function TeamDetail() {
         )}
       </section>
       </>)}
+
+      {/* ═══ OVERVIEW (cont.): roster construction (positional strengths/holes) ═══ */}
+      {activeTab === 'overview' && construction && (
+        <SectionCard label="Roster Construction" sub="Weighted value by position vs the league average — the team's strengths and holes">
+          <div className="space-y-3">
+            {construction.rows.map((r) => {
+              const strong = r.label === 'Strong';
+              const thin = r.label === 'Thin';
+              const color = thin ? '#f59e0b' : strong ? CHART_POS : '#3a3a44';
+              const tag = thin ? 'text-amber-400' : strong ? 'text-accent-400' : 'text-[#75757f]';
+              return (
+                <div key={r.pos}>
+                  <div className="flex items-baseline justify-between mb-1">
+                    <span className="text-[12px] font-semibold text-white flex items-center gap-1.5">
+                      {r.pos}
+                      <span className={`text-[10px] font-bold uppercase tracking-wide ${tag}`}>{r.label}</span>
+                    </span>
+                    <span className="text-[11px] tabular-nums text-[#9c9ca7]">
+                      {fmtVal(r.value)} <span className="text-[#60606a]">· avg {fmtVal(r.avg)}</span>
+                    </span>
+                  </div>
+                  <div className="relative h-2.5 rounded-full bg-[#1b1b22] overflow-hidden">
+                    <div className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${(r.value / construction.max) * 100}%`, backgroundColor: color, opacity: 0.9 }} />
+                    <div className="absolute inset-y-0 w-px bg-white/40" style={{ left: `${(r.avg / construction.max) * 100}%` }} title={`league avg ${fmtVal(r.avg)}`} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-4 text-[11px]">
+            <span className="text-[#9c9ca7]">Deepest: <span className="text-accent-400 font-semibold">{construction.strongest.pos}</span></span>
+            <span className="text-[#9c9ca7]">Thinnest: <span className="text-amber-400 font-semibold">{construction.weakest.pos}</span></span>
+            {benchValue != null && (
+              <span className="text-[#9c9ca7]">Bench depth: <span className="text-white font-semibold tabular-nums">{fmtVal(benchValue)}</span></span>
+            )}
+            <Link to="/trade?tab=find" className="ml-auto inline-flex items-center gap-1 text-accent-400 hover:text-accent-300 font-semibold">
+              <Target className="h-3.5 w-3.5" /> Find trades
+            </Link>
+          </div>
+        </SectionCard>
+      )}
+
+      {/* ═══ OVERVIEW (cont.): draft capital ═══ */}
+      {activeTab === 'overview' && draftCapital && draftCapital.picks.length > 0 && (
+        <SectionCard
+          label="Draft Capital"
+          sub="Future rookie picks this team controls"
+          right={<span className="text-[11px] tabular-nums text-[#9c9ca7]">{fmtVal(draftCapital.total)} <span className="text-[#60606a]">total</span></span>}
+          flush
+        >
+          <div>
+            {draftCapital.picks.slice(0, 8).map((pk) => (
+              <PlayerRow key={pk.id} playerId={null} name={pk.name} value={pk.value} to={null} divided />
+            ))}
+          </div>
+        </SectionCard>
+      )}
 
       {/* ═══ TRANSACTIONS: trade +/- + all moves ═══ */}
       {activeTab === 'transactions' && (<>

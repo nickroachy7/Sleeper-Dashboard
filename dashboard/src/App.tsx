@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './components/Layout';
 import { ScrollManager } from './components/ScrollManager';
 import Home from './pages/Home';
+import League from './pages/League';
 import Settings from './pages/Settings';
 import Transactions from './pages/Transactions';
 import Drafts from './pages/Drafts';
@@ -20,6 +21,7 @@ function App() {
     <Routes>
       <Route path="/" element={<Layout />}>
         <Route index element={<Home />} />
+        <Route path="league" element={<League />} />
         <Route path="trade" element={<TradeTools />} />
         <Route path="ktc-values" element={<KTCValues />} />
         <Route path="value-vote" element={<ValueVote />} />
@@ -37,10 +39,9 @@ function App() {
         <Route path="trade-history" element={<Navigate to="/transactions" replace />} />
         <Route path="setup" element={<Navigate to="/settings" replace />} />
         <Route path="sync-status" element={<Navigate to="/settings" replace />} />
-        <Route path="standings" element={<Navigate to="/" replace />} />
+        <Route path="standings" element={<Navigate to="/league" replace />} />
         <Route path="rosters" element={<Navigate to="/" replace />} />
-        <Route path="matchups" element={<Navigate to="/" replace />} />
-        <Route path="league" element={<Navigate to="/" replace />} />
+        <Route path="matchups" element={<Navigate to="/league?tab=scoreboard" replace />} />
         <Route path="tools" element={<Navigate to="/trade" replace />} />
         <Route path="minigames" element={<Navigate to="/" replace />} />
       </Route>

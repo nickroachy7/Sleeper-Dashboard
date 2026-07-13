@@ -9,6 +9,7 @@ import {
   Sparkles,
   Swords,
   Layers,
+  Trophy,
   Menu,
   X,
   Search,
@@ -32,6 +33,7 @@ interface NavItem {
 
 const primaryNav: NavItem[] = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
+  { to: '/league', icon: Trophy, label: 'League' },
   { to: '/trade', icon: Scale, label: 'Trade Tools' },
   { to: '/ktc-values', icon: TrendingUp, label: 'Player Values' },
   { to: '/value-vote', icon: Swords, label: 'Value Vote' },
@@ -54,6 +56,7 @@ const drawerSections: NavSection[] = [
     heading: 'Main',
     items: [
       { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
+      { to: '/league', icon: Trophy, label: 'League' },
       { to: '/trade', icon: Scale, label: 'Trade Tools' },
       { to: '/ktc-values', icon: TrendingUp, label: 'Player Values' },
       { to: '/value-vote', icon: Swords, label: 'Value Vote' },

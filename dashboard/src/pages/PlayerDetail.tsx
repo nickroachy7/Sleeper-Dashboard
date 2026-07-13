@@ -9,8 +9,9 @@ import { ConfidenceBadge } from '../components/ConfidenceBadge';
 import { SectionCard } from '../components/SectionCard';
 import { StatTile } from '../components/StatTile';
 import { TabBar } from '../components/TabBar';
+import { PlayerRow } from '../components/PlayerRow';
 import { usePlayerDetail, useLeagueDirectory, usePlayerFacts, usePlayerLeagueWeeks } from '../hooks/detail';
-import { usePlayers, useTrending } from '../hooks/queries';
+import { usePlayers, usePlayerValuesList, useTrending } from '../hooks/queries';
 import { useUrlState } from '../hooks/useUrlState';
 import { useActiveLeague } from '../lib/active-league';
 import { getPlayerImageUrl, playerMoves, txDraftPicks, ordinalRound } from '../lib/trade-shared';
@@ -55,6 +56,98 @@ const KIND_BADGE: Record<TimelineEvent['kind'], { label: string; cls: string }> 
   commissioner: { label: 'COMMISH', cls: BADGE_CLS },
 };
 
+// ── Outlook: a plain-English buy/sell/hold read ────────────────────
+// A transparent, rules-based summary of the 30-day value trend, the player's
+// dynasty age window, and (when known) how recent on-field production compares
+// to career norm. It's a heuristic read, not advice — the UI labels it as such.
+
+type Verdict = 'Buy' | 'Buy low' | 'Hold' | 'Sell' | 'Sell high';
+
+interface Outlook {
+  verdict: Verdict;
+  blurb: string;
+  tone: 'pos' | 'neg' | 'neutral';
+}
+
+function agingThresholdFor(position: string): number {
+  if (position === 'RB') return 27;
+  if (position === 'QB') return 34;
+  if (position === 'TE') return 30;
+  return 29; // WR / default
+}
+
+function computeOutlook(opts: {
+  trend: number;
+  position: string;
+  age: number | null;
+  lastPpg?: number | null;
+  careerPpg?: number | null;
+}): Outlook {
+  const { trend, position, age } = opts;
+  const strongUp = trend >= 250, up = trend > 0;
+  const strongDown = trend <= -250, down = trend < 0;
+  const young = age != null && age <= 24;
+  const aging = age != null && age >= agingThresholdFor(position);
+
+  let verdict: Verdict;
+  if (aging && up) verdict = 'Sell high';
+  else if (aging && down) verdict = 'Sell';
+  else if (young && down) verdict = 'Buy low';
+  else if (young && up) verdict = 'Buy';
+  else if (up && !aging) verdict = 'Buy';
+  else if (down && !young) verdict = 'Sell';
+  else verdict = 'Hold';
+
+  const momentum = strongUp ? 'Value is climbing fast'
+    : up ? 'Value is trending up'
+    : strongDown ? 'Value is falling sharply'
+    : down ? 'Value is drifting down'
+    : 'Value has held steady';
+  const agePart = age == null ? ''
+    : young ? `, and at ${age} he's still ascending`
+    : aging ? `, and at ${age} he's late in his dynasty window`
+    : `, in his prime at ${age}`;
+
+  let prodPart = '';
+  if (opts.lastPpg != null && opts.careerPpg && opts.careerPpg > 0) {
+    const ratio = opts.lastPpg / opts.careerPpg;
+    if (ratio >= 1.15) prodPart = ' His last season outproduced his career average.';
+    else if (ratio <= 0.85) prodPart = ' His last season came in below his career average.';
+  }
+
+  const action: Record<Verdict, string> = {
+    'Buy': ' A buy-and-hold building block.',
+    'Buy low': ' A potential buy-low window.',
+    'Hold': ' A hold at current value.',
+    'Sell': ' Consider selling before further slippage.',
+    'Sell high': ' A candidate to sell high while value is up.',
+  };
+
+  return {
+    verdict,
+    blurb: `${momentum}${agePart}.${prodPart}${action[verdict]}`,
+    tone: verdict.startsWith('Buy') ? 'pos' : verdict.startsWith('Sell') ? 'neg' : 'neutral',
+  };
+}
+
+function OutlookCard({ outlook }: { outlook: Outlook }) {
+  const tone = outlook.tone === 'pos'
+    ? { pill: 'bg-accent-500/15 text-accent-400 border-accent-500/25' }
+    : outlook.tone === 'neg'
+    ? { pill: 'bg-red-500/12 text-red-400 border-red-500/25' }
+    : { pill: 'bg-[#22222b] text-[#c4c4cd] border-[#2e2e38]' };
+  return (
+    <SectionCard label="Outlook" sub="Auto-generated read from value trend & age — not trade advice">
+      <div className="flex items-start gap-3">
+        <span className={`shrink-0 inline-flex items-center rounded-lg border px-2.5 h-7 text-[12px] font-bold ${tone.pill}`}>
+          {outlook.verdict}
+        </span>
+        <p className="text-[13px] text-[#d6d6de] leading-relaxed">{outlook.blurb}</p>
+      </div>
+    </SectionCard>
+  );
+}
+
 type PlayerTab = 'overview' | 'production' | 'league';
 const PLAYER_TABS: { id: PlayerTab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { id: 'overview', label: 'Overview', icon: BarChart3 },
@@ -72,6 +165,7 @@ export default function PlayerDetail() {
   const { data: trending } = useTrending();
   const buzz = playerId && trending ? trending.lookup(playerId) : null;
   const { data: allPlayers } = usePlayers();
+  const { data: playerValues } = usePlayerValuesList();
 
   // Only in-league seasons that have actually kicked off — a season whose league
   // has no games on record (offseason/future) is dropped so the pills don't
@@ -142,6 +236,32 @@ export default function PlayerDetail() {
     () => new Map((allPlayers ?? []).map((p) => [p.player_id, p.full_name])),
     [allPlayers],
   );
+
+  // Auto-generated buy/sell/hold read from the value trend + dynasty age window.
+  const outlook = useMemo((): Outlook | null => {
+    if (!data?.player || !data.value) return null;
+    return computeOutlook({
+      trend: data.value.trend ?? 0,
+      position: data.player.position ?? '',
+      age: data.player.age ?? null,
+      lastPpg: facts?.length ? facts[facts.length - 1].fantasy_ppg : null,
+      careerPpg: career?.ppg ?? null,
+    });
+  }, [data, facts, career]);
+
+  // Comparable assets: the nearest-value players at the same position, for
+  // trade context ("who trades straight-up for him").
+  const comparables = useMemo(() => {
+    const p = data?.player;
+    const myVal = data?.value?.value ?? 0;
+    if (!p || !allPlayers || !playerValues || !p.position || !myVal) return [];
+    return allPlayers
+      .filter((x) => x.player_id !== p.player_id && x.position === p.position)
+      .map((x) => ({ player: x, value: playerValues.get(x.player_id) ?? 0 }))
+      .filter((x) => x.value > 0)
+      .sort((a, b) => Math.abs(a.value - myVal) - Math.abs(b.value - myVal))
+      .slice(0, 5);
+  }, [data, allPlayers, playerValues]);
 
   const currentOwner = useMemo(() => {
     if (!data || !directory) return null;
@@ -351,12 +471,34 @@ export default function PlayerDetail() {
       {/* ── Tab bar ── */}
       <TabBar tabs={tabs} active={activeTab} onChange={(id) => set('tab', id === 'overview' ? null : id)} />
 
-      {/* ═══ OVERVIEW: market value trajectory ═══ */}
-      {activeTab === 'overview' && (
+      {/* ═══ OVERVIEW: outlook, market value trajectory, comparables ═══ */}
+      {activeTab === 'overview' && (<>
+        {outlook && <OutlookCard outlook={outlook} />}
         <SectionCard label="Value History" sub="Community superflex value · seeded from prior seasons, updated by trades & votes">
           <ValueChart data={history} height={240} />
         </SectionCard>
-      )}
+        {comparables.length > 0 && (
+          <SectionCard
+            label="Comparable Value"
+            sub={`Players closest to ${player.full_name}'s value at ${player.position} — straight-up trade targets`}
+            flush
+          >
+            <div>
+              {comparables.map((c) => (
+                <PlayerRow
+                  key={c.player.player_id}
+                  playerId={c.player.player_id}
+                  name={c.player.full_name}
+                  position={c.player.position}
+                  team={c.player.team}
+                  value={c.value}
+                  divided
+                />
+              ))}
+            </div>
+          </SectionCard>
+        )}
+      </>)}
 
       {/* ═══ PRODUCTION: career fantasy output from nflverse ═══ */}
       {activeTab === 'production' && (
