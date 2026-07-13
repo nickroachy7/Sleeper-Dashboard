@@ -43,6 +43,10 @@ interface StandingRow {
   pf: number;
   pa: number;
   streak: string; // "W3" | "L2" | "T1" | "—"
+  expWins: number; // expected wins from all-play (luck-neutral)
+  expLosses: number;
+  luck: number; // actual wins − expected wins (+ = lucky, − = unlucky)
+  hasExp: boolean; // whether all-play data was available
 }
 
 interface GameSide {
@@ -172,19 +176,57 @@ export default function League() {
       return `${last}${n}`;
     };
 
-    return standingsOrder(rosters).map((r, i) => ({
-      rank: i + 1,
-      rosterId: r.roster_id,
-      name: directory.teamName(r.roster_id, selectedLeagueId),
-      avatar: directory.teamAvatar(r.roster_id, selectedLeagueId),
-      wins: num(r.wins),
-      losses: num(r.losses),
-      ties: num(r.ties),
-      pf: num(r.fpts),
-      pa: num(r.fpts_against),
-      streak: streakOf(r.roster_id),
-    }));
+    // All-play (luck-neutral) record: each week, compare every team to every
+    // other team that scored. A team's expected wins = all-play win% × games,
+    // so the gap vs actual wins is schedule luck — a read Sleeper never shows.
+    const rawRows = matchupsByLeague.get(selectedLeagueId) ?? [];
+    const byWeek = new Map<number, { rosterId: number; points: number }[]>();
+    for (const m of rawRows) {
+      if (m.points == null) continue;
+      const arr = byWeek.get(m.week) || [];
+      arr.push({ rosterId: m.roster_id, points: num(m.points) });
+      byWeek.set(m.week, arr);
+    }
+    const allPlay = new Map<number, { out: number; comp: number }>();
+    for (const [, wk] of byWeek) {
+      for (const a of wk) {
+        const rec = allPlay.get(a.rosterId) || { out: 0, comp: 0 };
+        for (const b of wk) {
+          if (b.rosterId === a.rosterId) continue;
+          rec.comp++;
+          if (a.points > b.points) rec.out++;
+          else if (a.points === b.points) rec.out += 0.5;
+        }
+        allPlay.set(a.rosterId, rec);
+      }
+    }
+
+    return standingsOrder(rosters).map((r, i) => {
+      const wins = num(r.wins), losses = num(r.losses), ties = num(r.ties);
+      const games = wins + losses + ties;
+      const ap = allPlay.get(r.roster_id);
+      const hasExp = !!ap && ap.comp > 0 && games > 0;
+      const pct = hasExp ? ap!.out / ap!.comp : 0;
+      const expWins = hasExp ? Math.round(pct * games) : 0;
+      return {
+        rank: i + 1,
+        rosterId: r.roster_id,
+        name: directory.teamName(r.roster_id, selectedLeagueId),
+        avatar: directory.teamAvatar(r.roster_id, selectedLeagueId),
+        wins,
+        losses,
+        ties,
+        pf: num(r.fpts),
+        pa: num(r.fpts_against),
+        streak: streakOf(r.roster_id),
+        expWins,
+        expLosses: games - expWins,
+        luck: wins - expWins,
+        hasExp,
+      };
+    });
   }, [directory, selectedLeagueId, selectedSeason, matchupsByLeague]);
+  const showExpected = standings.some((s) => s.hasExp);
 
   // ── Scoreboard (selected season + week) ──────────────────────────
   const seasonGames = useMemo(
@@ -374,7 +416,7 @@ export default function League() {
       {activeTab === 'standings' && (
         <SectionCard
           label="Standings"
-          sub={`${selectedSeason} regular season · ranked by record, then points`}
+          sub={`${selectedSeason} regular season · ranked by record${showExpected ? ' · Exp = luck-neutral all-play record' : ', then points'}`}
           right={showSeasonPills ? seasonPills : undefined}
           flush
         >
@@ -384,12 +426,15 @@ export default function League() {
             </p>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse min-w-[520px]">
+              <table className="w-full text-left border-collapse min-w-[560px]">
                 <thead>
                   <tr className="text-[10px] uppercase tracking-[0.1em] text-[#60606a] border-b border-[#1b1b22]">
                     <th className="font-bold py-2 pl-4 sm:pl-5 pr-2">#</th>
                     <th className="font-bold py-2 px-2">Team</th>
                     <th className="font-bold py-2 px-2 text-center">Record</th>
+                    {showExpected && (
+                      <th className="font-bold py-2 px-2 text-center" title="Expected record from all-play win% — how you'd do against everyone each week (luck-neutral)">Exp</th>
+                    )}
                     <th className="font-bold py-2 px-2 text-right">PF</th>
                     <th className="font-bold py-2 px-2 text-right">PA</th>
                     <th className="font-bold py-2 px-2 pr-4 sm:pr-5 text-center">Streak</th>
@@ -399,6 +444,8 @@ export default function League() {
                   {standings.map((s, i) => {
                     const streakColor = s.streak.startsWith('W') ? 'text-accent-500' : s.streak.startsWith('L') ? 'text-red-400' : 'text-[#75757f]';
                     const playoffLine = i === Math.ceil(standings.length / 2) - 1; // rough top-half divider
+                    const luckColor = s.luck >= 2 ? 'text-amber-400' : s.luck <= -2 ? 'text-sky-400' : 'text-[#75757f]';
+                    const luckLabel = s.luck >= 2 ? `Lucky — ${s.luck} more win${s.luck !== 1 ? 's' : ''} than performance` : s.luck <= -2 ? `Unlucky — ${Math.abs(s.luck)} fewer win${Math.abs(s.luck) !== 1 ? 's' : ''} than performance` : 'Record matches performance';
                     return (
                       <tr key={s.rosterId} className={`group border-b border-[#1b1b22] last:border-0 hover:bg-[#1b1b22] transition-colors ${playoffLine ? 'shadow-[inset_0_-1px_0_rgba(34,197,94,0.25)]' : ''}`}>
                         <td className="py-2.5 pl-4 sm:pl-5 pr-2">
@@ -419,6 +466,11 @@ export default function League() {
                         <td className="py-2.5 px-2 text-center text-[13px] tabular-nums text-[#d6d6de]">
                           {s.wins}-{s.losses}{s.ties ? `-${s.ties}` : ''}
                         </td>
+                        {showExpected && (
+                          <td className="py-2.5 px-2 text-center text-[12px] tabular-nums" title={luckLabel}>
+                            {s.hasExp ? <span className={luckColor}>{s.expWins}-{s.expLosses}</span> : <span className="text-[#4c4c56]">—</span>}
+                          </td>
+                        )}
                         <td className="py-2.5 px-2 text-right text-[12px] tabular-nums text-[#9c9ca7]">{fmtPts(s.pf)}</td>
                         <td className="py-2.5 px-2 text-right text-[12px] tabular-nums text-[#75757f]">{fmtPts(s.pa)}</td>
                         <td className={`py-2.5 px-2 pr-4 sm:pr-5 text-center text-[12px] font-semibold tabular-nums ${streakColor}`}>{s.streak}</td>
