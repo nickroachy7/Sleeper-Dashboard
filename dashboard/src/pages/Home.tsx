@@ -39,16 +39,16 @@ const STATUS_LABEL: Record<string, string> = {
 
 // Buttons for a league that's been added (league-specific destinations).
 const LEAGUE_ACTIONS = [
-  { to: '/trade', label: 'Trade Tools' },
-  { to: '/transactions', label: 'Transactions' },
-  { to: '/chat', label: 'League Chat' },
+  { to: '/league', label: 'League' },
+  { to: '/trade', label: 'Trade' },
+  { to: '/chat', label: 'Chat' },
 ] as const;
 
 // Buttons for a logged-out visitor — only tools that work WITHOUT a league.
 const GLOBAL_ACTIONS = [
-  { to: '/trade', label: 'Trade Tools' },
-  { to: '/ktc-values', label: 'Player Values' },
-  { to: '/value-vote', label: 'Value Vote' },
+  { to: '/trade', label: 'Trade' },
+  { to: '/players', label: 'Players' },
+  { to: '/value-vote', label: "Rank 'Em" },
 ] as const;
 
 // ─── Component ───────────────────────────────────────────────────────

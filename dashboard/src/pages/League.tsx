@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { ListOrdered, Swords, Trophy, History, Users, ChevronRight, Flame } from 'lucide-react';
-import { TabBar } from '../components/TabBar';
+import { Trophy, Users, ChevronRight, Flame } from 'lucide-react';
+import { LeagueTabs } from '../components/LeagueTabs';
 import { SectionCard } from '../components/SectionCard';
 import { NoLeagueState } from '../components/NoLeagueState';
 import { useLeagueDirectory } from '../hooks/detail';
@@ -12,13 +12,7 @@ import { useActiveLeague } from '../lib/active-league';
 
 // ── Types ───────────────────────────────────────────────────────────
 
-type LeagueTab = 'standings' | 'scoreboard' | 'records' | 'history';
-const LEAGUE_TABS: { id: LeagueTab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
-  { id: 'standings', label: 'Standings', icon: ListOrdered },
-  { id: 'scoreboard', label: 'Scoreboard', icon: Swords },
-  { id: 'records', label: 'Record Book', icon: Trophy },
-  { id: 'history', label: 'History', icon: History },
-];
+type LeagueTab = 'standings' | 'scoreboard' | 'history';
 
 interface DirRoster {
   league_id: string;
@@ -108,7 +102,8 @@ export default function League() {
   const { data: nfl } = useNflState();
   const { get, set } = useUrlState();
 
-  const activeTab = (LEAGUE_TABS.some((t) => t.id === get('tab')) ? get('tab') : 'standings') as LeagueTab;
+  const reqTab = get('tab');
+  const activeTab: LeagueTab = reqTab === 'scoreboard' ? 'scoreboard' : reqTab === 'history' ? 'history' : 'standings';
 
   // Seasons in the dynasty, newest first, flagged by whether they've kicked off.
   const seasons = useMemo(() => {
@@ -409,8 +404,8 @@ export default function League() {
         </div>
       </section>
 
-      {/* ── Tabs ── */}
-      <TabBar tabs={LEAGUE_TABS} active={activeTab} onChange={(id) => set('tab', id === 'standings' ? null : id)} />
+      {/* ── Section tabs ── */}
+      <LeagueTabs />
 
       {/* ═══ STANDINGS ═══ */}
       {activeTab === 'standings' && (
@@ -549,8 +544,8 @@ export default function League() {
         </SectionCard>
       )}
 
-      {/* ═══ RECORD BOOK ═══ */}
-      {activeTab === 'records' && (
+      {/* ═══ HISTORY: record book ═══ */}
+      {activeTab === 'history' && (
         <SectionCard label="Record Book" sub="All-time single-game records across every dynasty season" flush>
           {!records || records.length === 0 ? (
             <p className="text-[12px] text-[#60606a] px-4 sm:px-5 pb-5">

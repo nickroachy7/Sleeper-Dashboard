@@ -2,7 +2,7 @@ import { useMemo, Fragment } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useUrlState } from '../hooks/useUrlState';
-import { PageHeader } from '../components/PageHeader';
+import { PlayersTabs } from '../components/PlayersTabs';
 import { VALUE_SOURCE } from '../lib/value-source';
 import { Pagination } from '../components/Pagination';
 import { FilterBar, SearchInput, FilterPills, SortSelect } from '../components/FilterBar';
@@ -643,21 +643,12 @@ function TeamsTab() {
 // ── Main Page Component ──────────────────────────────────────────
 
 export function KTCValues() {
-  const { get, setMany } = useUrlState();
+  const { get } = useUrlState();
   const activeTab = get('tab', 'players') as TabType;
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto">
-      <PageHeader
-        title="Player Values"
-        subtitle="Community superflex dynasty rankings"
-        tabs={[
-          { id: 'players', label: 'Players' },
-          { id: 'teams', label: 'Teams' },
-        ]}
-        activeTab={activeTab}
-        onTabChange={(id) => setMany({ tab: id === 'players' ? null : id })}
-      />
+      <PlayersTabs />
 
       {activeTab === 'players' ? <PlayersTab /> : <TeamsTab />}
     </div>

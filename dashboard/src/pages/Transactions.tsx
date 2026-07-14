@@ -9,6 +9,7 @@ import { Link } from 'react-router-dom';
 import { useMemo, useCallback } from 'react';
 import { useUrlState } from '../hooks/useUrlState';
 import { PageHeader } from '../components/PageHeader';
+import { LeagueTabs } from '../components/LeagueTabs';
 import { Pagination } from '../components/Pagination';
 import { FilterBar, FilterPills, SortSelect } from '../components/FilterBar';
 import { NoLeagueState } from '../components/NoLeagueState';
@@ -527,7 +528,7 @@ export default function Transactions() {
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto">
-      <PageHeader title="Transactions" />
+      <LeagueTabs />
 
       <FilterBar sticky>
         <FilterPills

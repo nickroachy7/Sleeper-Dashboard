@@ -23,7 +23,7 @@ function App() {
         <Route index element={<Home />} />
         <Route path="league" element={<League />} />
         <Route path="trade" element={<TradeTools />} />
-        <Route path="ktc-values" element={<KTCValues />} />
+        <Route path="players" element={<KTCValues />} />
         <Route path="value-vote" element={<ValueVote />} />
         <Route path="chat" element={<Chat />} />
         <Route path="transactions" element={<Transactions />} />
@@ -34,6 +34,7 @@ function App() {
         <Route path="settings" element={<Settings />} />
 
         {/* Redirects for old routes */}
+        <Route path="ktc-values" element={<Navigate to="/players" replace />} />
         <Route path="trade-evaluator" element={<Navigate to="/trade" replace />} />
         <Route path="trade-finder" element={<Navigate to="/trade" replace />} />
         <Route path="trade-history" element={<Navigate to="/transactions" replace />} />

@@ -26,7 +26,7 @@ export function ValueWatch({ players }: ValueWatchProps) {
           <p className="text-[11px] font-bold text-accent-500 tracking-[0.2em] uppercase mb-1">VALUE WATCH</p>
           <h2 className="font-display text-lg font-bold text-white tracking-tight">Top 10 Assets</h2>
         </div>
-        <Link to="/ktc-values" className="text-[11px] text-[#9c9ca7] hover:text-accent-400 transition-colors flex items-center gap-0.5">
+        <Link to="/players" className="text-[11px] text-[#9c9ca7] hover:text-accent-400 transition-colors flex items-center gap-0.5">
           Full Rankings <ChevronRight className="h-3 w-3" />
         </Link>
       </div>
