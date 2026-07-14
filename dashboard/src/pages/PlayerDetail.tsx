@@ -5,7 +5,6 @@ import { ValueChart } from '../components/charts/ValueChart';
 import { ProductionChart } from '../components/charts/ProductionChart';
 import { WeeklyPointsChart } from '../components/charts/WeeklyPointsChart';
 import { PositionBadge } from '../components/PositionBadge';
-import { ConfidenceBadge } from '../components/ConfidenceBadge';
 import { SectionCard } from '../components/SectionCard';
 import { StatTile } from '../components/StatTile';
 import { TabBar } from '../components/TabBar';
@@ -445,10 +444,7 @@ export default function PlayerDetail() {
 
           {/* Metrics row */}
           <div className="grid grid-cols-3 gap-2.5 mt-3">
-            <StatTile
-              label="Yap value"
-              foot={value ? <ConfidenceBadge rd={value.rating_deviation} size="sm" /> : undefined}
-            >
+            <StatTile label="Yap value">
               {value ? value.value.toLocaleString() : '—'}
             </StatTile>
             <StatTile label="Rank" sub={value?.rank && value.position_rank ? `${player.position}${value.position_rank}` : undefined}>
