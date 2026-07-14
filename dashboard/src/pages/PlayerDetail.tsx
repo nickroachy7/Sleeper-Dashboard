@@ -446,7 +446,7 @@ export default function PlayerDetail() {
           {/* Metrics row */}
           <div className="grid grid-cols-3 gap-2.5 mt-3">
             <StatTile
-              label="Community value"
+              label="Yap value"
               foot={value ? <ConfidenceBadge rd={value.rating_deviation} size="sm" /> : undefined}
             >
               {value ? value.value.toLocaleString() : '—'}

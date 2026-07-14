@@ -5,7 +5,7 @@ interface StatTileProps {
   children: ReactNode;
   /** Secondary text shown inline after the value, muted (e.g. a season or rank). */
   sub?: ReactNode;
-  /** Node rendered below the value (e.g. a confidence badge). */
+  /** Node rendered inline to the right of the value (e.g. a confidence badge). */
   foot?: ReactNode;
   /** Tooltip; when set, appends an ⓘ and a help cursor. */
   hint?: string;
@@ -28,11 +28,13 @@ export function StatTile({ label, children, sub, foot, hint, valueClassName, cla
       <p className="text-[9px] text-[#75757f] uppercase tracking-[0.08em] font-bold truncate">
         {label}{hint ? ' ⓘ' : ''}
       </p>
-      <p className={`font-display text-xl font-bold tabular-nums ${valueClassName ?? 'text-white'}`}>
-        {children}
-        {sub != null && <span className="text-[11px] text-[#75757f] ml-1.5 font-sans font-semibold">{sub}</span>}
-      </p>
-      {foot != null && <div className="mt-0.5">{foot}</div>}
+      <div className="flex items-baseline gap-1.5 min-w-0">
+        <p className={`font-display text-xl font-bold tabular-nums truncate ${valueClassName ?? 'text-white'}`}>
+          {children}
+          {sub != null && <span className="text-[11px] text-[#75757f] ml-1.5 font-sans font-semibold">{sub}</span>}
+        </p>
+        {foot != null && <div className="shrink-0 self-center">{foot}</div>}
+      </div>
     </div>
   );
 }
