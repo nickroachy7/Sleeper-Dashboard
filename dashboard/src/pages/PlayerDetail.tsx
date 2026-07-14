@@ -385,6 +385,13 @@ export default function PlayerDetail() {
       <section className="relative overflow-hidden rounded-2xl border border-[#22222b] bg-gradient-to-br from-[#16161c] via-[#141419] to-[#111116]">
         <div className="pointer-events-none absolute -top-20 -right-12 h-48 w-48 rounded-full bg-accent-500/10 blur-3xl" />
         <div className="relative p-4 sm:p-6">
+          {/* Floated so the text column below can use the full card width. */}
+          <button
+            onClick={openTrade}
+            className="absolute top-4 right-4 sm:top-6 sm:right-6 inline-flex items-center gap-1.5 rounded-lg bg-accent-500 hover:bg-accent-400 active:bg-accent-600 text-white text-[12px] font-semibold px-3 h-9 shadow-[0_0_10px_rgba(34,197,94,0.2)] transition-colors"
+          >
+            <ArrowRightLeft className="h-4 w-4" /> Trade
+          </button>
           <div className="flex items-start gap-4">
             <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full overflow-hidden bg-[#22222b] shrink-0 ring-1 ring-inset ring-white/10">
               <img
@@ -395,7 +402,7 @@ export default function PlayerDetail() {
               />
             </div>
             <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex items-center gap-2 flex-wrap pr-24">
                 <h1 className="font-display text-xl sm:text-3xl font-bold text-white tracking-tight truncate">
                   {player.full_name}
                 </h1>
@@ -434,12 +441,6 @@ export default function PlayerDetail() {
                 )
               )}
             </div>
-            <button
-              onClick={openTrade}
-              className="shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-accent-500 hover:bg-accent-400 active:bg-accent-600 text-white text-[12px] font-semibold px-3 h-9 shadow-[0_0_10px_rgba(34,197,94,0.2)] transition-colors"
-            >
-              <ArrowRightLeft className="h-4 w-4" /> Trade
-            </button>
           </div>
 
           {/* Metrics row */}

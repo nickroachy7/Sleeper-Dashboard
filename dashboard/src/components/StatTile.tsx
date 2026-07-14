@@ -25,10 +25,10 @@ export function StatTile({ label, children, sub, foot, hint, valueClassName, cla
       className={`rounded-xl border border-[#22222b] bg-[#101015]/60 px-3 py-1.5 ${hint ? 'cursor-help' : ''} ${className ?? ''}`}
       title={hint}
     >
-      <p className="text-[10px] text-[#75757f] uppercase tracking-[0.12em] font-bold truncate">
+      <p className="text-[9px] text-[#75757f] uppercase tracking-[0.08em] font-bold truncate">
         {label}{hint ? ' ⓘ' : ''}
       </p>
-      <p className={`font-display text-lg font-bold tabular-nums ${valueClassName ?? 'text-white'}`}>
+      <p className={`font-display text-xl font-bold tabular-nums ${valueClassName ?? 'text-white'}`}>
         {children}
         {sub != null && <span className="text-[11px] text-[#75757f] ml-1.5 font-sans font-semibold">{sub}</span>}
       </p>
