@@ -408,7 +408,7 @@ export default function PlayerDetail() {
               </p>
               {/* Ownership is league-specific — only shown once a league is added. */}
               {hasLeague && (
-                <p className="text-[12px] text-[#75757f] mt-0.5">
+                <p className="text-[12px] text-[#75757f] mt-0.5 truncate">
                   {currentOwner ? (
                     <>
                       Owned by{' '}
@@ -443,7 +443,7 @@ export default function PlayerDetail() {
           </div>
 
           {/* Metrics row */}
-          <div className="grid grid-cols-3 gap-2.5 mt-4 sm:mt-5">
+          <div className="grid grid-cols-3 gap-2.5 mt-3">
             <StatTile
               label="Community value"
               foot={value ? <ConfidenceBadge rd={value.rating_deviation} size="sm" /> : undefined}
