@@ -55,18 +55,11 @@ const KIND_BADGE: Record<TimelineEvent['kind'], { label: string; cls: string }> 
   commissioner: { label: 'COMMISH', cls: BADGE_CLS },
 };
 
-// ── Outlook: a plain-English buy/sell/hold read ────────────────────
-// A transparent, rules-based summary of the 30-day value trend, the player's
-// dynasty age window, and (when known) how recent on-field production compares
-// to career norm. It's a heuristic read, not advice — the UI labels it as such.
-
-type Verdict = 'Buy' | 'Buy low' | 'Hold' | 'Sell' | 'Sell high';
-
-interface Outlook {
-  verdict: Verdict;
-  blurb: string;
-  tone: 'pos' | 'neg' | 'neutral';
-}
+// ── Outlook: a plain-English read of the player's value picture ────
+// A transparent, rules-based paragraph built from the 30-day value trend, the
+// player's market rank, his dynasty age window, and (when known) how recent
+// on-field production compares to career norm. Heuristic read, not advice —
+// the UI labels it as such.
 
 function agingThresholdFor(position: string): number {
   if (position === 'RB') return 27;
@@ -75,74 +68,80 @@ function agingThresholdFor(position: string): number {
   return 29; // WR / default
 }
 
+const POSITION_PLURAL: Record<string, string> = {
+  QB: 'quarterbacks',
+  RB: 'running backs',
+  WR: 'receivers',
+  TE: 'tight ends',
+};
+
 function computeOutlook(opts: {
   trend: number;
   position: string;
   age: number | null;
+  rank?: number | null;
+  positionRank?: number | null;
   lastPpg?: number | null;
   careerPpg?: number | null;
-}): Outlook {
-  const { trend, position, age } = opts;
+}): string {
+  const { trend, position, age, rank, positionRank } = opts;
   const strongUp = trend >= 250, up = trend > 0;
   const strongDown = trend <= -250, down = trend < 0;
   const young = age != null && age <= 24;
   const aging = age != null && age >= agingThresholdFor(position);
+  const posPlural = POSITION_PLURAL[position] ?? 'players at his position';
 
-  let verdict: Verdict;
-  if (aging && up) verdict = 'Sell high';
-  else if (aging && down) verdict = 'Sell';
-  else if (young && down) verdict = 'Buy low';
-  else if (young && up) verdict = 'Buy';
-  else if (up && !aging) verdict = 'Buy';
-  else if (down && !young) verdict = 'Sell';
-  else verdict = 'Hold';
+  const parts: string[] = [];
 
-  const momentum = strongUp ? 'Value is climbing fast'
-    : up ? 'Value is trending up'
-    : strongDown ? 'Value is falling sharply'
-    : down ? 'Value is drifting down'
-    : 'Value has held steady';
-  const agePart = age == null ? ''
-    : young ? `, and at ${age} he's still ascending`
-    : aging ? `, and at ${age} he's late in his dynasty window`
-    : `, in his prime at ${age}`;
+  const move = Math.abs(trend).toLocaleString();
+  parts.push(
+    strongUp ? `Value has jumped ${move} points over the last 30 days — one of the sharper climbs on the board.`
+    : up ? `Value has ticked up ${move} points over the last 30 days.`
+    : strongDown ? `Value has dropped ${move} points over the last 30 days — a slide worth watching.`
+    : down ? `Value has slipped ${move} points over the last 30 days.`
+    : 'Value has held steady over the last 30 days.',
+  );
 
-  let prodPart = '';
-  if (opts.lastPpg != null && opts.careerPpg && opts.careerPpg > 0) {
-    const ratio = opts.lastPpg / opts.careerPpg;
-    if (ratio >= 1.15) prodPart = ' His last season outproduced his career average.';
-    else if (ratio <= 0.85) prodPart = ' His last season came in below his career average.';
+  if (rank && positionRank && position) {
+    parts.push(`The market currently has him as the ${position}${positionRank}, #${rank} overall.`);
   }
 
-  const action: Record<Verdict, string> = {
-    'Buy': ' A buy-and-hold building block.',
-    'Buy low': ' A potential buy-low window.',
-    'Hold': ' A hold at current value.',
-    'Sell': ' Consider selling before further slippage.',
-    'Sell high': ' A candidate to sell high while value is up.',
-  };
+  if (age != null) {
+    const threshold = agingThresholdFor(position);
+    parts.push(
+      young ? `At ${age} he's on the right side of the age curve — ${posPlural} tend to hold dynasty value well into their ${threshold >= 30 ? 'early thirties' : 'late twenties'}, so his best years are likely still ahead.`
+      : aging ? `At ${age} he's late in the dynasty window; ${posPlural} typically start shedding value around ${threshold}, so the age curve now works against him.`
+      : `At ${age} he's squarely in his prime — past the early-career uncertainty, but still comfortably ahead of the age cliff for ${posPlural} (around ${threshold}).`,
+    );
+  }
 
-  return {
-    verdict,
-    blurb: `${momentum}${agePart}.${prodPart}${action[verdict]}`,
-    tone: verdict.startsWith('Buy') ? 'pos' : verdict.startsWith('Sell') ? 'neg' : 'neutral',
-  };
+  if (opts.lastPpg != null && opts.careerPpg && opts.careerPpg > 0) {
+    const ratio = opts.lastPpg / opts.careerPpg;
+    if (ratio >= 1.15) {
+      parts.push(`On the field, his most recent season (${opts.lastPpg.toFixed(1)} PPG) outproduced his career norm of ${opts.careerPpg.toFixed(1)}, so recent production supports the price.`);
+    } else if (ratio <= 0.85) {
+      parts.push(`On the field, his most recent season (${opts.lastPpg.toFixed(1)} PPG) came in below his career norm of ${opts.careerPpg.toFixed(1)}, so the market is pricing more reputation than recent production.`);
+    } else {
+      parts.push(`His most recent season (${opts.lastPpg.toFixed(1)} PPG) landed right in line with his career norm.`);
+    }
+  }
+
+  parts.push(
+    aging && up ? 'Taken together: a veteran whose price is rising even as the age curve turns — a combination that historically does not stay elevated for long.'
+    : aging && down ? 'Taken together: age and momentum are pointing the same direction here, and this profile rarely rebounds on its own.'
+    : young && down ? 'Taken together: a young player in a value dip, with an age curve that gives him plenty of runway to recover.'
+    : up ? 'Taken together: youth-adjusted momentum is on his side — the kind of profile the market tends to keep rewarding.'
+    : down ? 'Taken together: the trend is soft, but nothing in the profile points to a structural decline yet.'
+    : 'Taken together: a stable profile — nothing here suggests the market is about to reprice him in either direction.',
+  );
+
+  return parts.join(' ');
 }
 
-function OutlookCard({ outlook }: { outlook: Outlook }) {
-  const tone = outlook.tone === 'pos'
-    ? { pill: 'bg-accent-500/15 text-accent-400 border-accent-500/25' }
-    : outlook.tone === 'neg'
-    ? { pill: 'bg-red-500/12 text-red-400 border-red-500/25' }
-    : { pill: 'bg-[#22222b] text-[#c4c4cd] border-[#2e2e38]' };
+function OutlookCard({ blurb }: { blurb: string }) {
   return (
-    <SectionCard label="Outlook" sub="Auto-generated read from value trend & age — not trade advice">
-      <div className="flex items-start gap-3">
-        <span className={`shrink-0 inline-flex items-center rounded-lg border px-2.5 h-7 text-[12px] font-bold ${tone.pill}`}>
-          {outlook.verdict}
-        </span>
-        <p className="text-[13px] text-[#d6d6de] leading-relaxed">{outlook.blurb}</p>
-      </div>
+    <SectionCard label="Outlook" sub="Auto-generated read from value trend, age & production — not trade advice">
+      <p className="text-[13px] text-[#d6d6de] leading-relaxed">{blurb}</p>
     </SectionCard>
   );
 }
@@ -236,13 +235,15 @@ export default function PlayerDetail() {
     [allPlayers],
   );
 
-  // Auto-generated buy/sell/hold read from the value trend + dynasty age window.
-  const outlook = useMemo((): Outlook | null => {
+  // Auto-generated prose read from the value trend + dynasty age window.
+  const outlook = useMemo((): string | null => {
     if (!data?.player || !data.value) return null;
     return computeOutlook({
       trend: data.value.trend ?? 0,
       position: data.player.position ?? '',
       age: data.player.age ?? null,
+      rank: data.value.rank ?? null,
+      positionRank: data.value.position_rank ?? null,
       lastPpg: facts?.length ? facts[facts.length - 1].fantasy_ppg : null,
       careerPpg: career?.ppg ?? null,
     });
@@ -470,7 +471,7 @@ export default function PlayerDetail() {
 
       {/* ═══ OVERVIEW: outlook, market value trajectory, comparables ═══ */}
       {activeTab === 'overview' && (<>
-        {outlook && <OutlookCard outlook={outlook} />}
+        {outlook && <OutlookCard blurb={outlook} />}
         <SectionCard label="Value History" sub="Community superflex value · seeded from prior seasons, updated by trades & votes">
           <ValueChart data={history} height={240} />
         </SectionCard>
