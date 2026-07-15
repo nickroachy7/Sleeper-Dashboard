@@ -2,7 +2,6 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useMemo, useState } from 'react';
 import { TrendingUp, TrendingDown, ChevronRight, Flame, Snowflake, BarChart3, Activity, ListChecks, ArrowRightLeft } from 'lucide-react';
 import { ValueChart } from '../components/charts/ValueChart';
-import { ProductionChart } from '../components/charts/ProductionChart';
 import { WeeklyPointsChart } from '../components/charts/WeeklyPointsChart';
 import { PositionBadge } from '../components/PositionBadge';
 import { SectionCard } from '../components/SectionCard';
@@ -146,6 +145,9 @@ function OutlookCard({ blurb }: { blurb: string }) {
     </SectionCard>
   );
 }
+
+// Shared column template for the Career Arc table (season · badges · GP · PPG · Pts).
+const CAREER_COLS = 'grid grid-cols-[3.2rem_1fr_2.6rem_3.4rem_3.4rem] items-center gap-x-2';
 
 type PlayerTab = 'overview' | 'production' | 'league';
 const PLAYER_TABS: { id: PlayerTab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
@@ -499,35 +501,56 @@ export default function PlayerDetail() {
         )}
       </>)}
 
-      {/* ═══ PRODUCTION: career fantasy output + in-league scoring ═══ */}
+      {/* ═══ PRODUCTION: career arc table + weekly in-league scoring ═══ */}
       {activeTab === 'production' && (<>
       {facts && facts.length > 0 && career ? (
         <SectionCard
-          label="NFL Production"
-          sub={`Fantasy points per game by season (PPR) · ${career.seasons} season${career.seasons !== 1 ? 's' : ''} on record`}
+          label="Career Arc"
+          sub={`${career.ppg.toFixed(1)} career PPG · ${career.totalGames} games · ${
+            career.draftRound != null ? `drafted Rd ${career.draftRound}, #${career.draftPick} overall` : 'undrafted'
+          } · PPR`}
+          flush
         >
-          <StatStrip>
-            <Stat label="Career PPG">{career.ppg.toFixed(1)}</Stat>
-            <Stat label="Best season" sub={career.best.season}>{(career.best.fantasy_ppg ?? 0).toFixed(1)}</Stat>
-            <Stat label="Games">{career.totalGames}</Stat>
-            <Stat label="Draft" sub={career.draftRound != null ? `#${career.draftPick}` : undefined}>
-              {career.draftRound != null ? <>Rd {career.draftRound}</> : <span className="text-[13px] text-[#9c9ca7] font-sans">Undrafted</span>}
-            </Stat>
-          </StatStrip>
-          <div className="mt-4 border-t border-[#1b1b22] pt-3">
-            <ProductionChart data={facts} height={180} />
+          <div className={`${CAREER_COLS} px-4 sm:px-5 pb-1.5 text-[9px] text-[#75757f] uppercase tracking-[0.08em] font-bold`}>
+            <span>Season</span>
+            <span />
+            <span className="text-right">GP</span>
+            <span className="text-right">PPG</span>
+            <span className="text-right">Pts</span>
+          </div>
+          <div className="pb-1">
+            {facts.map((f) => (
+              <div key={f.season} className={`${CAREER_COLS} px-4 sm:px-5 py-2.5 border-t border-[#1b1b22]`}>
+                <span className="text-[13px] font-bold text-white tabular-nums">{f.season}</span>
+                <span className="flex gap-1.5">
+                  {f.years_exp === 0 && (
+                    <span className="text-[9px] font-bold uppercase tracking-wide rounded px-1.5 py-0.5 bg-[#22222b] text-[#9c9ca7]">Rookie</span>
+                  )}
+                  {f.season === career.best.season && facts.length > 1 && (
+                    <span className="text-[9px] font-bold uppercase tracking-wide rounded px-1.5 py-0.5 bg-accent-500/15 text-accent-400">Best</span>
+                  )}
+                </span>
+                <span className="text-right text-[12px] text-[#9c9ca7] tabular-nums">{f.games ?? '—'}</span>
+                <span className="text-right font-display text-[15px] font-bold text-white tabular-nums">
+                  {f.fantasy_ppg != null ? f.fantasy_ppg.toFixed(1) : '—'}
+                </span>
+                <span className="text-right text-[12px] text-[#9c9ca7] tabular-nums">
+                  {f.fantasy_total != null ? Math.round(f.fantasy_total) : '—'}
+                </span>
+              </div>
+            ))}
           </div>
         </SectionCard>
       ) : (
-        <SectionCard label="NFL Production">
+        <SectionCard label="Career Arc">
           <p className="text-[12px] text-[#75757f] py-6 text-center">No NFL production on record yet.</p>
         </SectionCard>
       )}
 
       {hasLeague && activeSeason && activeSeason.games > 0 && (
         <SectionCard
-          label="In-League Scoring"
-          sub={`Weekly fantasy points in this league's scoring · ${activeSeason.season} season`}
+          label="Weekly Scoring"
+          sub={`In this league's scoring · ${activeSeason.season} season`}
           right={leagueSeasonsPlayed && leagueSeasonsPlayed.length > 1 ? (
             <div className="flex gap-1">
               {leagueSeasonsPlayed.map((s) => (
@@ -546,10 +569,18 @@ export default function PlayerDetail() {
         >
           <StatStrip>
             <Stat label="Avg / week">{activeSeason.avg.toFixed(1)}</Stat>
-            <Stat label="Best week" sub={activeSeason.best ? `Wk ${activeSeason.best.week}` : undefined}>
+            <Stat label="Best" sub={activeSeason.best ? `Wk ${activeSeason.best.week}` : undefined}>
               {activeSeason.best ? activeSeason.best.points.toFixed(1) : '—'}
             </Stat>
-            <Stat label="Weeks">{activeSeason.games}</Stat>
+            <Stat label="Worst" sub={activeSeason.worst ? `Wk ${activeSeason.worst.week}` : undefined}>
+              {activeSeason.worst ? activeSeason.worst.points.toFixed(1) : '—'}
+            </Stat>
+            <Stat
+              label="Consistency"
+              hint="Week-to-week scoring spread (standard deviation). Steady = reliable weekly floor; boom/bust = big swings."
+            >
+              <span className="text-[15px]">{activeSeason.stdev <= activeSeason.avg * 0.45 ? 'Steady' : 'Boom/bust'}</span>
+            </Stat>
             <Stat label="Start rate" hint="Share of rostered weeks the owning team put this player in their starting lineup.">
               {Math.round(activeSeason.startRate * 100)}%
             </Stat>
