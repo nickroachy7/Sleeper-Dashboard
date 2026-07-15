@@ -7,6 +7,7 @@ import { WeeklyPointsChart } from '../components/charts/WeeklyPointsChart';
 import { PositionBadge } from '../components/PositionBadge';
 import { SectionCard } from '../components/SectionCard';
 import { StatTile } from '../components/StatTile';
+import { Stat, StatStrip } from '../components/StatStrip';
 import { TabBar } from '../components/TabBar';
 import { PlayerRow } from '../components/PlayerRow';
 import { usePlayerDetail, useLeagueDirectory, usePlayerFacts, usePlayerLeagueWeeks } from '../hooks/detail';
@@ -498,33 +499,32 @@ export default function PlayerDetail() {
         )}
       </>)}
 
-      {/* ═══ PRODUCTION: career fantasy output from nflverse ═══ */}
-      {activeTab === 'production' && (
-        facts && facts.length > 0 && career ? (
-          <SectionCard
-            label="NFL Production"
-            sub={`Fantasy points per game by season (PPR) · ${career.seasons} season${career.seasons !== 1 ? 's' : ''} on record`}
-          >
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mb-4">
-              <StatTile label="Career PPG">{career.ppg.toFixed(1)}</StatTile>
-              <StatTile label="Best season" sub={career.best.season}>{(career.best.fantasy_ppg ?? 0).toFixed(1)}</StatTile>
-              <StatTile label="Games">{career.totalGames}</StatTile>
-              <StatTile label="Draft" sub={career.draftRound != null ? `#${career.draftPick}` : undefined}>
-                {career.draftRound != null ? <>Rd {career.draftRound}</> : <span className="text-[13px] text-[#9c9ca7] font-sans">Undrafted</span>}
-              </StatTile>
-            </div>
-            <ProductionChart data={facts} height={200} />
-          </SectionCard>
-        ) : (
-          <SectionCard label="NFL Production">
-            <p className="text-[12px] text-[#75757f] py-6 text-center">No NFL production on record yet.</p>
-          </SectionCard>
-        )
+      {/* ═══ PRODUCTION: career fantasy output + in-league scoring ═══ */}
+      {activeTab === 'production' && (<>
+      {facts && facts.length > 0 && career ? (
+        <SectionCard
+          label="NFL Production"
+          sub={`Fantasy points per game by season (PPR) · ${career.seasons} season${career.seasons !== 1 ? 's' : ''} on record`}
+        >
+          <StatStrip>
+            <Stat label="Career PPG">{career.ppg.toFixed(1)}</Stat>
+            <Stat label="Best season" sub={career.best.season}>{(career.best.fantasy_ppg ?? 0).toFixed(1)}</Stat>
+            <Stat label="Games">{career.totalGames}</Stat>
+            <Stat label="Draft" sub={career.draftRound != null ? `#${career.draftPick}` : undefined}>
+              {career.draftRound != null ? <>Rd {career.draftRound}</> : <span className="text-[13px] text-[#9c9ca7] font-sans">Undrafted</span>}
+            </Stat>
+          </StatStrip>
+          <div className="mt-4 border-t border-[#1b1b22] pt-3">
+            <ProductionChart data={facts} height={180} />
+          </div>
+        </SectionCard>
+      ) : (
+        <SectionCard label="NFL Production">
+          <p className="text-[12px] text-[#75757f] py-6 text-center">No NFL production on record yet.</p>
+        </SectionCard>
       )}
 
-      {/* ═══ LEAGUE: in-league scoring + transaction history ═══ */}
-      {activeTab === 'league' && hasLeague && (<>
-      {activeSeason && activeSeason.games > 0 && (
+      {hasLeague && activeSeason && activeSeason.games > 0 && (
         <SectionCard
           label="In-League Scoring"
           sub={`Weekly fantasy points in this league's scoring · ${activeSeason.season} season`}
@@ -544,20 +544,25 @@ export default function PlayerDetail() {
             </div>
           ) : undefined}
         >
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mb-4">
-            <StatTile label="Avg / week">{activeSeason.avg.toFixed(1)}</StatTile>
-            <StatTile label="Best week" sub={activeSeason.best ? `Wk ${activeSeason.best.week}` : undefined}>
+          <StatStrip>
+            <Stat label="Avg / week">{activeSeason.avg.toFixed(1)}</Stat>
+            <Stat label="Best week" sub={activeSeason.best ? `Wk ${activeSeason.best.week}` : undefined}>
               {activeSeason.best ? activeSeason.best.points.toFixed(1) : '—'}
-            </StatTile>
-            <StatTile label="Weeks">{activeSeason.games}</StatTile>
-            <StatTile label="Start rate" hint="Share of rostered weeks the owning team put this player in their starting lineup.">
+            </Stat>
+            <Stat label="Weeks">{activeSeason.games}</Stat>
+            <Stat label="Start rate" hint="Share of rostered weeks the owning team put this player in their starting lineup.">
               {Math.round(activeSeason.startRate * 100)}%
-            </StatTile>
+            </Stat>
+          </StatStrip>
+          <div className="mt-4 border-t border-[#1b1b22] pt-3">
+            <WeeklyPointsChart data={activeSeason.weeks} height={180} />
           </div>
-          <WeeklyPointsChart data={activeSeason.weeks} height={190} />
         </SectionCard>
       )}
+      </>)}
 
+      {/* ═══ LEAGUE: transaction history ═══ */}
+      {activeTab === 'league' && hasLeague && (<>
       {/* ── League history timeline ── */}
       <section className="bg-[#141419] rounded-2xl border border-[#22222b] overflow-hidden">
         <div className="px-4 sm:px-5 pt-4 pb-2">
