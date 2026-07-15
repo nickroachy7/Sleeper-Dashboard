@@ -2,7 +2,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useMemo, useState } from 'react';
 import { TrendingUp, TrendingDown, ChevronRight, Flame, Snowflake, BarChart3, Activity, ListChecks, ArrowRightLeft } from 'lucide-react';
 import { ValueChart } from '../components/charts/ValueChart';
-import { WeeklyPointsChart } from '../components/charts/WeeklyPointsChart';
+import { ProductionChart } from '../components/charts/ProductionChart';
 import { PositionBadge } from '../components/PositionBadge';
 import { SectionCard } from '../components/SectionCard';
 import { StatTile } from '../components/StatTile';
@@ -145,9 +145,6 @@ function OutlookCard({ blurb }: { blurb: string }) {
     </SectionCard>
   );
 }
-
-// Shared column template for the Career Arc table (season · badges · GP · PPG · Pts).
-const CAREER_COLS = 'grid grid-cols-[3.2rem_1fr_2.6rem_3.4rem_3.4rem] items-center gap-x-2';
 
 type PlayerTab = 'overview' | 'production' | 'league';
 const PLAYER_TABS: { id: PlayerTab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
@@ -506,7 +503,7 @@ export default function PlayerDetail() {
         )}
       </>)}
 
-      {/* ═══ PRODUCTION: career arc table + weekly in-league scoring ═══ */}
+      {/* ═══ PRODUCTION: career arc chart + weekly in-league rows ═══ */}
       {activeTab === 'production' && (<>
       {facts && facts.length > 0 && career ? (
         <SectionCard
@@ -514,37 +511,8 @@ export default function PlayerDetail() {
           sub={`${career.ppg.toFixed(1)} career PPG · ${career.totalGames} games · ${
             career.draftRound != null ? `drafted Rd ${career.draftRound}, #${career.draftPick} overall` : 'undrafted'
           } · PPR`}
-          flush
         >
-          <div className={`${CAREER_COLS} px-4 sm:px-5 pb-1.5 text-[9px] text-[#75757f] uppercase tracking-[0.08em] font-bold`}>
-            <span>Season</span>
-            <span />
-            <span className="text-right">GP</span>
-            <span className="text-right">PPG</span>
-            <span className="text-right">Pts</span>
-          </div>
-          <div className="pb-1">
-            {facts.map((f) => (
-              <div key={f.season} className={`${CAREER_COLS} px-4 sm:px-5 py-2.5 border-t border-[#1b1b22]`}>
-                <span className="text-[13px] font-bold text-white tabular-nums">{f.season}</span>
-                <span className="flex gap-1.5">
-                  {f.years_exp === 0 && (
-                    <span className="text-[9px] font-bold uppercase tracking-wide rounded px-1.5 py-0.5 bg-[#22222b] text-[#9c9ca7]">Rookie</span>
-                  )}
-                  {f.season === career.best.season && facts.length > 1 && (
-                    <span className="text-[9px] font-bold uppercase tracking-wide rounded px-1.5 py-0.5 bg-accent-500/15 text-accent-400">Best</span>
-                  )}
-                </span>
-                <span className="text-right text-[12px] text-[#9c9ca7] tabular-nums">{f.games ?? '—'}</span>
-                <span className="text-right font-display text-[15px] font-bold text-white tabular-nums">
-                  {f.fantasy_ppg != null ? f.fantasy_ppg.toFixed(1) : '—'}
-                </span>
-                <span className="text-right text-[12px] text-[#9c9ca7] tabular-nums">
-                  {f.fantasy_total != null ? Math.round(f.fantasy_total) : '—'}
-                </span>
-              </div>
-            ))}
-          </div>
+          <ProductionChart data={facts} height={200} />
         </SectionCard>
       ) : (
         <SectionCard label="Career Arc">
@@ -590,8 +558,30 @@ export default function PlayerDetail() {
               {Math.round(activeSeason.startRate * 100)}%
             </Stat>
           </StatStrip>
-          <div className="mt-4 border-t border-[#1b1b22] pt-3">
-            <WeeklyPointsChart data={activeSeason.weeks} height={180} />
+          {/* One row per week: points bar scaled to the season's best week;
+              green = started, gray = scored on the bench. */}
+          <div className="mt-4 border-t border-[#1b1b22]">
+            {activeSeason.weeks.map((w) => {
+              const max = Math.max(activeSeason.best?.points ?? 0, 1);
+              const pct = Math.max((Math.max(w.points, 0) / max) * 100, 2);
+              return (
+                <div key={w.week} className="flex items-center gap-3 py-1.5 border-b border-[#1b1b22] last:border-b-0">
+                  <span className="w-10 shrink-0 text-[11px] text-[#75757f] font-semibold tabular-nums">Wk {w.week}</span>
+                  <div className="flex-1 h-4 rounded-sm bg-[#101015]/60 overflow-hidden">
+                    <div
+                      className={`h-full rounded-sm ${w.started ? 'bg-accent-500/80' : 'bg-[#3f3f46]'}`}
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                  <span className="w-12 shrink-0 text-right font-display text-[13px] font-bold text-white tabular-nums">
+                    {w.points.toFixed(1)}
+                  </span>
+                  <span className={`w-14 shrink-0 text-right text-[10px] font-semibold ${w.started ? 'text-accent-400' : 'text-[#60606a]'}`}>
+                    {w.started ? 'Started' : 'Benched'}
+                  </span>
+                </div>
+              );
+            })}
           </div>
         </SectionCard>
       )}
