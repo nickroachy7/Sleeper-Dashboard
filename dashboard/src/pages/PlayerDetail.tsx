@@ -1,5 +1,5 @@
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { Fragment, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { TrendingUp, TrendingDown, ChevronRight, Flame, Snowflake, BarChart3, Activity, ListChecks, ArrowRightLeft } from 'lucide-react';
 import { ValueChart } from '../components/charts/ValueChart';
 import { ProductionChart } from '../components/charts/ProductionChart';
@@ -641,38 +641,44 @@ export default function PlayerDetail() {
       {/* ── Journey map: every team stop, oldest → newest ── */}
       {journey.length > 0 && (
         <SectionCard label="Journey" sub="The player's path through this league">
-          <div className="flex flex-wrap items-center gap-y-2 gap-x-1">
-            {journey.map((stop, i) => (
-              <Fragment key={`${stop.timestamp}-${stop.rosterId ?? 'fa'}`}>
-                {i > 0 && <ChevronRight className="h-3.5 w-3.5 text-[#4c4c56] shrink-0" />}
-                {stop.rosterId != null ? (
-                  <Link
-                    to={`/teams/${stop.rosterId}`}
-                    className={`rounded-lg border px-2 py-1 transition-colors hover:border-accent-500/40 ${
-                      i === journey.length - 1
-                        ? 'border-accent-500/30 bg-accent-500/10'
-                        : 'border-[#22222b] bg-[#101015]/60'
-                    }`}
-                  >
-                    <span className={`block text-[12px] font-semibold leading-tight ${
-                      i === journey.length - 1 ? 'text-accent-400' : 'text-[#d6d6de]'
-                    }`}>
-                      {directory!.teamName(stop.rosterId)}
-                    </span>
-                    <span className="block text-[9px] text-[#75757f] uppercase tracking-[0.08em] font-bold mt-0.5">
-                      {stop.how}{stop.season ? ` · ${stop.season}` : ''}
-                    </span>
-                  </Link>
-                ) : (
-                  <span className="rounded-lg border border-dashed border-[#2e2e38] px-2 py-1">
-                    <span className="block text-[12px] font-semibold leading-tight text-[#75757f]">Free agency</span>
-                    <span className="block text-[9px] text-[#60606a] uppercase tracking-[0.08em] font-bold mt-0.5">
-                      Dropped{stop.season ? ` · ${stop.season}` : ''}
-                    </span>
+          {/* Vertical stepper: dot + connecting rail per stop, so any journey
+              length fits the card width with no horizontal scrolling. */}
+          <div>
+            {journey.map((stop, i) => {
+              const isLast = i === journey.length - 1;
+              const isTeam = stop.rosterId != null;
+              const row = (
+                <>
+                  <span className="relative flex flex-col items-center self-stretch w-3 shrink-0">
+                    <span className={`w-px flex-1 ${i === 0 ? 'bg-transparent' : 'bg-[#2e2e38]'}`} />
+                    <span className={`h-2 w-2 rounded-full shrink-0 ${
+                      isLast ? 'bg-accent-500' : isTeam ? 'bg-[#4c4c56]' : 'border border-dashed border-[#4c4c56]'
+                    }`} />
+                    <span className={`w-px flex-1 ${isLast ? 'bg-transparent' : 'bg-[#2e2e38]'}`} />
                   </span>
-                )}
-              </Fragment>
-            ))}
+                  <span className={`min-w-0 flex-1 truncate text-[13px] font-semibold transition-colors ${
+                    isLast && isTeam ? 'text-accent-400' : isTeam ? 'text-[#d6d6de] group-hover:text-white' : 'text-[#75757f]'
+                  }`}>
+                    {isTeam ? directory!.teamName(stop.rosterId!) : 'Free agency'}
+                  </span>
+                  <span className="shrink-0 text-[9px] text-[#75757f] uppercase tracking-[0.08em] font-bold tabular-nums">
+                    {isTeam ? stop.how : 'Dropped'}{stop.season ? ` · ${stop.season}` : ''}
+                  </span>
+                </>
+              );
+              const rowCls = 'flex items-center gap-2.5 py-0.5 min-h-[30px]';
+              return isTeam ? (
+                <Link
+                  key={`${stop.timestamp}-${stop.rosterId}`}
+                  to={`/teams/${stop.rosterId}`}
+                  className={`${rowCls} group`}
+                >
+                  {row}
+                </Link>
+              ) : (
+                <div key={`${stop.timestamp}-fa`} className={rowCls}>{row}</div>
+              );
+            })}
           </div>
         </SectionCard>
       )}
