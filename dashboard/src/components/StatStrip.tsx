@@ -28,7 +28,15 @@ export function Stat({ label, children, sub, hint }: StatProps) {
   );
 }
 
-/** Horizontal row of Stats with even spacing; wraps on narrow screens. */
+/**
+ * Row of Stats. On narrow screens they snap to a 3-column grid so a wrapped
+ * second row aligns with the first instead of floating ragged; from `sm` up
+ * they sit on one evenly-spread line.
+ */
 export function StatStrip({ children }: { children: ReactNode }) {
-  return <div className="flex flex-wrap items-end gap-x-8 gap-y-2">{children}</div>;
+  return (
+    <div className="grid grid-cols-3 gap-x-4 gap-y-3 sm:flex sm:items-end sm:justify-between sm:gap-x-6">
+      {children}
+    </div>
+  );
 }

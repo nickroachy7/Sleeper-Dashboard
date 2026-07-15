@@ -512,7 +512,7 @@ export default function PlayerDetail() {
             career.draftRound != null ? `drafted Rd ${career.draftRound}, #${career.draftPick} overall` : 'undrafted'
           } · PPR`}
         >
-          <ProductionChart data={facts} height={200} />
+          <ProductionChart data={facts} height={150} />
         </SectionCard>
       ) : (
         <SectionCard label="Career Arc">
