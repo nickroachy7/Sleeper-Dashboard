@@ -641,14 +641,14 @@ export default function PlayerDetail() {
       {/* ── Journey map: every team stop, oldest → newest ── */}
       {journey.length > 0 && (
         <SectionCard label="Journey" sub="The player's path through this league">
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 -mb-1">
+          <div className="flex flex-wrap items-center gap-y-2 gap-x-1">
             {journey.map((stop, i) => (
               <Fragment key={`${stop.timestamp}-${stop.rosterId ?? 'fa'}`}>
                 {i > 0 && <ChevronRight className="h-3.5 w-3.5 text-[#4c4c56] shrink-0" />}
                 {stop.rosterId != null ? (
                   <Link
                     to={`/teams/${stop.rosterId}`}
-                    className={`shrink-0 rounded-lg border px-2.5 py-1.5 transition-colors hover:border-accent-500/40 ${
+                    className={`rounded-lg border px-2 py-1 transition-colors hover:border-accent-500/40 ${
                       i === journey.length - 1
                         ? 'border-accent-500/30 bg-accent-500/10'
                         : 'border-[#22222b] bg-[#101015]/60'
@@ -664,7 +664,7 @@ export default function PlayerDetail() {
                     </span>
                   </Link>
                 ) : (
-                  <span className="shrink-0 rounded-lg border border-dashed border-[#2e2e38] px-2.5 py-1.5">
+                  <span className="rounded-lg border border-dashed border-[#2e2e38] px-2 py-1">
                     <span className="block text-[12px] font-semibold leading-tight text-[#75757f]">Free agency</span>
                     <span className="block text-[9px] text-[#60606a] uppercase tracking-[0.08em] font-bold mt-0.5">
                       Dropped{stop.season ? ` · ${stop.season}` : ''}
