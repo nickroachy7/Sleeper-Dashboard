@@ -553,7 +553,7 @@ export default function PlayerDetail() {
           sub={`In this league's scoring · ${activeSeason.season} season`}
           right={leagueSeasonsPlayed && leagueSeasonsPlayed.length > 1 ? (
             <div className="flex gap-1">
-              {leagueSeasonsPlayed.map((s) => (
+              {[...leagueSeasonsPlayed].reverse().map((s) => (
                 <button
                   key={s.leagueId}
                   onClick={() => setPickedSeason(s.season)}
