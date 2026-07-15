@@ -10,6 +10,7 @@ import {
   Menu,
   X,
   Search,
+  MessageSquarePlus,
 } from 'lucide-react';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
 import { LookupSearch } from './LookupSearch';
@@ -61,6 +62,7 @@ const drawerSections: NavSection[] = [
     heading: 'More',
     items: [
       { to: '/settings', icon: Settings, label: 'Settings' },
+      { to: '/feedback', icon: MessageSquarePlus, label: 'Feedback' },
     ],
   },
 ];
@@ -236,6 +238,19 @@ export default function Layout() {
           >
             <Settings className="h-4 w-4" />
             <span className="font-medium">Settings</span>
+          </NavLink>
+          <NavLink
+            to="/feedback"
+            className={({ isActive }) =>
+              `flex items-center gap-2.5 px-2 py-2 rounded-lg text-[13px] transition-all ${
+                isActive
+                  ? 'text-white bg-[#1b1b22]'
+                  : 'text-[#75757f] hover:text-[#9c9ca7] hover:bg-[#17171d]'
+              }`
+            }
+          >
+            <MessageSquarePlus className="h-4 w-4" />
+            <span className="font-medium">Feedback</span>
           </NavLink>
           <p className="text-[10px] text-[#75757f] mt-2 px-2">
             Community-powered values

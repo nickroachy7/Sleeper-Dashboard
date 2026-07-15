@@ -213,6 +213,45 @@ export type Database = {
           },
         ]
       }
+      feedback: {
+        Row: {
+          attachments: Json
+          created_at: string | null
+          email: string | null
+          id: string
+          kind: string
+          message: string
+          page_url: string | null
+          status: string
+          submitter_id: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          attachments?: Json
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          kind?: string
+          message: string
+          page_url?: string | null
+          status?: string
+          submitter_id?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          attachments?: Json
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          kind?: string
+          message?: string
+          page_url?: string | null
+          status?: string
+          submitter_id?: string | null
+          user_agent?: string | null
+        }
+        Relationships: []
+      }
       league_users: {
         Row: {
           avatar: string | null
