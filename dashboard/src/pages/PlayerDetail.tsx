@@ -279,13 +279,18 @@ export default function PlayerDetail() {
     data.draftPicks.forEach((pick) => {
       const draft = pick.drafts as { season: string; league_id: string; type: string } | null;
       if (!pick.roster_id) return;
+      // Round.slot from the pick's actual draft_slot (league size varies);
+      // fall back to the overall pick number when the slot isn't recorded.
+      const pickLabel = pick.draft_slot != null
+        ? `${pick.round}.${String(pick.draft_slot).padStart(2, '0')}`
+        : `#${pick.pick_no} overall`;
       events.push({
         key: `draft-${pick.id}`,
         // No exact draft timestamp on the pick; anchor to the season for ordering
         timestamp: draft ? new Date(`${draft.season}-05-01`).getTime() : 0,
         season: draft?.season ?? null,
         kind: 'draft',
-        headline: `Drafted ${pick.round}.${String(pick.pick_no - (pick.round - 1) * 12).padStart(2, '0')} by ${directory.teamName(pick.roster_id, draft?.league_id)}`,
+        headline: `Drafted ${pickLabel} by ${directory.teamName(pick.roster_id, draft?.league_id)}`,
         detail: draft ? `${draft.season} ${draft.type === 'snake' ? 'startup' : 'rookie'} draft` : undefined,
         teamRosterId: pick.roster_id,
       });

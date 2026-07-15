@@ -140,7 +140,9 @@ export function usePlayerDetail(playerId: string | undefined) {
         supabase.from('players').select('*').eq('player_id', pid).maybeSingle(),
         supabase.from('player_values').select('*').eq('player_id', pid).eq('source', VALUE_SOURCE).maybeSingle(),
         supabase.from('player_value_history').select('date, value').eq('player_id', pid).eq('source', VALUE_SOURCE).order('date', { ascending: true }),
-        supabase.from('draft_picks').select('*, drafts(season, league_id, type)').eq('player_id', pid),
+        // !inner + league filter: only drafts from the active dynasty's chain,
+        // not every tracked league the player was ever drafted in.
+        supabase.from('draft_picks').select('*, drafts!inner(season, league_id, type)').eq('player_id', pid).in('drafts.league_id', chain),
         // Player's transactions + owning teams scoped to the active dynasty only.
         fetchAllTransactions(chain),
         supabase.from('rosters').select('league_id, roster_id, owner_id').contains('players', [pid]).in('league_id', chain),
