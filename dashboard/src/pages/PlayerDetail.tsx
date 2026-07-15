@@ -1,5 +1,5 @@
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { useMemo, useState } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 import { TrendingUp, TrendingDown, ChevronRight, Flame, Snowflake, BarChart3, Activity, ListChecks, ArrowRightLeft } from 'lucide-react';
 import { ValueChart } from '../components/charts/ValueChart';
 import { ProductionChart } from '../components/charts/ProductionChart';
@@ -359,6 +359,55 @@ export default function PlayerDetail() {
     return events.sort((a, b) => b.timestamp - a.timestamp);
   }, [data, directory, playerId, nameOf]);
 
+  // ── Journey map: the player's path through the league's teams ──
+  // Fold the same draft/transaction history (oldest → newest) into stints:
+  // each node is a team the player landed on, tagged with how and when.
+  const journey = useMemo(() => {
+    if (!data || !directory || !playerId) return [];
+    type Hop = { rosterId: number | null; how: string; season: string | null; timestamp: number };
+    const hops: Hop[] = [];
+
+    data.draftPicks.forEach((pick) => {
+      const draft = pick.drafts as { season: string; league_id: string } | null;
+      if (!pick.roster_id) return;
+      hops.push({
+        rosterId: pick.roster_id,
+        how: 'Drafted',
+        season: draft?.season ?? null,
+        timestamp: draft ? new Date(`${draft.season}-05-01`).getTime() : 0,
+      });
+    });
+
+    const HOW: Record<TimelineEvent['kind'], string> = {
+      draft: 'Drafted', trade: 'Trade', waiver: 'Waivers', free_agent: 'Free agent', commissioner: 'Commish',
+    };
+    data.transactions.forEach((tx: TransactionRow) => {
+      const toRoster = playerMoves(tx.adds)[playerId];
+      const fromRoster = playerMoves(tx.drops)[playerId];
+      if (toRoster !== undefined) {
+        hops.push({
+          rosterId: toRoster,
+          how: HOW[txKind(tx.type)],
+          season: directory.seasonByLeague.get(tx.league_id) ?? null,
+          timestamp: tx.created || 0,
+        });
+      } else if (fromRoster !== undefined) {
+        // Dropped with no new team — a free-agency gap in the journey.
+        hops.push({
+          rosterId: null,
+          how: 'Dropped',
+          season: directory.seasonByLeague.get(tx.league_id) ?? null,
+          timestamp: tx.created || 0,
+        });
+      }
+    });
+
+    hops.sort((a, b) => a.timestamp - b.timestamp);
+    // Collapse repeats: consecutive hops on the same roster (e.g. commish
+    // fix-ups) or back-to-back free-agency gaps read as one stop.
+    return hops.filter((h, i) => i === 0 || h.rosterId !== hops[i - 1].rosterId);
+  }, [data, directory, playerId]);
+
   if (isLoading || !data) {
     return (
       <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto space-y-4">
@@ -587,8 +636,47 @@ export default function PlayerDetail() {
       )}
       </>)}
 
-      {/* ═══ LEAGUE: transaction history ═══ */}
+      {/* ═══ LEAGUE: journey map + transaction history ═══ */}
       {activeTab === 'league' && hasLeague && (<>
+      {/* ── Journey map: every team stop, oldest → newest ── */}
+      {journey.length > 0 && (
+        <SectionCard label="Journey" sub="The player's path through this league">
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 -mb-1">
+            {journey.map((stop, i) => (
+              <Fragment key={`${stop.timestamp}-${stop.rosterId ?? 'fa'}`}>
+                {i > 0 && <ChevronRight className="h-3.5 w-3.5 text-[#4c4c56] shrink-0" />}
+                {stop.rosterId != null ? (
+                  <Link
+                    to={`/teams/${stop.rosterId}`}
+                    className={`shrink-0 rounded-lg border px-2.5 py-1.5 transition-colors hover:border-accent-500/40 ${
+                      i === journey.length - 1
+                        ? 'border-accent-500/30 bg-accent-500/10'
+                        : 'border-[#22222b] bg-[#101015]/60'
+                    }`}
+                  >
+                    <span className={`block text-[12px] font-semibold leading-tight ${
+                      i === journey.length - 1 ? 'text-accent-400' : 'text-[#d6d6de]'
+                    }`}>
+                      {directory!.teamName(stop.rosterId)}
+                    </span>
+                    <span className="block text-[9px] text-[#75757f] uppercase tracking-[0.08em] font-bold mt-0.5">
+                      {stop.how}{stop.season ? ` · ${stop.season}` : ''}
+                    </span>
+                  </Link>
+                ) : (
+                  <span className="shrink-0 rounded-lg border border-dashed border-[#2e2e38] px-2.5 py-1.5">
+                    <span className="block text-[12px] font-semibold leading-tight text-[#75757f]">Free agency</span>
+                    <span className="block text-[9px] text-[#60606a] uppercase tracking-[0.08em] font-bold mt-0.5">
+                      Dropped{stop.season ? ` · ${stop.season}` : ''}
+                    </span>
+                  </span>
+                )}
+              </Fragment>
+            ))}
+          </div>
+        </SectionCard>
+      )}
+
       {/* ── League history timeline ── */}
       <section className="bg-[#141419] rounded-2xl border border-[#22222b] overflow-hidden">
         <div className="px-4 sm:px-5 pt-4 pb-2">
