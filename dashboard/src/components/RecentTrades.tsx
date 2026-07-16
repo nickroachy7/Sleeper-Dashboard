@@ -42,7 +42,7 @@ export function RecentTrades({ trades }: RecentTradesProps) {
           <p className="text-[11px] font-bold text-accent-500 tracking-[0.2em] uppercase mb-1">THE WIRE</p>
           <h2 className="font-display text-lg sm:text-xl font-bold text-white tracking-tight">Recent Trades</h2>
         </div>
-        <Link to="/transactions" className="text-[11px] text-[#9c9ca7] hover:text-accent-400 transition-colors flex items-center gap-0.5">
+        <Link to="/league?tab=transactions" className="text-[11px] text-[#9c9ca7] hover:text-accent-400 transition-colors flex items-center gap-0.5">
           All Trades <ChevronRight className="h-3 w-3" />
         </Link>
       </div>

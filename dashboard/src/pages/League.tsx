@@ -1,9 +1,11 @@
 import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { Trophy, Users, ChevronRight, Flame } from 'lucide-react';
-import { LeagueTabs } from '../components/LeagueTabs';
+import { Trophy, Users, ChevronRight, Flame, ListOrdered, Swords, ArrowLeftRight, Layers, History as HistoryIcon } from 'lucide-react';
+import { TabBar } from '../components/TabBar';
 import { SectionCard } from '../components/SectionCard';
 import { NoLeagueState } from '../components/NoLeagueState';
+import { TransactionsPanel } from './Transactions';
+import { DraftsPanel } from './Drafts';
 import { useLeagueDirectory } from '../hooks/detail';
 import { useLeagueMatchups, type MatchupRow } from '../hooks/league';
 import { useLeague, useNflState } from '../hooks/queries';
@@ -12,7 +14,15 @@ import { useActiveLeague } from '../lib/active-league';
 
 // ── Types ───────────────────────────────────────────────────────────
 
-type LeagueTab = 'standings' | 'scoreboard' | 'history';
+type LeagueTab = 'standings' | 'scoreboard' | 'transactions' | 'drafts' | 'history';
+
+const LEAGUE_TABS = [
+  { id: 'standings' as const, label: 'Standings', icon: ListOrdered },
+  { id: 'scoreboard' as const, label: 'Scoreboard', icon: Swords },
+  { id: 'transactions' as const, label: 'Transactions', icon: ArrowLeftRight },
+  { id: 'drafts' as const, label: 'Drafts', icon: Layers },
+  { id: 'history' as const, label: 'History', icon: HistoryIcon },
+];
 
 interface DirRoster {
   league_id: string;
@@ -103,7 +113,12 @@ export default function League() {
   const { get, set } = useUrlState();
 
   const reqTab = get('tab');
-  const activeTab: LeagueTab = reqTab === 'scoreboard' ? 'scoreboard' : reqTab === 'history' ? 'history' : 'standings';
+  const activeTab: LeagueTab =
+    reqTab === 'scoreboard' ? 'scoreboard'
+    : reqTab === 'transactions' ? 'transactions'
+    : reqTab === 'drafts' ? 'drafts'
+    : reqTab === 'history' ? 'history'
+    : 'standings';
 
   // Seasons in the dynasty, newest first, flagged by whether they've kicked off.
   const seasons = useMemo(() => {
@@ -405,7 +420,11 @@ export default function League() {
       </section>
 
       {/* ── Section tabs ── */}
-      <LeagueTabs />
+      <TabBar
+        tabs={LEAGUE_TABS}
+        active={activeTab}
+        onChange={(id) => set('tab', id === 'standings' ? null : id)}
+      />
 
       {/* ═══ STANDINGS ═══ */}
       {activeTab === 'standings' && (
@@ -543,6 +562,12 @@ export default function League() {
           )}
         </SectionCard>
       )}
+
+      {/* ═══ TRANSACTIONS ═══ */}
+      {activeTab === 'transactions' && <TransactionsPanel />}
+
+      {/* ═══ DRAFTS ═══ */}
+      {activeTab === 'drafts' && <DraftsPanel />}
 
       {/* ═══ HISTORY: record book ═══ */}
       {activeTab === 'history' && (

@@ -33,7 +33,7 @@ interface NavItem {
 // Primary destinations — desktop sidebar + mobile top tab strip.
 const primaryNav: NavItem[] = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/league', icon: Trophy, label: 'League', match: ['/transactions', '/drafts'] },
+  { to: '/league', icon: Trophy, label: 'League' },
   { to: '/players', icon: TrendingUp, label: 'Players', match: ['/value-vote'] },
   { to: '/trade', icon: Scale, label: 'Trade' },
   { to: '/chat', icon: MessageSquare, label: 'Chat' },

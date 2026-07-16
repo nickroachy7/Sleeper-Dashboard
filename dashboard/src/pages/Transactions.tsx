@@ -8,12 +8,8 @@ import {
 import { Link } from 'react-router-dom';
 import { useMemo, useCallback } from 'react';
 import { useUrlState } from '../hooks/useUrlState';
-import { PageHeader } from '../components/PageHeader';
-import { LeagueTabs } from '../components/LeagueTabs';
 import { Pagination } from '../components/Pagination';
 import { FilterBar, FilterPills, SortSelect } from '../components/FilterBar';
-import { NoLeagueState } from '../components/NoLeagueState';
-import { useActiveLeague } from '../lib/active-league';
 
 import { usePlayerMap } from '../hooks/useLeagueData';
 import { usePlayerValuesList, usePickValues, useLeagueIds } from '../hooks/queries';
@@ -41,7 +37,12 @@ type TransactionWithTeams = TransactionRow & { teams: TradeTeam[] };
 
 const ITEMS_PER_PAGE = 50;
 
-export default function Transactions() {
+/**
+ * Transactions panel — the League section's "Transactions" tab. Renders inside
+ * League.tsx (which owns the section header, tab bar, and no-league state), so
+ * this is just the filter bar + list, no page chrome.
+ */
+export function TransactionsPanel() {
   const { get, setMany } = useUrlState();
   const typeFilter = get('type', 'all');
   const sortBy = get('sort', 'recent');
@@ -53,7 +54,6 @@ export default function Transactions() {
   const { data: pickResolutions } = useLeaguePickResolutions();
   const { data: directory } = useLeagueDirectory();
   const { data: leagueIds } = useLeagueIds();
-  const { hasLeague } = useActiveLeague();
   const chain = leagueIds?.chain ?? null;
   const currentLeagueId = leagueIds?.current ?? null;
 
@@ -293,21 +293,10 @@ export default function Transactions() {
   const handleFilterChange = (newFilter: string) => setMany({ type: newFilter === 'all' ? null : newFilter, page: null });
   const handleSortChange = (newSort: string) => setMany({ sort: newSort === 'recent' ? null : newSort, page: null });
 
-  // Fresh visitor with no league: onboarding, not the "no data" state.
-  if (!hasLeague) {
-    return (
-      <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto">
-        <PageHeader title="Transactions" />
-        <NoLeagueState heading="Add your league to see transactions"
-          sub="Every trade, waiver, and roster move in your league — graded and searchable." compact />
-      </div>
-    );
-  }
-
   if (isLoading) {
     return (
-      <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto">
-        <div className="space-y-4 mt-12">
+      <div>
+        <div className="space-y-4 mt-2">
           {Array.from({ length: 5 }).map((_, i) => (
             <div key={i} className="bg-[#141419] rounded-xl p-5">
               <div className="flex items-center gap-2 mb-4">
@@ -335,7 +324,7 @@ export default function Transactions() {
 
   if (!transactions?.length) {
     return (
-      <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto">
+      <div>
         <div className="flex flex-col items-center justify-center py-16 text-center">
           <div className="w-14 h-14 bg-[#1b1b22] rounded-2xl flex items-center justify-center mb-4">
             <ArrowRightLeft className="h-7 w-7 text-[#75757f]" />
@@ -527,9 +516,7 @@ export default function Transactions() {
   // ─── Render ────────────────────────────────────────────────────────
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto">
-      <LeagueTabs />
-
+    <div>
       <FilterBar sticky>
         <FilterPills
           options={[

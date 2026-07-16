@@ -164,7 +164,7 @@ export default function TradeDetail() {
     return (
       <div className="p-4 sm:p-6 lg:p-8 max-w-3xl mx-auto text-center py-16">
         <p className="text-sm text-[#75757f]">Trade not found.</p>
-        <Link to="/transactions" className="text-xs text-accent-400 mt-2 inline-block">Back to Transactions</Link>
+        <Link to="/league?tab=transactions" className="text-xs text-accent-400 mt-2 inline-block">Back to Transactions</Link>
       </div>
     );
   }

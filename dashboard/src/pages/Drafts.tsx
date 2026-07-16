@@ -17,12 +17,8 @@ import {
 import { Link } from 'react-router-dom';
 import { useState, useMemo } from 'react';
 import { useUrlState } from '../hooks/useUrlState';
-import { PageHeader } from '../components/PageHeader';
-import { LeagueTabs } from '../components/LeagueTabs';
 import { TabBar } from '../components/TabBar';
 import { PlayerRow } from '../components/PlayerRow';
-import { NoLeagueState } from '../components/NoLeagueState';
-import { useActiveLeague } from '../lib/active-league';
 import type { DraftPickRow } from '../types/domain';
 
 interface Player {
@@ -54,10 +50,16 @@ const roundColors: Record<number, string> = {
   4: 'bg-stone-500/15 text-stone-400 border-stone-500/25',
 };
 
-export default function Drafts() {
+/**
+ * Drafts panel — the League section's "Drafts" tab. Renders inside League.tsx
+ * (which owns the section header, tab bar, and no-league state). Its own params
+ * are namespaced (dview/dseason/draft) so they don't collide with League's
+ * outer ?tab=/?season=.
+ */
+export function DraftsPanel() {
   const { get, set, setMany } = useUrlState();
-  const activeTab = (get('tab', 'history') as 'history' | 'capital');
-  const selectedSeason = get('season', '2026');
+  const activeTab = (get('dview', 'history') as 'history' | 'capital');
+  const selectedSeason = get('dseason', '2026');
   const [expandedRounds, setExpandedRounds] = useState<Set<number>>(new Set([1]));
   const [showLegend, setShowLegend] = useState(false);
 
@@ -76,7 +78,6 @@ export default function Drafts() {
   });
 
   const { data: leagueIds } = useLeagueIds();
-  const { hasLeague } = useActiveLeague();
   const chain = leagueIds?.chain ?? null;
 
   const { data, isLoading } = useQuery({
@@ -205,32 +206,19 @@ export default function Drafts() {
     });
   };
 
-  // Fresh visitor with no league: onboarding, not the "no data" state.
-  if (!hasLeague) {
-    return (
-      <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto">
-        <PageHeader title="Drafts" />
-        <NoLeagueState heading="Add your league to see drafts"
-          sub="Rookie draft history, pick trades, and future draft capital for your league." compact />
-      </div>
-    );
-  }
-
   if (isLoading) {
     return (
-      <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto">
-        <div className="space-y-4 mt-12">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="skeleton h-20 w-full" />
-          ))}
-        </div>
+      <div className="space-y-4 mt-2">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="skeleton h-20 w-full" />
+        ))}
       </div>
     );
   }
 
   if (!data?.drafts?.length && !data?.tradedPicks?.length) {
     return (
-      <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto">
+      <div>
         <div className="flex flex-col items-center justify-center py-16 text-center">
           <div className="w-14 h-14 bg-[#1b1b22] rounded-2xl flex items-center justify-center mb-4">
             <FileText className="h-7 w-7 text-[#75757f]" />
@@ -255,9 +243,7 @@ export default function Drafts() {
   const rounds = Object.keys(currentDraftPicks).map(Number).sort((a, b) => a - b);
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto">
-      <LeagueTabs />
-
+    <div>
       {/* Draft sub-view: History (past selections) vs Capital (future picks) */}
       <div className="mb-4">
         <TabBar
@@ -266,7 +252,7 @@ export default function Drafts() {
             { id: 'capital', label: 'Capital', icon: Calendar },
           ]}
           active={activeTab}
-          onChange={(id) => setMany({ tab: id === 'history' ? null : id })}
+          onChange={(id) => setMany({ dview: id === 'history' ? null : id })}
         />
       </div>
 
@@ -376,7 +362,7 @@ export default function Drafts() {
               {availableSeasons.map((season: string) => (
                 <button
                   key={season}
-                  onClick={() => set('season', season === '2026' ? null : season)}
+                  onClick={() => set('dseason', season === '2026' ? null : season)}
                   className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
                     selectedSeason === season
                       ? 'bg-purple-500/15 text-purple-400 ring-1 ring-purple-500/30'
