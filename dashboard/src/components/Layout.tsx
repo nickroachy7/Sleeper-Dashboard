@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { NavLink, Outlet, useLocation, Link } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -6,8 +5,8 @@ import {
   Settings,
   TrendingUp,
   Trophy,
-  ChevronDown,
   Search,
+  MessageSquare,
   MessageSquarePlus,
 } from 'lucide-react';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
@@ -16,7 +15,7 @@ import { TopBar } from './TopBar';
 import { LeagueSwitcher } from './LeagueSwitcher';
 import { AddLeagueModal } from './AddLeagueModal';
 import { SessionContributeModal } from './SessionContributeModal';
-import { openLookup } from '../lib/lookup';
+import { openLookup, openChat } from '../lib/lookup';
 
 // ── Nav Configuration ───────────────────────────────────────────────
 
@@ -39,42 +38,11 @@ const primaryNav: NavItem[] = [
 
 // Full nav for the mobile drawer, grouped into editorial sections that
 // mirror the desktop sidebar's hierarchy.
-interface NavSection {
-  heading: string;
-  items: NavItem[];
-}
-
-const drawerSections: NavSection[] = [
-  {
-    heading: 'Main',
-    items: [
-      { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
-      { to: '/league', icon: Trophy, label: 'League' },
-      { to: '/players', icon: TrendingUp, label: 'Players' },
-      { to: '/trade', icon: Scale, label: 'Trade' },
-    ],
-  },
-  {
-    heading: 'More',
-    items: [
-      { to: '/settings', icon: Settings, label: 'Settings' },
-      { to: '/feedback', icon: MessageSquarePlus, label: 'Feedback' },
-    ],
-  },
-];
-
 // ── Component ───────────────────────────────────────────────────────
 
 export default function Layout() {
   const location = useLocation();
-  const [navOpen, setNavOpen] = useState(false);
   useRealtimeSync();
-
-  const isNavItemActive = (to: string, match?: string[]) => {
-    if (match?.some((p) => location.pathname.startsWith(p))) return true;
-    if (to === '/') return location.pathname === '/';
-    return location.pathname === to || location.pathname.startsWith(to + '/');
-  };
 
   // ── Shared NavLink renderer ──
   const renderNavItem = ({ to, icon: Icon, iconImage, label, match }: NavItem, isPrimary: boolean) => {
@@ -127,76 +95,32 @@ export default function Layout() {
 
   return (
     <div className="min-h-dvh">
-      {/* ── Mobile Header (the logo doubles as the menu button) ── */}
+      {/* ── Mobile Header: search (left) · logo (center → dashboard) · chat (right) ── */}
       <header className="lg:hidden fixed top-0 left-0 right-0 z-[80] bg-[#0d0d11]/90 backdrop-blur-xl border-b border-[#2a2a34] pt-[env(safe-area-inset-top)]">
-        <div className="flex items-center justify-between h-14 px-2">
-          <button
-            onClick={() => setNavOpen((open) => !open)}
-            aria-label={navOpen ? 'Close menu' : 'Open menu'}
-            aria-expanded={navOpen}
-            className={`flex items-center gap-1 h-10 pl-2 pr-1.5 rounded-lg transition-colors ${
-              navOpen ? 'bg-[#1b1b22]' : 'hover:bg-[#1b1b22] active:bg-[#22222b]'
-            }`}
-          >
-            <img src="/yapsports-logo.webp" alt="Sleeper Dashboard" className="h-7 w-auto" />
-            <ChevronDown
-              className={`h-4 w-4 text-[#75757f] transition-transform ${navOpen ? 'rotate-180' : ''}`}
-            />
-          </button>
+        <div className="relative flex items-center justify-between h-14 px-2">
           <button
             onClick={openLookup}
-            aria-label="Search or ask the assistant"
+            aria-label="Search or ask"
             className="w-10 h-10 rounded-lg flex items-center justify-center text-[#9c9ca7] hover:text-white hover:bg-[#1b1b22] active:bg-[#22222b] transition-colors"
           >
             <Search className="h-[20px] w-[20px]" />
           </button>
+          <Link
+            to="/"
+            aria-label="Dashboard"
+            className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 active:opacity-70 transition-opacity"
+          >
+            <img src="/yapsports-logo.webp" alt="Sleeper Dashboard" className="h-7 w-auto" />
+          </Link>
+          <button
+            onClick={openChat}
+            aria-label="Chats"
+            className="w-10 h-10 rounded-lg flex items-center justify-center text-[#9c9ca7] hover:text-white hover:bg-[#1b1b22] active:bg-[#22222b] transition-colors"
+          >
+            <MessageSquare className="h-[20px] w-[20px]" />
+          </button>
         </div>
       </header>
-
-      {/* ── Mobile Nav Drop-Down (falls from under the fixed header) ── */}
-      {navOpen && (
-        <div className="lg:hidden fixed inset-0 z-[70]" role="dialog" aria-modal="true">
-          {/* Backdrop starts below the header so the header stays interactive */}
-          <div
-            className="absolute inset-x-0 bottom-0 top-[calc(56px+env(safe-area-inset-top))] bg-black/70 backdrop-blur-sm animate-menu-fade"
-            onClick={() => setNavOpen(false)}
-          />
-          <div className="absolute inset-x-0 top-[calc(56px+env(safe-area-inset-top))] max-h-[calc(100dvh-56px-env(safe-area-inset-top))] overflow-y-auto bg-[#0f0f14] border-b border-[#2a2a34] shadow-2xl animate-menu-drop">
-            <div className="px-4 py-3.5 border-b border-[#1b1b22]">
-              <LeagueSwitcher onNavigate={() => setNavOpen(false)} />
-            </div>
-
-            <nav className="px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
-              {drawerSections.map((section, si) => (
-                <div key={section.heading} className={si > 0 ? 'mt-6' : ''}>
-                  <h2 className="mb-1 text-[10px] font-semibold text-[#60606a] uppercase tracking-[2px]">
-                    {section.heading}
-                  </h2>
-                  <div>
-                    {section.items.map(({ to, label, match }) => {
-                      const active = isNavItemActive(to, match);
-                      return (
-                        <Link
-                          key={to}
-                          to={to}
-                          onClick={() => setNavOpen(false)}
-                          className={`group flex items-center py-2.5 text-[16px] tracking-tight transition-colors ${
-                            active
-                              ? 'text-accent-500 font-semibold'
-                              : 'text-[#c4c4cd] font-medium active:text-white'
-                          }`}
-                        >
-                          {label}
-                        </Link>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))}
-            </nav>
-          </div>
-        </div>
-      )}
 
       {/* ── Desktop Sidebar ── */}
       <aside className="hidden lg:flex fixed top-0 left-0 z-50 h-full w-64 bg-[#141419] border-r border-[#2a2a34] flex-col">

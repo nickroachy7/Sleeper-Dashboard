@@ -1,6 +1,6 @@
 import { useLocation } from 'react-router-dom';
-import { Search } from 'lucide-react';
-import { openLookup } from '../lib/lookup';
+import { Search, MessageSquare } from 'lucide-react';
+import { openLookup, openChat } from '../lib/lookup';
 
 const TITLES: Record<string, string> = {
   '/': 'Dashboard',
@@ -36,17 +36,26 @@ export function TopBar() {
         {title}
       </h1>
 
-      <button
-        onClick={openLookup}
-        aria-label="Search or ask the assistant"
-        className="group flex items-center gap-2.5 h-9 w-72 px-3 rounded-lg bg-[#141419] border border-[#26262f] text-[#75757f] hover:border-[#363641] hover:text-[#9c9ca7] transition-colors"
-      >
-        <Search className="h-4 w-4 shrink-0" />
-        <span className="text-[13px]">Search or ask…</span>
-        <kbd className="ml-auto text-[10px] font-semibold text-[#60606a] bg-[#1b1b22] border border-[#26262f] rounded px-1.5 py-0.5 leading-none">
-          ⌘K
-        </kbd>
-      </button>
+      <div className="flex items-center gap-2">
+        <button
+          onClick={openLookup}
+          aria-label="Search or ask the assistant"
+          className="group flex items-center gap-2.5 h-9 w-72 px-3 rounded-lg bg-[#141419] border border-[#26262f] text-[#75757f] hover:border-[#363641] hover:text-[#9c9ca7] transition-colors"
+        >
+          <Search className="h-4 w-4 shrink-0" />
+          <span className="text-[13px]">Search or ask…</span>
+          <kbd className="ml-auto text-[10px] font-semibold text-[#60606a] bg-[#1b1b22] border border-[#26262f] rounded px-1.5 py-0.5 leading-none">
+            ⌘K
+          </kbd>
+        </button>
+        <button
+          onClick={openChat}
+          aria-label="Chats"
+          className="h-9 w-9 rounded-lg flex items-center justify-center bg-[#141419] border border-[#26262f] text-[#9c9ca7] hover:border-[#363641] hover:text-white transition-colors"
+        >
+          <MessageSquare className="h-[18px] w-[18px]" />
+        </button>
+      </div>
     </div>
   );
 }
