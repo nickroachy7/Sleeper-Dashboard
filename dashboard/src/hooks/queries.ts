@@ -84,6 +84,46 @@ export function useLeagueIds() {
   });
 }
 
+export interface ChatLeagueContext {
+  name: string;
+  /** Dynasty chain, newest season first. */
+  seasons: { season: string; league_id: string }[];
+}
+
+/**
+ * Active league's name + full season chain, shaped for the chat edge function
+ * so the assistant scopes its queries to the league the user is viewing (and
+ * UNIONs the chain for all-time questions). Null when no league is active.
+ */
+export function useChatLeagueContext() {
+  const { activeLeagueId } = useActiveLeague();
+  return useQuery({
+    queryKey: ['chatLeagueContext', activeLeagueId],
+    queryFn: async (): Promise<ChatLeagueContext | null> => {
+      if (!activeLeagueId) return null;
+
+      const { data } = await supabase
+        .from('leagues')
+        .select('league_id, name, season, previous_league_id')
+        .order('season', { ascending: false });
+      const rows = data ?? [];
+      const byId = new Map(rows.map((l) => [l.league_id, l]));
+      if (!byId.has(activeLeagueId)) return null;
+
+      const seasons: { season: string; league_id: string }[] = [];
+      const seen = new Set<string>();
+      let cursor: string | null = activeLeagueId;
+      while (cursor && byId.has(cursor) && !seen.has(cursor)) {
+        seen.add(cursor);
+        seasons.push({ season: String(byId.get(cursor)!.season), league_id: cursor });
+        cursor = byId.get(cursor)?.previous_league_id ?? null;
+      }
+
+      return { name: byId.get(activeLeagueId)!.name ?? 'this league', seasons };
+    },
+  });
+}
+
 export interface NflState {
   season: string;
   seasonType: string;   // 'off' | 'pre' | 'regular' | 'post'

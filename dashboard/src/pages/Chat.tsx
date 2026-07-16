@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { useChatLeagueContext, type ChatLeagueContext } from '../hooks/queries';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import {
   Sparkles,
   SendHorizonal,
@@ -26,31 +29,36 @@ interface ChatMessage {
   error?: boolean;
 }
 
-const STORAGE_KEY = 'league-chat-messages';
+// Persist per active league so switching leagues shows that league's thread.
+const STORAGE_PREFIX = 'league-chat-messages';
+const storageKey = (leagueId: string | null) => `${STORAGE_PREFIX}:${leagueId ?? 'none'}`;
 
 const SUGGESTIONS = [
   'Who has the most valuable roster right now?',
   'What were the biggest trades this season?',
   "Which team owns the most 2027 draft picks?",
-  'Who are the top 5 risers in KTC value this month?',
+  'Who are the top 5 risers in value this month?',
   'Which manager has the best all-time record?',
   'What was the highest-scoring week ever?',
 ];
 
 // ─── Helpers ────────────────────────────────────────────────────────
 
-function loadMessages(): ChatMessage[] {
+function loadMessages(leagueId: string | null): ChatMessage[] {
   try {
-    const raw = sessionStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(storageKey(leagueId));
     return raw ? (JSON.parse(raw) as ChatMessage[]) : [];
   } catch {
     return [];
   }
 }
 
-async function askLeagueBot(turns: { role: string; content: string }[]) {
+async function askLeagueBot(
+  turns: { role: string; content: string }[],
+  league: ChatLeagueContext | null
+) {
   const { data, error } = await supabase.functions.invoke('chat', {
-    body: { messages: turns },
+    body: { messages: turns, league: league ?? undefined },
   });
 
   if (error) {
@@ -101,6 +109,7 @@ function AssistantMarkdown({ content }: { content: string }) {
   return (
     <div className="chat-markdown text-[13.5px] leading-relaxed text-[#d6d6de]">
       <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
         components={{
           table: (props) => (
             <div className="overflow-x-auto my-2 rounded-lg border border-[#2a2a34]">
@@ -120,7 +129,28 @@ function AssistantMarkdown({ content }: { content: string }) {
           code: (props) => (
             <code className="bg-[#17171d] px-1 py-0.5 rounded text-[12px] text-accent-600" {...props} />
           ),
-          a: (props) => <a className="text-accent-500 hover:underline" {...props} />,
+          a: ({ href, children, ...props }) => {
+            // Internal app links (e.g. /players/:id, /teams/:id) route in-app;
+            // anything else opens in a new tab.
+            if (href?.startsWith('/')) {
+              return (
+                <Link to={href} className="text-accent-500 hover:underline">
+                  {children}
+                </Link>
+              );
+            }
+            return (
+              <a
+                href={href}
+                target="_blank"
+                rel="noreferrer"
+                className="text-accent-500 hover:underline"
+                {...props}
+              >
+                {children}
+              </a>
+            );
+          },
           ul: (props) => <ul className="list-disc pl-5 my-1.5 space-y-0.5" {...props} />,
           ol: (props) => <ol className="list-decimal pl-5 my-1.5 space-y-0.5" {...props} />,
           p: (props) => <p className="my-1.5" {...props} />,
@@ -139,15 +169,24 @@ function AssistantMarkdown({ content }: { content: string }) {
 // ─── Page ───────────────────────────────────────────────────────────
 
 export default function Chat() {
-  const [messages, setMessages] = useState<ChatMessage[]>(loadMessages);
+  const { data: league } = useChatLeagueContext();
+  const leagueId = league?.seasons[0]?.league_id ?? null;
+  const leagueName = league?.name ?? 'your league';
+
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [pending, setPending] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
+  // Load the stored thread for the active league (and reload when it changes).
   useEffect(() => {
-    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
-  }, [messages]);
+    setMessages(loadMessages(leagueId));
+  }, [leagueId]);
+
+  useEffect(() => {
+    localStorage.setItem(storageKey(leagueId), JSON.stringify(messages));
+  }, [messages, leagueId]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
@@ -166,7 +205,7 @@ export default function Chat() {
       const turns = history
         .filter((m) => !m.error)
         .map(({ role, content }) => ({ role, content }));
-      const { reply, steps } = await askLeagueBot(turns);
+      const { reply, steps } = await askLeagueBot(turns, league ?? null);
       setMessages([...history, { role: 'assistant', content: reply, steps }]);
     } catch (e) {
       setMessages([
@@ -185,7 +224,7 @@ export default function Chat() {
 
   const clear = () => {
     setMessages([]);
-    sessionStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(storageKey(leagueId));
     inputRef.current?.focus();
   };
 
@@ -219,9 +258,9 @@ export default function Chat() {
             <div className="w-12 h-12 rounded-2xl bg-accent-500/10 flex items-center justify-center mb-4">
               <Sparkles className="h-6 w-6 text-accent-500" />
             </div>
-            <h2 className="text-white font-semibold mb-1">Ask anything about Dynasty Reloaded</h2>
+            <h2 className="text-white font-semibold mb-1">Ask anything about {leagueName}</h2>
             <p className="text-[13px] text-[#75757f] mb-6 max-w-sm">
-              Rosters, trades, draft picks, KTC values, matchups — the assistant queries the
+              Rosters, trades, draft picks, player values, matchups — the assistant queries the
               league database live to answer.
             </p>
             <div className="grid sm:grid-cols-2 gap-2 w-full max-w-xl">
