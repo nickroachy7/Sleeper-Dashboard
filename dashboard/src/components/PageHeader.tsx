@@ -1,9 +1,3 @@
-interface Tab {
-  id: string;
-  label: string;
-  icon?: React.ComponentType<{ className?: string }>;
-}
-
 interface PageHeaderProps {
   title: string;
   subtitle?: string;
@@ -12,15 +6,12 @@ interface PageHeaderProps {
   children?: React.ReactNode;
   actions?: React.ReactNode;
   stats?: React.ReactNode;
-  tabs?: Tab[];
-  activeTab?: string;
-  onTabChange?: (id: string) => void;
 }
 
 /**
  * Minimal page header: the title renders as a single compact accent label
- * (e.g. "TRANSACTIONS") — no oversized heading. Any tabs/segmented control sit
- * on the same row to the right, keeping the top of every page tight.
+ * (e.g. "TRANSACTIONS") — no oversized heading. Page-level tabs are a separate
+ * concern: use the shared <TabBar/> below the header for a consistent look.
  */
 export function PageHeader({
   title,
@@ -28,9 +19,6 @@ export function PageHeader({
   children,
   actions,
   stats,
-  tabs,
-  activeTab,
-  onTabChange,
 }: PageHeaderProps) {
   return (
     <div className="mb-4">
@@ -38,24 +26,12 @@ export function PageHeader({
         <h1 className="text-[13px] font-bold text-accent-500 tracking-[0.18em] uppercase truncate">
           {title}
         </h1>
-        <div className="flex items-center gap-2 flex-shrink-0">
-          {tabs && onTabChange && (
-            <div className="segmented-control">
-              {tabs.map(({ id, label, icon: Icon }) => (
-                <button
-                  key={id}
-                  onClick={() => onTabChange(id)}
-                  className={`flex items-center gap-1.5 ${activeTab === id ? 'active' : ''}`}
-                >
-                  {Icon && <Icon className="h-3.5 w-3.5" />}
-                  {label}
-                </button>
-              ))}
-            </div>
-          )}
-          {actions}
-          {children}
-        </div>
+        {(actions || children) && (
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {actions}
+            {children}
+          </div>
+        )}
       </div>
 
       {subtitle && (

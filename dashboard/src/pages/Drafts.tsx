@@ -19,6 +19,7 @@ import { useState, useMemo } from 'react';
 import { useUrlState } from '../hooks/useUrlState';
 import { PageHeader } from '../components/PageHeader';
 import { LeagueTabs } from '../components/LeagueTabs';
+import { TabBar } from '../components/TabBar';
 import { PlayerRow } from '../components/PlayerRow';
 import { NoLeagueState } from '../components/NoLeagueState';
 import { useActiveLeague } from '../lib/active-league';
@@ -258,13 +259,15 @@ export default function Drafts() {
       <LeagueTabs />
 
       {/* Draft sub-view: History (past selections) vs Capital (future picks) */}
-      <div className="segmented-control mb-4">
-        <button className={`flex items-center gap-1.5 ${activeTab === 'history' ? 'active' : ''}`} onClick={() => setMany({ tab: null })}>
-          <History className="h-3.5 w-3.5" /> History
-        </button>
-        <button className={`flex items-center gap-1.5 ${activeTab === 'capital' ? 'active' : ''}`} onClick={() => setMany({ tab: 'capital' })}>
-          <Calendar className="h-3.5 w-3.5" /> Capital
-        </button>
+      <div className="mb-4">
+        <TabBar
+          tabs={[
+            { id: 'history', label: 'History', icon: History },
+            { id: 'capital', label: 'Capital', icon: Calendar },
+          ]}
+          active={activeTab}
+          onChange={(id) => setMany({ tab: id === 'history' ? null : id })}
+        />
       </div>
 
       {/* Draft History Tab */}

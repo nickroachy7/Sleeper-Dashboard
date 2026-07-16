@@ -543,7 +543,7 @@ function TeamsTab() {
   return (
     <>
       <p className="text-[11px] text-[#60606a] mb-4">
-        Ranked by {filterLabel} weighted KTC value
+        Ranked by {filterLabel} weighted YAP Value
       </p>
 
       <div className="mb-4">
@@ -624,7 +624,7 @@ function TeamsTab() {
 
       <div className="text-[11px] text-[#60606a] mt-3 px-1 leading-relaxed space-y-1.5">
         <p>
-          Rankings use diminishing returns to prevent roster hoarding from inflating values. Players are sorted by KTC value at each position, then weighted by roster slot:
+          Rankings use diminishing returns to prevent roster hoarding from inflating values. Players are sorted by YAP Value at each position, then weighted by roster slot:
         </p>
         <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 pl-1">
           <span className="text-[#75757f] font-medium">100%</span>

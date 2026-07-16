@@ -499,7 +499,7 @@ export default function PlayerDetail() {
 
           {/* Metrics row */}
           <div className="grid grid-cols-3 gap-2.5 mt-3">
-            <StatTile label="Yap value">
+            <StatTile label="YAP Value">
               {value ? value.value.toLocaleString() : '—'}
             </StatTile>
             <StatTile label="Rank" sub={value?.rank && value.position_rank ? `${player.position}${value.position_rank}` : undefined}>
@@ -526,7 +526,7 @@ export default function PlayerDetail() {
       {/* ═══ OVERVIEW: outlook, market value trajectory, comparables ═══ */}
       {activeTab === 'overview' && (<>
         {outlook && <OutlookCard blurb={outlook} />}
-        <SectionCard label="Value History" sub="Community superflex value · seeded from prior seasons, updated by trades & votes">
+        <SectionCard label="Value History" sub="YAP Value · seeded from prior seasons, updated by trades & votes">
           <ValueChart data={history} height={240} />
         </SectionCard>
         {comparables.length > 0 && (

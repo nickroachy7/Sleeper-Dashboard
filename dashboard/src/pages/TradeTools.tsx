@@ -4,6 +4,7 @@ import { Scale, Target } from 'lucide-react';
 import { TradeEvaluator } from './TradeEvaluator';
 import { TradeFinder } from './TradeFinder';
 import { PageHeader } from '../components/PageHeader';
+import { TabBar } from '../components/TabBar';
 import { NoLeagueState } from '../components/NoLeagueState';
 import { useActiveLeague } from '../lib/active-league';
 import { useUrlState } from '../hooks/useUrlState';
@@ -50,10 +51,14 @@ export default function TradeTools() {
         <PageHeader
           title="Trade Tools"
           subtitle={tabDefs.find(t => t.id === activeTab)?.subtitle}
-          tabs={tabDefs}
-          activeTab={activeTab}
-          onTabChange={(id) => setMany({ tab: id === 'evaluate' ? null : id })}
         />
+        <div className="mb-4">
+          <TabBar
+            tabs={tabDefs}
+            active={activeTab}
+            onChange={(id) => setMany({ tab: id === 'evaluate' ? null : id })}
+          />
+        </div>
 
         {activeTab === 'evaluate' ? (
           // The Evaluator works without a league (global value calculator).
