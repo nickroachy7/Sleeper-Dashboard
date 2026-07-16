@@ -67,6 +67,9 @@ export default function Layout() {
   };
 
   // ── Desktop sidebar NavLink renderer ──
+  // Flat, modern row: bare icon + label, one soft highlight for the active item
+  // (no per-icon tile, no separate accent bar). Icon picks up the accent when
+  // active. Shared by the primary group and the footer for a consistent look.
   const renderSidebarItem = ({ to, icon: Icon, iconImage, label, match }: NavItem) => {
     const sectionActive = match?.some((p) => location.pathname.startsWith(p)) ?? false;
     return (
@@ -75,10 +78,10 @@ export default function Layout() {
         to={to}
         end={to === '/'}
         className={({ isActive }) =>
-          `group relative flex items-center gap-3 px-3 py-3 rounded-lg text-sm transition-all duration-200 ${
+          `group flex items-center gap-3 px-3 h-9 rounded-lg text-[14px] transition-colors duration-150 ${
             isActive || sectionActive
-              ? 'bg-accent-500/10 text-white'
-              : 'text-[#80808c] hover:bg-[#1b1b22] hover:text-[#d6d6de]'
+              ? 'bg-white/[0.06] text-white font-semibold'
+              : 'text-[#80808c] hover:text-[#d6d6de] hover:bg-white/[0.03] font-medium'
           }`
         }
       >
@@ -86,21 +89,12 @@ export default function Layout() {
           const isActive = navActive || sectionActive;
           return (
             <>
-              {isActive && (
-                <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 bg-accent-500 rounded-r-full" />
+              {iconImage ? (
+                <img src={iconImage} alt="" className="h-[18px] w-[18px] object-contain shrink-0" />
+              ) : (
+                <Icon className={`h-[18px] w-[18px] shrink-0 transition-colors ${isActive ? 'text-accent-500' : 'text-[#6c6c76] group-hover:text-[#9c9ca7]'}`} />
               )}
-              <div
-                className={`flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
-                  isActive ? 'bg-accent-500/20' : 'bg-[#141419] group-hover:bg-[#22222b]'
-                }`}
-              >
-                {iconImage ? (
-                  <img src={iconImage} alt="" className="h-4 w-4 object-contain" />
-                ) : (
-                  <Icon className={`h-[18px] w-[18px] ${isActive ? 'text-accent-400' : 'text-[#75757f]'}`} />
-                )}
-              </div>
-              <span className="font-medium text-[14px]">{label}</span>
+              <span>{label}</span>
             </>
           );
         }}
@@ -156,43 +150,31 @@ export default function Layout() {
       </header>
 
       {/* ── Desktop Sidebar ── */}
-      <aside className="hidden lg:flex fixed top-0 left-0 z-50 h-full w-64 bg-[#141419] border-r border-[#2a2a34] flex-col">
+      <aside className="hidden lg:flex fixed top-0 left-0 z-50 h-full w-64 bg-[#0f0f13] border-r border-[#1f1f27] flex-col">
         {/* Logo */}
-        <div className="h-16 flex items-center px-5 border-b border-[#2a2a34] shrink-0">
-          <img src="/yapsports-logo.webp" alt="Sleeper Dashboard" className="h-10 w-auto" />
+        <div className="h-16 flex items-center px-5 shrink-0">
+          <img src="/yapsports-logo.webp" alt="Sleeper Dashboard" className="h-9 w-auto" />
         </div>
 
         {/* League Identity + Switcher */}
-        <div className="px-5 py-4 border-b border-[#1b1b22] shrink-0">
-          <LeagueSwitcher />
+        <div className="px-3 pb-3 shrink-0">
+          <div className="px-2 py-3 rounded-xl bg-white/[0.03] border border-[#1f1f27]">
+            <LeagueSwitcher />
+          </div>
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 p-3 overflow-y-auto">
+        <nav className="flex-1 px-3 overflow-y-auto">
+          <p className="px-3 pt-1 pb-2 text-[10px] font-bold uppercase tracking-[0.16em] text-[#5a5a64]">Menu</p>
           <div className="space-y-0.5">
             {primaryNav.map((item) => renderSidebarItem(item))}
           </div>
         </nav>
 
         {/* Sidebar Footer */}
-        <div className="px-5 py-3 border-t border-[#1b1b22] shrink-0">
-          {secondaryNav.map(({ to, icon: Icon, label }) => (
-            <NavLink
-              key={to}
-              to={to}
-              className={({ isActive }) =>
-                `flex items-center gap-2.5 px-2 py-2 rounded-lg text-[13px] transition-all ${
-                  isActive
-                    ? 'text-white bg-[#1b1b22]'
-                    : 'text-[#75757f] hover:text-[#9c9ca7] hover:bg-[#17171d]'
-                }`
-              }
-            >
-              <Icon className="h-4 w-4" />
-              <span className="font-medium">{label}</span>
-            </NavLink>
-          ))}
-          <p className="text-[10px] text-[#75757f] mt-2 px-2">
+        <div className="px-3 py-3 border-t border-[#1b1b22] shrink-0 space-y-0.5">
+          {secondaryNav.map((item) => renderSidebarItem(item))}
+          <p className="text-[10px] text-[#5a5a64] pt-2 px-3">
             Community-powered values
           </p>
         </div>
