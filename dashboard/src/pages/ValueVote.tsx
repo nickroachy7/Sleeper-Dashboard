@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { PageHeader } from '../components/PageHeader';
+import { PlayersTabs } from '../components/PlayersTabs';
 import { PositionBadge } from '../components/PositionBadge';
 import { usePlayers, usePlayerValuesList } from '../hooks/queries';
 import { getPlayerImageUrl } from '../lib/trade-shared';
@@ -61,11 +61,10 @@ export default function ValueVote() {
   };
 
   return (
-    <div>
-      <PageHeader
-        title="Value Vote"
-        subtitle="Who'd you rather keep? Every pick trains the community values."
-      />
+    <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto">
+      <PlayersTabs />
+
+      <p className="text-[13px] text-muted mb-4">Who'd you rather keep? Every pick trains the community values.</p>
 
       <div className="flex items-center justify-between text-[13px] text-muted mb-4">
         <span>{votes} {votes === 1 ? 'vote' : 'votes'} this session</span>

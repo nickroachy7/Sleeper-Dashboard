@@ -18,6 +18,7 @@ import { Link } from 'react-router-dom';
 import { useState, useMemo } from 'react';
 import { useUrlState } from '../hooks/useUrlState';
 import { PageHeader } from '../components/PageHeader';
+import { LeagueTabs } from '../components/LeagueTabs';
 import { PlayerRow } from '../components/PlayerRow';
 import { NoLeagueState } from '../components/NoLeagueState';
 import { useActiveLeague } from '../lib/active-league';
@@ -254,15 +255,17 @@ export default function Drafts() {
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto">
-      <PageHeader
-        title="Drafts"
-        tabs={[
-          { id: 'history', label: 'History', icon: History },
-          { id: 'capital', label: 'Capital', icon: Calendar },
-        ]}
-        activeTab={activeTab}
-        onTabChange={(id) => setMany({ tab: id === 'history' ? null : id })}
-      />
+      <LeagueTabs />
+
+      {/* Draft sub-view: History (past selections) vs Capital (future picks) */}
+      <div className="segmented-control mb-4">
+        <button className={`flex items-center gap-1.5 ${activeTab === 'history' ? 'active' : ''}`} onClick={() => setMany({ tab: null })}>
+          <History className="h-3.5 w-3.5" /> History
+        </button>
+        <button className={`flex items-center gap-1.5 ${activeTab === 'capital' ? 'active' : ''}`} onClick={() => setMany({ tab: 'capital' })}>
+          <Calendar className="h-3.5 w-3.5" /> Capital
+        </button>
+      </div>
 
       {/* Draft History Tab */}
       {activeTab === 'history' && (

@@ -4,12 +4,15 @@ import { openLookup } from '../lib/lookup';
 
 const TITLES: Record<string, string> = {
   '/': 'Dashboard',
-  '/trade': 'Trade Tools',
-  '/ktc-values': 'KTC Values',
-  '/chat': 'League Chat',
-  '/transactions': 'Transactions',
-  '/drafts': 'Drafts',
+  '/league': 'League',
+  '/trade': 'Trade',
+  '/players': 'Players',
+  '/value-vote': 'Players',
+  '/chat': 'Chat',
+  '/transactions': 'League',
+  '/drafts': 'League',
   '/settings': 'Settings',
+  '/feedback': 'Feedback',
 };
 
 function titleForPath(pathname: string): string {

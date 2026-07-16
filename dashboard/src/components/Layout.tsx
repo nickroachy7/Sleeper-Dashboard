@@ -2,16 +2,15 @@ import { useState } from 'react';
 import { NavLink, Outlet, useLocation, Link } from 'react-router-dom';
 import {
   LayoutDashboard,
-  ArrowLeftRight,
   Scale,
   Settings,
   TrendingUp,
   Sparkles,
-  Swords,
-  Layers,
+  Trophy,
   Menu,
   X,
   Search,
+  MessageSquarePlus,
 } from 'lucide-react';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
 import { LookupSearch } from './LookupSearch';
@@ -28,18 +27,17 @@ interface NavItem {
   icon: typeof LayoutDashboard;
   iconImage?: string;
   label: string;
+  /** Extra path prefixes that belong to this section (keep the item highlighted
+   *  when on a sibling route, e.g. Transactions/Drafts under League). */
+  match?: string[];
 }
 
 const primaryNav: NavItem[] = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/trade', icon: Scale, label: 'Trade Tools' },
-  { to: '/ktc-values', icon: TrendingUp, label: 'Player Values' },
-  { to: '/value-vote', icon: Swords, label: 'Value Vote' },
-  { to: '/chat', icon: Sparkles, label: 'League Chat' },
-];
-
-const secondaryNav: NavItem[] = [
-  { to: '/transactions', icon: ArrowLeftRight, label: 'Transactions' },
+  { to: '/league', icon: Trophy, label: 'League', match: ['/transactions', '/drafts'] },
+  { to: '/players', icon: TrendingUp, label: 'Players', match: ['/value-vote'] },
+  { to: '/trade', icon: Scale, label: 'Trade' },
+  { to: '/chat', icon: Sparkles, label: 'Chat' },
 ];
 
 // Full nav for the mobile drawer, grouped into editorial sections that
@@ -54,18 +52,17 @@ const drawerSections: NavSection[] = [
     heading: 'Main',
     items: [
       { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
-      { to: '/trade', icon: Scale, label: 'Trade Tools' },
-      { to: '/ktc-values', icon: TrendingUp, label: 'Player Values' },
-      { to: '/value-vote', icon: Swords, label: 'Value Vote' },
-      { to: '/chat', icon: Sparkles, label: 'League Chat' },
+      { to: '/league', icon: Trophy, label: 'League' },
+      { to: '/players', icon: TrendingUp, label: 'Players' },
+      { to: '/trade', icon: Scale, label: 'Trade' },
+      { to: '/chat', icon: Sparkles, label: 'Chat' },
     ],
   },
   {
-    heading: 'League',
+    heading: 'More',
     items: [
-      { to: '/transactions', icon: ArrowLeftRight, label: 'Transactions' },
-      { to: '/drafts', icon: Layers, label: 'Drafts' },
       { to: '/settings', icon: Settings, label: 'Settings' },
+      { to: '/feedback', icon: MessageSquarePlus, label: 'Feedback' },
     ],
   },
 ];
@@ -77,26 +74,31 @@ export default function Layout() {
   const [navOpen, setNavOpen] = useState(false);
   useRealtimeSync();
 
-  const isNavItemActive = (to: string) => {
+  const isNavItemActive = (to: string, match?: string[]) => {
+    if (match?.some((p) => location.pathname.startsWith(p))) return true;
     if (to === '/') return location.pathname === '/';
     return location.pathname === to || location.pathname.startsWith(to + '/');
   };
 
   // ── Shared NavLink renderer ──
-  const renderNavItem = ({ to, icon: Icon, iconImage, label }: NavItem, isPrimary: boolean) => (
+  const renderNavItem = ({ to, icon: Icon, iconImage, label, match }: NavItem, isPrimary: boolean) => {
+    const sectionActive = match?.some((p) => location.pathname.startsWith(p)) ?? false;
+    return (
     <NavLink
       key={to}
       to={to}
       end={to === '/'}
       className={({ isActive }) =>
         `group relative flex items-center gap-3 px-3 ${isPrimary ? 'py-3' : 'py-2.5'} rounded-lg text-sm transition-all duration-200 ${
-          isActive
+          isActive || sectionActive
             ? 'bg-accent-500/10 text-white'
             : 'text-[#80808c] hover:bg-[#1b1b22] hover:text-[#d6d6de]'
         }`
       }
     >
-      {({ isActive }) => (
+      {({ isActive: navActive }) => {
+        const isActive = navActive || sectionActive;
+        return (
         <>
           {/* Active indicator bar */}
           {isActive && (
@@ -121,9 +123,11 @@ export default function Layout() {
           </div>
           <span className={`font-medium ${isPrimary ? 'text-[14px]' : 'text-[13px]'}`}>{label}</span>
         </>
-      )}
+        );
+      }}
     </NavLink>
-  );
+    );
+  };
 
   return (
     <div className="min-h-dvh">
@@ -171,8 +175,8 @@ export default function Layout() {
                     {section.heading}
                   </h2>
                   <div>
-                    {section.items.map(({ to, label }) => {
-                      const active = isNavItemActive(to);
+                    {section.items.map(({ to, label, match }) => {
+                      const active = isNavItemActive(to, match);
                       return (
                         <Link
                           key={to}
@@ -218,16 +222,6 @@ export default function Layout() {
           <div className="space-y-0.5">
             {primaryNav.map((item) => renderNavItem(item, true))}
           </div>
-
-          {/* Secondary Nav */}
-          <div className="mt-6">
-            <h2 className="px-3 mb-2 text-[10px] font-bold text-[#60606a] uppercase tracking-[2px]">
-              League
-            </h2>
-            <div className="space-y-0.5">
-              {secondaryNav.map((item) => renderNavItem(item, false))}
-            </div>
-          </div>
         </nav>
 
         {/* Sidebar Footer */}
@@ -244,6 +238,19 @@ export default function Layout() {
           >
             <Settings className="h-4 w-4" />
             <span className="font-medium">Settings</span>
+          </NavLink>
+          <NavLink
+            to="/feedback"
+            className={({ isActive }) =>
+              `flex items-center gap-2.5 px-2 py-2 rounded-lg text-[13px] transition-all ${
+                isActive
+                  ? 'text-white bg-[#1b1b22]'
+                  : 'text-[#75757f] hover:text-[#9c9ca7] hover:bg-[#17171d]'
+              }`
+            }
+          >
+            <MessageSquarePlus className="h-4 w-4" />
+            <span className="font-medium">Feedback</span>
           </NavLink>
           <p className="text-[10px] text-[#75757f] mt-2 px-2">
             Community-powered values
