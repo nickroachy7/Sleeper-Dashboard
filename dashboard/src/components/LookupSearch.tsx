@@ -243,9 +243,10 @@ export function LookupSearch() {
       onClick={() => setOpen(false)}
     >
       <div
-        className="flex flex-col w-full h-full sm:h-auto sm:max-h-[80vh] sm:max-w-xl bg-[#141419] sm:border sm:border-[#2a2a34] sm:rounded-2xl overflow-hidden sm:shadow-2xl sm:ring-1 sm:ring-black/40 pt-[env(safe-area-inset-top)] sm:pt-0"
+        className="flex flex-col w-full h-full sm:h-auto sm:max-h-[80vh] sm:max-w-xl bg-[#141419] sm:border sm:border-[#2a2a34] sm:rounded-2xl overflow-hidden sm:shadow-2xl sm:ring-1 sm:ring-black/40 pt-[env(safe-area-inset-top)] sm:pt-0 animate-palette-in"
         onClick={(e) => e.stopPropagation()}
       >
+        <div key={mode} className="flex flex-col flex-1 min-h-0 animate-rise-in">
         {mode === 'chat' ? (
           <>
             {/* Chat header */}
@@ -388,13 +389,13 @@ export function LookupSearch() {
             </div>
 
             {/* Results */}
-            <div className="flex-1 overflow-y-auto overscroll-contain py-1.5 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+            <div className="flex-1 overflow-y-auto overscroll-contain py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
               {pageResults.length > 0 && (
                 <Section label="Go to">
                   {pageResults.map((r) => (
-                    <button key={r.id} onPointerEnter={() => setActiveIdx(idxOf(r))} onClick={() => go(r)} className={`flex items-center gap-3 px-4 py-2 w-full text-left ${activeClass(r)}`}>
+                    <button key={r.id} onPointerEnter={() => setActiveIdx(idxOf(r))} onClick={() => go(r)} className={`flex items-center gap-3 px-3 py-2 w-full text-left rounded-xl transition-colors ${activeClass(r)}`}>
                       <span className="w-8 h-8 rounded-lg bg-[#1b1b22] flex items-center justify-center shrink-0"><Compass className="h-4 w-4 text-[#75757f]" /></span>
-                      <span className="text-[13px] text-white">{r.label}</span>
+                      <span className="text-[13.5px] text-white">{r.label}</span>
                     </button>
                   ))}
                 </Section>
@@ -404,7 +405,7 @@ export function LookupSearch() {
                 <Section label="Players">
                   {playerResults.map((r) => (
                     <div key={r.id} onPointerEnter={() => setActiveIdx(idxOf(r))}>
-                      <PlayerRow playerId={r.playerId} name={r.name} position={r.position} team={r.team} value={r.value} size="sm" onClick={() => setOpen(false)} className={activeClass(r)} />
+                      <PlayerRow playerId={r.playerId} name={r.name} position={r.position} team={r.team} value={r.value} size="sm" onClick={() => setOpen(false)} className={`rounded-xl ${activeClass(r)}`} />
                     </div>
                   ))}
                 </Section>
@@ -414,7 +415,7 @@ export function LookupSearch() {
                 <Section label={query ? 'Teams' : 'League Teams'}>
                   {teams.map((r) => (
                     <div key={r.id} onPointerEnter={() => setActiveIdx(idxOf(r))}>
-                      <TeamRow rosterId={r.rosterId} name={r.name} subtitle={r.owner} avatarId={r.avatarId} size="sm" onClick={() => setOpen(false)} className={activeClass(r)} />
+                      <TeamRow rosterId={r.rosterId} name={r.name} subtitle={r.owner} avatarId={r.avatarId} size="sm" onClick={() => setOpen(false)} className={`rounded-xl ${activeClass(r)}`} />
                     </div>
                   ))}
                 </Section>
@@ -423,31 +424,31 @@ export function LookupSearch() {
               {leagueResults.length > 0 && (
                 <Section label="Leagues">
                   {leagueResults.map((r) => (
-                    <button key={r.id} onPointerEnter={() => setActiveIdx(idxOf(r))} onClick={() => go(r)} className={`flex items-center gap-3 px-4 py-2 w-full text-left ${activeClass(r)}`}>
-                      <span className="w-8 h-8 rounded-lg bg-[#1b1b22] flex items-center justify-center shrink-0"><Trophy className="h-4 w-4 text-[#75757f]" /></span>
+                    <button key={r.id} onPointerEnter={() => setActiveIdx(idxOf(r))} onClick={() => go(r)} className={`flex items-center gap-3 px-3 py-2 w-full text-left rounded-xl transition-colors ${activeClass(r)}`}>
+                      <span className="w-9 h-9 rounded-full bg-[#1b1b22] flex items-center justify-center shrink-0"><Trophy className="h-4 w-4 text-[#75757f]" /></span>
                       <span className="min-w-0 flex-1">
-                        <span className="block text-[13px] text-white truncate">{r.name}</span>
+                        <span className="block text-[13.5px] text-white truncate">{r.name}</span>
                         <span className="block text-[11px] text-[#75757f]">{r.season} season</span>
                       </span>
                       {r.rootLeagueId === activeLeagueId && <span className="text-[10px] text-accent-500 font-semibold">Active</span>}
                     </button>
                   ))}
-                  <button onClick={() => { setOpen(false); openAddLeague(); }} className="flex items-center gap-3 px-4 py-2 w-full text-left text-[#9c9ca7] hover:text-white">
-                    <span className="w-8 h-8 rounded-lg bg-[#1b1b22] flex items-center justify-center shrink-0"><Plus className="h-4 w-4 text-[#75757f]" /></span>
-                    <span className="text-[13px]">Add a league</span>
+                  <button onClick={() => { setOpen(false); openAddLeague(); }} className="flex items-center gap-3 px-3 py-2 w-full text-left text-[#9c9ca7] hover:text-white rounded-xl transition-colors hover:bg-[#1b1b22]">
+                    <span className="w-9 h-9 rounded-full bg-[#1b1b22] flex items-center justify-center shrink-0"><Plus className="h-4 w-4 text-[#75757f]" /></span>
+                    <span className="text-[13.5px]">Add a league</span>
                   </button>
                 </Section>
               )}
 
               {hasQuery && (
-                <div onPointerEnter={() => setActiveIdx(flat.findIndex((r) => r.kind === 'ask'))}>
+                <div className="px-2 pt-1" onPointerEnter={() => setActiveIdx(flat.findIndex((r) => r.kind === 'ask'))}>
                   <AskRow query={query} active={flat[activeIdx]?.kind === 'ask'} emphasized={noMatches} onClick={() => startNewChat(query)} />
                 </div>
               )}
 
               {!hasQuery && (
-                <p className="px-4 py-8 text-center text-[12px] text-[#75757f]">
-                  Search players, teams, leagues — jump to a page, or ask the assistant.
+                <p className="px-6 py-8 text-center text-[12px] leading-relaxed text-[#60606a]">
+                  Search players, teams, leagues — jump to a page, or ask the assistant a question.
                 </p>
               )}
             </div>
@@ -457,6 +458,7 @@ export function LookupSearch() {
             </div>
           </>
         )}
+        </div>
       </div>
     </div>
   );
@@ -464,22 +466,29 @@ export function LookupSearch() {
 
 function Section({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="mb-1">
-      <p className="px-4 pt-1.5 pb-1 text-[10px] font-bold tracking-[0.18em] uppercase text-[#60606a]">{label}</p>
-      {children}
+    <div className="mb-2">
+      <p className="px-5 pt-2 pb-1.5 text-[10.5px] font-semibold tracking-[0.14em] uppercase text-[#60606a]">{label}</p>
+      <div className="px-2 space-y-0.5">{children}</div>
     </div>
   );
 }
 
 function AskRow({ query, active, emphasized, onClick }: { query: string; active: boolean; emphasized: boolean; onClick: () => void; }) {
   return (
-    <button onClick={onClick} className={`flex items-center gap-3 px-4 py-2.5 w-full text-left border-t border-[#1b1b22] ${active ? 'bg-accent-500/10' : ''}`}>
-      <span className="w-8 h-8 rounded-lg bg-accent-500/10 flex items-center justify-center shrink-0"><Sparkles className="h-4 w-4 text-accent-500" /></span>
+    <button
+      onClick={onClick}
+      className={`flex items-center gap-3 px-3 py-2.5 w-full text-left rounded-xl border transition-colors ${
+        active
+          ? 'bg-accent-500/12 border-accent-500/40'
+          : 'bg-accent-500/[0.06] border-accent-500/15 hover:bg-accent-500/10'
+      }`}
+    >
+      <span className="w-9 h-9 rounded-full bg-accent-500/15 flex items-center justify-center shrink-0"><Sparkles className="h-4 w-4 text-accent-500" /></span>
       <span className="min-w-0 flex-1">
-        <span className="block text-[13px] text-white truncate">Ask the assistant<span className="text-[#75757f]"> — “{query}”</span></span>
+        <span className="block text-[13.5px] text-white truncate">Ask the assistant<span className="text-[#75757f]"> — “{query}”</span></span>
         <span className="block text-[11px] text-[#75757f]">{emphasized ? 'No match — get an answer from the league data' : 'Answered live from your league data'}</span>
       </span>
-      <CornerDownLeft className="h-3.5 w-3.5 text-[#60606a] shrink-0" />
+      <CornerDownLeft className="h-3.5 w-3.5 text-accent-500/70 shrink-0" />
     </button>
   );
 }

@@ -94,7 +94,7 @@ function AssistantMarkdown({ content }: { content: string }) {
 export function ChatMessageView({ message: m }: { message: ChatMessage }) {
   if (m.role === 'user') {
     return (
-      <div className="flex justify-end">
+      <div className="flex justify-end animate-rise-in">
         <div className="max-w-[82%] rounded-[18px] rounded-br-md bg-accent-500 px-3.5 py-2 text-[13.5px] leading-relaxed text-[#06110a] font-medium whitespace-pre-wrap shadow-sm">
           {m.content}
         </div>
@@ -103,7 +103,7 @@ export function ChatMessageView({ message: m }: { message: ChatMessage }) {
   }
 
   return (
-    <div className="flex gap-3">
+    <div className="flex gap-3 animate-rise-in">
       <div
         className={`shrink-0 w-7 h-7 rounded-lg flex items-center justify-center mt-0.5 ${
           m.error ? 'bg-red-500/10' : 'bg-accent-500/10'
