@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useChatLeagueContext, type ChatLeagueContext } from '../hooks/queries';
+import { ChatWidgets, type ChatWidget } from '../components/chat/ChatWidgets';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import {
@@ -26,6 +27,7 @@ interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
   steps?: QueryStep[];
+  widgets?: ChatWidget[];
   error?: boolean;
 }
 
@@ -75,7 +77,7 @@ async function askLeagueBot(
     throw new Error(error.message);
   }
   if (!data?.success) throw new Error(data?.error || 'The assistant failed to respond.');
-  return data as { reply: string; steps: QueryStep[] };
+  return data as { reply: string; steps: QueryStep[]; widgets?: ChatWidget[] };
 }
 
 // ─── Sub-components ─────────────────────────────────────────────────
@@ -205,8 +207,8 @@ export default function Chat() {
       const turns = history
         .filter((m) => !m.error)
         .map(({ role, content }) => ({ role, content }));
-      const { reply, steps } = await askLeagueBot(turns, league ?? null);
-      setMessages([...history, { role: 'assistant', content: reply, steps }]);
+      const { reply, steps, widgets } = await askLeagueBot(turns, league ?? null);
+      setMessages([...history, { role: 'assistant', content: reply, steps, widgets }]);
     } catch (e) {
       setMessages([
         ...history,
@@ -301,8 +303,9 @@ export default function Chat() {
                     {m.error ? (
                       <p className="text-[13px] text-red-400 pt-1">{m.content}</p>
                     ) : (
-                      <AssistantMarkdown content={m.content} />
+                      m.content && <AssistantMarkdown content={m.content} />
                     )}
+                    {!m.error && <ChatWidgets widgets={m.widgets} />}
                     {m.steps && <QuerySteps steps={m.steps} />}
                   </div>
                 </div>

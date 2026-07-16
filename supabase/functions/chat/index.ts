@@ -45,6 +45,16 @@ This app uses a crowdsourced **community** value system as its canonical source,
 - player_values holds BOTH sources side by side, keyed by \`source\`: 'community' (canonical, what the app shows) and 'keeptradecut' (legacy, kept only for comparison). Default to \`source = 'community'\` unless the user explicitly asks about KTC.
 - A single format is used: superflex = true. Filter \`superflex = true\`.
 - Higher \`value\` = more valuable. \`rank\` is overall (1 = best), \`position_rank\` is within position, \`tier\` groups similar players.
+- Confidence: community values are Glicko-based. In community_ratings, high \`rd\` (rating deviation) or low \`matches\` = an unsettled/uncertain value. Flag "thin data" when you lean on a value with few matches.
+
+## Fantasy analysis — think like a sharp dynasty manager, not a database
+This is a SUPERFLEX DYNASTY league: two QBs can start, so QBs carry premium long-term value, and you're valuing multi-year windows, not just this week. When a question calls for judgment (trades, buy/sell, roster help, who to start/draft), don't just dump values — reason and give a recommendation.
+
+- **Trades / player comparisons.** Total each side's community value (players via player_values source='community' superflex=true; picks via pick_values by year/round/tier). Value is the anchor, but adjust for: player age & position aging curves (RB value falls fast after ~26-27; WR holds into ~28-30; TE slower; QB ages best, especially in superflex), positional scarcity (QB > elite WR in superflex), injury_status, and recent trend (player_value_history direction + player_facts fantasy_ppg / snap_share). State a clear verdict — who wins and roughly by how much, and whether it fits each team's window. A value gap under ~5-10% is basically fair.
+- **Buy / sell / hold.** Combine current value + trend (player_value_history over ~30-90 days) + age + production (player_facts). Young + rising + producing = buy; aging + falling = sell; stable core = hold. Say which and why in a sentence.
+- **Roster analysis.** Judge a team by position group vs the league (rank each roster's summed value by position), starter quality vs depth, age profile (young/ascending = building; veteran/win-now = contending), the QB room (critical in superflex), and future pick capital (traded_picks + pick_values). Call out the 1-2 real strengths and weaknesses and a suggested direction (contend vs rebuild).
+- **Start/sit & waivers** lean on recent production (player_facts, matchups.players_points) and matchup, not dynasty value.
+- Be decisive and lead with the answer/verdict, then 1-3 crisp supporting reasons. Ground every claim in queried data — never invent a stat or a value. When the data is thin or a value is uncertain (high rd / few matches), say so rather than overclaiming. Talk like a knowledgeable league-mate: direct, a little opinionated, no fluff.
 
 ## Database schema (Postgres)
 Core league data (one row per team/season unless noted):
@@ -84,10 +94,16 @@ Meta:
 - All-time / cross-season questions: include every league_id in the dynasty chain (see League context), not just the current one.
 - Only SELECT is permitted; results are capped at 500 rows and 8s. Aggregate or LIMIT accordingly, and run several small queries rather than one giant one.
 
+## Interactive components — prefer these over plain tables when they fit
+You can render live, app-styled interactive UI in the chat by calling these tools. They don't return data to you — they display a component to the user. You still use query_database first to decide WHICH players (get their player_ids), then pass just the ids; the app fills in live values/stats and styling.
+- **show_player_comparison** — for comparing specific players ("who's better", "X or Y", a player-for-player trade, "is X a buy"). Renders cards with value, rank, age, recent PPG. For close/subjective calls, set invite_vote=true to also collect the user's "who'd you rather keep?" pick — this harvests into the community value engine.
+- **show_player_rankings** — for "rankings / most valuable / top N at a position" lists. Renders ranked rows. For subjective lists set allow_rerank=true so the user can reorder and submit their own ranking (also harvests votes).
+When you render a component, keep your text SHORT — a one-line lead or your verdict — because the component carries the detail. Don't also print a big markdown table of the same players; the widget replaces it. Still give real analysis/verdict in the text for judgment questions. Use components for player comparisons and rankings; use markdown tables for everything else (team/manager stats, trades, matchups, cross-league breakdowns).
+
 ## Answering
-- Answer in GitHub-flavored markdown, concise and direct. Use tables for rankings/lists.
+- Answer in GitHub-flavored markdown, concise and direct. Use tables for rankings/lists that aren't rendered as a component.
 - Give real names (players, team names, managers), never raw IDs.
-- Make key entities clickable using internal markdown links: a player as [Name](/players/PLAYER_ID) and a team/manager as [Team Name](/teams/ROSTER_ID). Only link when you have the id from a query. Link the primary entities in an answer (e.g. the players in a top-5 table), not every mention.
+- Make key entities clickable using internal markdown links: a player as [Name](/players/PLAYER_ID) and a team/manager as [Team Name](/teams/ROSTER_ID). Only link when you have the id from a query. Link the primary entities in an answer, not every mention. (Players shown inside a component are already linked — don't duplicate them in a table.)
 - Cite community values when comparing players or evaluating trades. If you also reference KTC, label it as such.
 - If a query errors, fix it and retry rather than giving up. If the data can't answer the question, say what's missing.`;
 
@@ -123,6 +139,72 @@ const QUERY_TOOL: Anthropic.Tool = {
     required: ["sql"],
   },
 };
+
+// ── UI (widget) tools ───────────────────────────────────────────────
+// These don't execute server-side. When the model calls one, we record it
+// as a widget spec and return it to the client, which renders a real,
+// app-styled interactive React component. The model passes ids/config only;
+// the client fetches live data. Adding a widget = add a tool here + a
+// renderer component on the client.
+
+const WIDGET_TOOL_NAMES = new Set(["show_player_comparison", "show_player_rankings"]);
+
+const UI_TOOLS: Anthropic.Tool[] = [
+  {
+    name: "show_player_comparison",
+    description:
+      "Render an interactive comparison card for 2-4 players (photo, position, community value, overall + positional rank, age, recent fantasy PPG), styled like the app. Use whenever the user compares specific players, asks who's better/more valuable, or weighs a player-for-player trade. Pass the player_ids only; the app fills in live data. Set invite_vote=true to also show a 'who'd you rather keep?' prompt that records the user's pick into the community value engine — do this for close or subjective calls.",
+    input_schema: {
+      type: "object",
+      properties: {
+        player_ids: {
+          type: "array",
+          items: { type: "string" },
+          description: "2 to 4 Sleeper player_ids, in display order (best-first if there's a clear one).",
+        },
+        invite_vote: {
+          type: "boolean",
+          description: "Show a who-would-you-rather vote to collect the user's opinion. Best for close comparisons.",
+        },
+        note: {
+          type: "string",
+          description: "Optional one-line caption shown above the cards (your quick take).",
+        },
+      },
+      required: ["player_ids"],
+    },
+  },
+  {
+    name: "show_player_rankings",
+    description:
+      "Render an interactive ranked list of players (app-styled rows with rank medal and community value). Use for 'rankings / most valuable / top N (at a position)' questions. Pass player_ids already ordered best-first. Set allow_rerank=true to let the user drag to reorder and submit their own ranking, which harvests pairwise votes into the community engine — encourage this for subjective lists.",
+    input_schema: {
+      type: "object",
+      properties: {
+        player_ids: {
+          type: "array",
+          items: { type: "string" },
+          description: "Sleeper player_ids ordered best-first (rank 1 first). 3 to 15 players.",
+        },
+        title: {
+          type: "string",
+          description: "Heading for the list, e.g. 'Top 5 by community value'.",
+        },
+        allow_rerank: {
+          type: "boolean",
+          description: "Let the user reorder and submit their own ranking (harvests votes).",
+        },
+      },
+      required: ["player_ids"],
+    },
+  },
+];
+
+interface Widget {
+  id: string;
+  type: string;
+  props: Record<string, unknown>;
+}
 
 interface ChatTurn {
   role: "user" | "assistant";
@@ -175,6 +257,7 @@ Deno.serve(async (req) => {
     }));
 
     const steps: QueryStep[] = [];
+    const widgets: Widget[] = [];
     let response: Anthropic.Message;
 
     for (let i = 0; ; i++) {
@@ -195,7 +278,7 @@ Deno.serve(async (req) => {
             text: buildLeagueContext(league),
           },
         ],
-        tools: [QUERY_TOOL],
+        tools: [QUERY_TOOL, ...UI_TOOLS],
         messages,
       });
 
@@ -207,6 +290,25 @@ Deno.serve(async (req) => {
       const toolResults: Anthropic.ToolResultBlockParam[] = [];
       for (const block of response.content) {
         if (block.type !== "tool_use") continue;
+
+        // UI tools: don't execute — record a widget for the client to render,
+        // and acknowledge so the model can continue to its final text.
+        if (WIDGET_TOOL_NAMES.has(block.name)) {
+          widgets.push({
+            id: block.id,
+            type: block.name,
+            props: (block.input ?? {}) as Record<string, unknown>,
+          });
+          toolResults.push({
+            type: "tool_result",
+            tool_use_id: block.id,
+            content:
+              "Component rendered to the user. Continue with a short text response (your verdict/takeaway); do not repeat the component's contents as a table.",
+          });
+          continue;
+        }
+
+        // query_database: execute read-only SQL.
         const sql = (block.input as { sql?: string }).sql ?? "";
         const { data, error } = await supabase.rpc("execute_readonly_sql", {
           query: sql,
@@ -248,8 +350,11 @@ Deno.serve(async (req) => {
 
     return jsonResponse({
       success: true,
-      reply: reply || "I wasn't able to produce an answer — try rephrasing.",
+      reply:
+        reply ||
+        (widgets.length ? "" : "I wasn't able to produce an answer — try rephrasing."),
       steps,
+      widgets,
       usage: {
         input_tokens: response.usage.input_tokens,
         output_tokens: response.usage.output_tokens,
