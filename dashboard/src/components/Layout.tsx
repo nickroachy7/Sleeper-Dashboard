@@ -121,9 +121,10 @@ export default function Layout() {
           <LeagueSwitcher compact />
         </div>
 
-        {/* Row 2 — persistent tab strip (primary destinations, then settings/feedback) */}
+        {/* Row 2 — persistent tab strip. Primary destinations only; Settings &
+            Feedback live in the league-switcher menu (top-right avatar). */}
         <nav className="flex items-stretch h-12 px-1 overflow-x-auto no-scrollbar border-t border-[#1b1b22]">
-          {[...primaryNav, ...secondaryNav].map(({ to, label, match }) => {
+          {primaryNav.map(({ to, label, match }) => {
             const active = isNavItemActive(to, match);
             return (
               <Link

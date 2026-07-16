@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronsUpDown, Check, Plus, Settings2 } from 'lucide-react';
+import { ChevronsUpDown, Check, Plus, Settings, MessageSquarePlus } from 'lucide-react';
 import { useLeague } from '../hooks/queries';
 import { useActiveLeague } from '../lib/active-league';
 import { openAddLeague } from '../lib/add-league-modal';
@@ -166,7 +166,14 @@ export function LeagueSwitcher({ onNavigate, compact = false }: { onNavigate?: (
               onClick={() => { setOpen(false); onNavigate?.(); navigate('/settings'); }}
               className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-[13px] text-[#9c9ca7] hover:bg-[#1b1b22] transition-colors"
             >
-              <Settings2 className="h-4 w-4" /> Manage leagues
+              <Settings className="h-4 w-4" /> Settings
+            </button>
+            <button
+              role="menuitem"
+              onClick={() => { setOpen(false); onNavigate?.(); navigate('/feedback'); }}
+              className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-[13px] text-[#9c9ca7] hover:bg-[#1b1b22] transition-colors"
+            >
+              <MessageSquarePlus className="h-4 w-4" /> Feedback
             </button>
           </div>
         </div>
