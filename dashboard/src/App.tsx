@@ -13,6 +13,7 @@ import PlayerDetail from './pages/PlayerDetail';
 import TeamDetail from './pages/TeamDetail';
 import TradeDetail from './pages/TradeDetail';
 import Feedback from './pages/Feedback';
+import Chat from './pages/Chat';
 
 function App() {
   return (
@@ -32,9 +33,9 @@ function App() {
         <Route path="trades/:transactionId" element={<TradeDetail />} />
         <Route path="settings" element={<Settings />} />
         <Route path="feedback" element={<Feedback />} />
+        <Route path="chat" element={<Chat />} />
 
         {/* Redirects for old routes */}
-        <Route path="chat" element={<Navigate to="/" replace />} />
         <Route path="ktc-values" element={<Navigate to="/players" replace />} />
         <Route path="trade-evaluator" element={<Navigate to="/trade" replace />} />
         <Route path="trade-finder" element={<Navigate to="/trade" replace />} />
