@@ -42,6 +42,13 @@
 
 html {
   color-scheme: dark;
+  /* Always reserve the vertical scrollbar's space so the layout width is
+     constant whether or not a page overflows. Without this, navigating from a
+     short page to a tall one (or vice-versa) makes the scrollbar appear/vanish,
+     which shrinks/grows every position:fixed element (the header) and shifts the
+     whole app sideways — the "bump" between pages. Overlay-scrollbar platforms
+     (touch) have a zero-width gutter, so this is a no-op there. */
+  scrollbar-gutter: stable;
   /* NB: no global `scroll-behavior: smooth`. It animates the scroll *clamp*
      that fires when a short page replaces a tall list on navigation, and those
      animated events corrupt ScrollManager's saved position. Components that
