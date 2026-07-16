@@ -2,14 +2,13 @@ import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Trophy, Users, ChevronRight, Flame, ListOrdered, Swords, ArrowLeftRight, Layers, History as HistoryIcon } from 'lucide-react';
 import { TabBar } from '../components/TabBar';
-import { PageHeader } from '../components/PageHeader';
 import { SectionCard } from '../components/SectionCard';
 import { NoLeagueState } from '../components/NoLeagueState';
 import { TransactionsPanel } from './Transactions';
 import { DraftsPanel } from './Drafts';
 import { useLeagueDirectory } from '../hooks/detail';
 import { useLeagueMatchups, type MatchupRow } from '../hooks/league';
-import { useLeague, useNflState } from '../hooks/queries';
+import { useNflState } from '../hooks/queries';
 import { useTeamStrength } from '../hooks/useTeamStrength';
 import { useUrlState } from '../hooks/useUrlState';
 import { useActiveLeague } from '../lib/active-league';
@@ -109,7 +108,6 @@ function pairGames(rows: MatchupRow[], season: string): Game[] {
 export default function League() {
   const { hasLeague } = useActiveLeague();
   const { data: directory, isLoading } = useLeagueDirectory();
-  const { data: league } = useLeague();
   const { data: matchups } = useLeagueMatchups();
   const { data: nfl } = useNflState();
   const { byRoster: teamStrength } = useTeamStrength();
@@ -387,8 +385,6 @@ export default function League() {
     );
   }
 
-  const teamCount = standings.length || directory.rosters.filter((r) => r.league_id === directory.currentLeagueId).length;
-
   // Season pill selector (standings + scoreboard tabs).
   const showSeasonPills = (activeTab === 'standings' || activeTab === 'scoreboard') && seasons.filter((s) => s.started).length > 1;
   const seasonPills = (
@@ -407,19 +403,10 @@ export default function League() {
     </div>
   );
 
-  const leagueMeta = [
-    league?.name,
-    `${teamCount}-team`,
-    league?.season ? `${league.season} season` : null,
-    nfl && !nfl.isOffseason ? `Week ${nfl.week}` : nfl?.isOffseason ? 'Offseason' : null,
-  ].filter(Boolean).join(' · ');
-
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto space-y-4">
-      {/* ── Header ── */}
-      <PageHeader title="League" subtitle={leagueMeta} />
-
-      {/* ── Section tabs ── */}
+      {/* ── Section tabs (the nav already names the page; league/season context
+          lives in the Standings card's season pills) ── */}
       <TabBar
         tabs={LEAGUE_TABS}
         active={activeTab}

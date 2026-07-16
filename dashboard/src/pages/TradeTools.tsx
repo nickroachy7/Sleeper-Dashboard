@@ -3,7 +3,6 @@ import { useLocation } from 'react-router-dom';
 import { Scale, Target } from 'lucide-react';
 import { TradeEvaluator } from './TradeEvaluator';
 import { TradeFinder } from './TradeFinder';
-import { PageHeader } from '../components/PageHeader';
 import { TabBar } from '../components/TabBar';
 import { NoLeagueState } from '../components/NoLeagueState';
 import { useActiveLeague } from '../lib/active-league';
@@ -48,17 +47,16 @@ export default function TradeTools() {
   return (
     <div className="min-h-dvh">
       <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto">
-        <PageHeader
-          title="Tools"
-          subtitle={tabDefs.find(t => t.id === activeTab)?.subtitle}
+        {/* Tabs lead (the nav already names the page); the active tool's
+            one-line hint sits just beneath them. */}
+        <TabBar
+          tabs={tabDefs}
+          active={activeTab}
+          onChange={(id) => setMany({ tab: id === 'evaluate' ? null : id })}
         />
-        <div className="mb-4">
-          <TabBar
-            tabs={tabDefs}
-            active={activeTab}
-            onChange={(id) => setMany({ tab: id === 'evaluate' ? null : id })}
-          />
-        </div>
+        <p className="text-[12px] text-[#75757f] mt-2 mb-4">
+          {tabDefs.find(t => t.id === activeTab)?.subtitle}
+        </p>
 
         {activeTab === 'evaluate' ? (
           // The Evaluator works without a league (global value calculator).

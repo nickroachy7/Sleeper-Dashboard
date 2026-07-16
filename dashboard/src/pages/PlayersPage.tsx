@@ -4,7 +4,6 @@ import { useQuery } from '@tanstack/react-query';
 import { TrendingUp, Layers, Swords } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useUrlState } from '../hooks/useUrlState';
-import { PageHeader } from '../components/PageHeader';
 import { TabBar } from '../components/TabBar';
 import { VALUE_SOURCE } from '../lib/value-source';
 import { Pagination } from '../components/Pagination';
@@ -357,24 +356,23 @@ export function PlayersPage() {
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto">
-      <PageHeader
-        title="Values"
-        subtitle="Community-driven player & pick values — updated live by trades and votes."
-        actions={
-          <Link
-            to="/value-vote"
-            className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg bg-accent-500/10 border border-accent-500/25 text-[13px] font-semibold text-accent-400 hover:bg-accent-500/15 transition-colors"
-          >
-            <Swords className="h-4 w-4" /> Help rank players
-          </Link>
-        }
-      />
-
-      <TabBar
-        tabs={PLAYERS_TABS}
-        active={activeTab}
-        onChange={(id) => setMany({ tab: id === 'players' ? null : id, page: null, pos: null })}
-      />
+      {/* Tabs lead the page (the nav already names it "Players"); the rank-players
+          action sits alongside so it isn't lost with the removed header. */}
+      <div className="flex items-center gap-2">
+        <div className="min-w-0 flex-1">
+          <TabBar
+            tabs={PLAYERS_TABS}
+            active={activeTab}
+            onChange={(id) => setMany({ tab: id === 'players' ? null : id, page: null, pos: null })}
+          />
+        </div>
+        <Link
+          to="/value-vote"
+          className="shrink-0 inline-flex items-center gap-1.5 h-9 px-3 rounded-lg bg-accent-500/10 border border-accent-500/25 text-[13px] font-semibold text-accent-400 hover:bg-accent-500/15 transition-colors"
+        >
+          <Swords className="h-4 w-4" /> <span className="hidden sm:inline">Help rank players</span>
+        </Link>
+      </div>
       <div className="mt-4">
         {activeTab === 'picks' ? <ValuesTab kind="pick" /> : <ValuesTab kind="player" />}
       </div>
