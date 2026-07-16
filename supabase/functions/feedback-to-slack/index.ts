@@ -120,6 +120,38 @@ function buildBlocks(row: FeedbackRow): Record<string, unknown> {
     blocks.push({ type: "image", image_url: url, alt_text: "feedback attachment" });
   }
 
+  // Triage buttons — handled by the feedback-slack-actions endpoint. Each
+  // button carries the feedback id in `value`; action_id encodes the target
+  // status. Only rendered when we know the row id.
+  if (row.id) {
+    blocks.push({
+      type: "actions",
+      block_id: `fb_actions_${row.id}`,
+      elements: [
+        {
+          type: "button",
+          action_id: "fb_status:pursuing",
+          text: { type: "plain_text", text: "🔎 Pursue", emoji: true },
+          style: "primary",
+          value: row.id,
+        },
+        {
+          type: "button",
+          action_id: "fb_status:done",
+          text: { type: "plain_text", text: "✅ Done", emoji: true },
+          value: row.id,
+        },
+        {
+          type: "button",
+          action_id: "fb_status:dismissed",
+          text: { type: "plain_text", text: "🗑️ Dismiss", emoji: true },
+          style: "danger",
+          value: row.id,
+        },
+      ],
+    });
+  }
+
   blocks.push({ type: "divider" });
 
   // `text` is the notification/fallback string shown in Slack push/preview.
