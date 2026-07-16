@@ -3,9 +3,12 @@ import { Link } from 'react-router-dom';
 import { Users, ChevronRight, Pencil, X } from 'lucide-react';
 import { useMyTeam } from '../hooks/useMyTeam';
 import { useLeagueDirectory } from '../hooks/detail';
+import { useLeagueMatchups } from '../hooks/league';
+import { useNflState } from '../hooks/queries';
 import { TeamRow } from './TeamRow';
 
 const num = (v: number | string | null | undefined): number => (v == null ? 0 : Number(v) || 0);
+const fmtPts = (n: number): string => Math.round(n).toLocaleString();
 
 interface RosterRow {
   rosterId: number;
@@ -17,12 +20,24 @@ interface RosterRow {
   ties: number;
 }
 
+/** A team's standing, from the Dashboard's power-ranking computation. */
+export interface MyTeamStanding {
+  rosterId: number;
+  rank: number;
+  totalValue: number;
+  wins: number;
+  losses: number;
+}
+
 /** One-time (per league) prompt + persistent card for the visitor's own team.
  *  When no team is chosen it's a picker; once chosen it's a compact identity
- *  card leading the Dashboard, with a pencil to re-pick. */
-export function MyTeamCard() {
+ *  card leading the Dashboard with a record / power-rank / next-matchup strip,
+ *  and a pencil to re-pick. `standings` comes from Home's power rankings. */
+export function MyTeamCard({ standings = [] }: { standings?: MyTeamStanding[] }) {
   const { team, setMyTeam, hasChoice } = useMyTeam();
   const { data: directory } = useLeagueDirectory();
+  const { data: matchups } = useLeagueMatchups();
+  const { data: nfl } = useNflState();
   const [picking, setPicking] = useState(false);
 
   const rosters = useMemo<RosterRow[]>(() => {
@@ -85,6 +100,33 @@ export function MyTeamCard() {
 
   if (!team) return null;
 
+  // ── Stat strip: record · power rank · next matchup (in-season) / value (off) ──
+  const mine = standings.find((s) => s.rosterId === team.rosterId) ?? null;
+  const teamCount = standings.length || rosters.length;
+
+  // Next opponent: in the current NFL week, find my matchup_id in the current
+  // league, then the other roster sharing it. Only meaningful in-season.
+  const nextOpponent = (() => {
+    if (!nfl || nfl.isOffseason || !matchups || !directory?.currentLeagueId) return null;
+    const wk = matchups.filter((m) => m.league_id === directory.currentLeagueId && m.week === nfl.week && m.matchup_id != null);
+    const mineRow = wk.find((m) => m.roster_id === team.rosterId);
+    if (!mineRow) return null;
+    const opp = wk.find((m) => m.matchup_id === mineRow.matchup_id && m.roster_id !== team.rosterId);
+    if (!opp) return null;
+    return { rosterId: opp.roster_id, name: directory.teamName(opp.roster_id), week: nfl.week };
+  })();
+
+  const stats: { label: string; value: React.ReactNode; to?: string }[] = [];
+  if (mine) {
+    stats.push({ label: 'Record', value: `${mine.wins}-${mine.losses}` });
+    stats.push({ label: 'Power rank', value: <>#{mine.rank}<span className="text-[#60606a] text-[12px] font-medium"> / {teamCount}</span></>, to: '/league' });
+  }
+  if (nextOpponent) {
+    stats.push({ label: `Wk ${nextOpponent.week} vs`, value: <span className="truncate">{nextOpponent.name}</span>, to: `/teams/${nextOpponent.rosterId}` });
+  } else if (mine) {
+    stats.push({ label: 'Roster value', value: fmtPts(mine.totalValue), to: `/teams/${team.rosterId}` });
+  }
+
   // ── Chosen identity card ──
   return (
     <section className="relative overflow-hidden rounded-2xl border border-[#22222b] bg-gradient-to-br from-[#16161c] via-[#141419] to-[#111116]">
@@ -119,6 +161,27 @@ export function MyTeamCard() {
           <Pencil className="h-4 w-4" />
         </button>
       </div>
+
+      {/* Stat strip */}
+      {stats.length > 0 && (
+        <div className="relative grid grid-cols-3 border-t border-[#1b1b22] divide-x divide-[#1b1b22]">
+          {stats.map((s) => {
+            const body = (
+              <>
+                <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#75757f] truncate">{s.label}</p>
+                <p className="font-display text-[15px] font-bold text-white tabular-nums mt-0.5 flex items-center gap-1 min-w-0">{s.value}</p>
+              </>
+            );
+            return s.to ? (
+              <Link key={s.label} to={s.to} className="px-3 sm:px-4 py-3 min-w-0 hover:bg-[#17171d] transition-colors">
+                {body}
+              </Link>
+            ) : (
+              <div key={s.label} className="px-3 sm:px-4 py-3 min-w-0">{body}</div>
+            );
+          })}
+        </div>
+      )}
     </section>
   );
 }

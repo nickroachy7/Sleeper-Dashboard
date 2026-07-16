@@ -474,7 +474,7 @@ export default function Home() {
       />
 
       {/* ── Your team (personalized) — pick once, then leads the dashboard ── */}
-      <MyTeamCard />
+      <MyTeamCard standings={powerRankings} />
 
       {/* ── Biggest Movers (30-day value change) ── */}
       <BiggestMovers risers={movers.risers} fallers={movers.fallers} windowLabel="30d" loading={moversLoading} />
