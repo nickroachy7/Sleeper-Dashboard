@@ -102,14 +102,8 @@ export default function Layout() {
     <div className="min-h-dvh">
       {/* ── Mobile Header: logo + league switcher + search, then a persistent tab strip ── */}
       <header className="lg:hidden fixed top-0 left-0 right-0 z-[80] bg-[#0d0d11]/90 backdrop-blur-xl border-b border-[#2a2a34] pt-[env(safe-area-inset-top)]">
-        {/* Row 1 — identity + search */}
-        <div className="flex items-center gap-2.5 h-14 px-3">
-          <Link to="/" aria-label="Dashboard" className="shrink-0 active:opacity-70 transition-opacity">
-            <img src="/yapsports-logo.webp" alt="Sleeper Dashboard" className="h-6 w-auto" />
-          </Link>
-          <div className="flex-1 min-w-0">
-            <LeagueSwitcher />
-          </div>
+        {/* Row 1 — search (left) · logo (center → dashboard) · league switcher (right) */}
+        <div className="relative flex items-center justify-between h-14 px-3">
           <button
             onClick={openLookup}
             aria-label="Search or ask"
@@ -117,6 +111,14 @@ export default function Layout() {
           >
             <Search className="h-[20px] w-[20px]" />
           </button>
+          <Link
+            to="/"
+            aria-label="Dashboard"
+            className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 active:opacity-70 transition-opacity"
+          >
+            <img src="/yapsports-logo.webp" alt="Sleeper Dashboard" className="h-7 w-auto" />
+          </Link>
+          <LeagueSwitcher compact />
         </div>
 
         {/* Row 2 — persistent tab strip (primary destinations, then settings/feedback) */}

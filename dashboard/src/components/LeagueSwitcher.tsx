@@ -15,8 +15,12 @@ function statusDot(status?: string) {
  * League identity + switcher. Shows the active league and, on click, a menu of
  * the visitor's added leagues plus actions to add or manage them. Replaces the
  * static league block in the sidebar and mobile drawer.
+ *
+ * `compact` renders just a circular avatar trigger (league initial + status
+ * dot) with a right-anchored menu — used in the mobile header so it can sit
+ * beside a centered logo without stealing width.
  */
-export function LeagueSwitcher({ onNavigate }: { onNavigate?: () => void }) {
+export function LeagueSwitcher({ onNavigate, compact = false }: { onNavigate?: () => void; compact?: boolean }) {
   const navigate = useNavigate();
   const { data: active } = useLeague();
   const { leagues, activeLeagueId, hasLeague, isPreview, setActiveLeague } = useActiveLeague();
@@ -48,6 +52,17 @@ export function LeagueSwitcher({ onNavigate }: { onNavigate?: () => void }) {
 
   // Fresh visitor with no league: the switcher is a direct "Add a league" CTA.
   if (!hasLeague) {
+    if (compact) {
+      return (
+        <button
+          onClick={() => { onNavigate?.(); openAddLeague(); }}
+          aria-label="Add a league"
+          className="w-9 h-9 rounded-full bg-accent-500/15 flex items-center justify-center shrink-0 active:bg-accent-500/25 transition-colors"
+        >
+          <Plus className="h-[18px] w-[18px] text-accent-400" />
+        </button>
+      );
+    }
     return (
       <button
         onClick={() => { onNavigate?.(); openAddLeague(); }}
@@ -64,37 +79,54 @@ export function LeagueSwitcher({ onNavigate }: { onNavigate?: () => void }) {
     );
   }
 
+  const initial = (name.trim()[0] || '?').toUpperCase();
+
   return (
     <div className="relative" ref={ref}>
-      <button
-        onClick={() => setOpen((o) => !o)}
-        className="w-full flex items-center gap-2 text-left group"
-        aria-haspopup="menu"
-        aria-expanded={open}
-      >
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-0.5">
-            <span className={`w-2 h-2 rounded-full shrink-0 ${statusDot(active?.status)}`} />
-            <span className="text-[13px] font-semibold text-white truncate">{name}</span>
-            {isPreview && (
-              <span className="text-[9px] uppercase tracking-wide font-bold text-accent-400 bg-accent-500/15 px-1.5 py-0.5 rounded shrink-0">
-                Sample
-              </span>
+      {compact ? (
+        <button
+          onClick={() => setOpen((o) => !o)}
+          aria-haspopup="menu"
+          aria-expanded={open}
+          aria-label={`League: ${name}. Switch league`}
+          className="relative w-9 h-9 rounded-full bg-[#1b1b22] border border-[#2a2a34] flex items-center justify-center shrink-0 active:bg-[#22222b] transition-colors"
+        >
+          <span className="text-[13px] font-bold text-white leading-none">{initial}</span>
+          <span className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-[#0d0d11] ${statusDot(active?.status)}`} />
+        </button>
+      ) : (
+        <button
+          onClick={() => setOpen((o) => !o)}
+          className="w-full flex items-center gap-2 text-left group"
+          aria-haspopup="menu"
+          aria-expanded={open}
+        >
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-0.5">
+              <span className={`w-2 h-2 rounded-full shrink-0 ${statusDot(active?.status)}`} />
+              <span className="text-[13px] font-semibold text-white truncate">{name}</span>
+              {isPreview && (
+                <span className="text-[9px] uppercase tracking-wide font-bold text-accent-400 bg-accent-500/15 px-1.5 py-0.5 rounded shrink-0">
+                  Sample
+                </span>
+              )}
+            </div>
+            {season && (
+              <p className="text-[11px] text-[#75757f] pl-4">
+                {season} Season{teams ? ` · ${teams} Teams` : ''}
+              </p>
             )}
           </div>
-          {season && (
-            <p className="text-[11px] text-[#75757f] pl-4">
-              {season} Season{teams ? ` · ${teams} Teams` : ''}
-            </p>
-          )}
-        </div>
-        <ChevronsUpDown className="h-4 w-4 text-[#60606a] group-hover:text-[#9c9ca7] shrink-0" />
-      </button>
+          <ChevronsUpDown className="h-4 w-4 text-[#60606a] group-hover:text-[#9c9ca7] shrink-0" />
+        </button>
+      )}
 
       {open && (
         <div
           role="menu"
-          className="absolute left-0 right-0 top-[calc(100%+8px)] z-[90] rounded-xl bg-[#141419] border border-[#2a2a34] shadow-2xl overflow-hidden py-1"
+          className={`absolute top-[calc(100%+8px)] z-[90] rounded-xl bg-[#141419] border border-[#2a2a34] shadow-2xl overflow-hidden py-1 ${
+            compact ? 'right-0 w-64' : 'left-0 right-0'
+          }`}
         >
           {leagues.length > 0 ? (
             <div className="max-h-[45vh] overflow-y-auto py-1">
