@@ -15,7 +15,7 @@ const PAGES = [
   { label: 'Home', to: '/' },
   { label: 'League', to: '/league' },
   { label: 'Players', to: '/players' },
-  { label: 'Trade', to: '/trade' },
+  { label: 'Tools', to: '/trade' },
   { label: 'Rank \'Em', to: '/value-vote' },
   { label: 'Chat', to: '/chat' },
   { label: 'Settings', to: '/settings' },

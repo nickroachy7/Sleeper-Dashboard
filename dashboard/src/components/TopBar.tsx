@@ -5,7 +5,7 @@ import { openLookup } from '../lib/lookup';
 const TITLES: Record<string, string> = {
   '/': 'Home',
   '/league': 'League',
-  '/trade': 'Trade',
+  '/trade': 'Tools',
   '/players': 'Players',
   '/value-vote': 'Players',
   '/chat': 'Chat',

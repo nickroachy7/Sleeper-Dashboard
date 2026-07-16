@@ -41,13 +41,13 @@ const STATUS_LABEL: Record<string, string> = {
 // Buttons for a league that's been added (league-specific destinations).
 const LEAGUE_ACTIONS = [
   { to: '/league', label: 'League' },
-  { to: '/trade', label: 'Trade' },
+  { to: '/trade', label: 'Tools' },
   { label: 'Ask', onClick: openLookup },
 ] as const;
 
 // Buttons for a logged-out visitor — only tools that work WITHOUT a league.
 const GLOBAL_ACTIONS = [
-  { to: '/trade', label: 'Trade' },
+  { to: '/trade', label: 'Tools' },
   { to: '/players', label: 'Players' },
   { to: '/value-vote', label: "Rank 'Em" },
 ] as const;

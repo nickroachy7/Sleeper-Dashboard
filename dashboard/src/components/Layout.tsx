@@ -35,7 +35,7 @@ const primaryNav: NavItem[] = [
   { to: '/', icon: LayoutDashboard, label: 'Home' },
   { to: '/league', icon: Trophy, label: 'League' },
   { to: '/players', icon: TrendingUp, label: 'Players', match: ['/value-vote'] },
-  { to: '/trade', icon: Scale, label: 'Trade' },
+  { to: '/trade', icon: Scale, label: 'Tools' },
   { to: '/chat', icon: MessageSquare, label: 'Chat' },
 ];
 
