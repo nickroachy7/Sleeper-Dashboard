@@ -12,7 +12,7 @@ import { PowerRankings } from '../components/PowerRankings';
 import { RecentTrades } from '../components/RecentTrades';
 import { ValueWatch } from '../components/ValueWatch';
 import { HomeSplash } from '../components/HomeSplash';
-import { LeaguePulse } from '../components/LeaguePulse';
+import { MyTeamCard } from '../components/MyTeamCard';
 import { BiggestMovers, type Mover } from '../components/BiggestMovers';
 import { LeagueSnapshot } from '../components/LeagueSnapshot';
 import { useValueMovers } from '../hooks/detail';
@@ -473,11 +473,8 @@ export default function Home() {
         actions={LEAGUE_ACTIONS}
       />
 
-      {/* ── League Pulse (at-a-glance highlights) ── */}
-      <LeaguePulse
-        topTeam={powerRankings[0] ? { name: powerRankings[0].teamName, value: powerRankings[0].totalValue, to: `/teams/${powerRankings[0].rosterId}`, image: powerRankings[0].avatarUrl } : null}
-        topAsset={valueWatch[0] ? { name: valueWatch[0].name, value: valueWatch[0].value, to: `/players/${valueWatch[0].playerId}`, image: `https://sleepercdn.com/content/nfl/players/${valueWatch[0].playerId}.jpg` } : null}
-      />
+      {/* ── Your team (personalized) — pick once, then leads the dashboard ── */}
+      <MyTeamCard />
 
       {/* ── Biggest Movers (30-day value change) ── */}
       <BiggestMovers risers={movers.risers} fallers={movers.fallers} windowLabel="30d" loading={moversLoading} />
