@@ -36,6 +36,18 @@ const primaryNav: NavItem[] = [
   { to: '/trade', icon: Scale, label: 'Trade' },
 ];
 
+// Mobile nav carousel (below the header) — the pages that used to live in the
+// burger menu, as a horizontally-scrollable row of pills.
+const mobileNavCarousel: { to: string; label: string; match?: string[] }[] = [
+  { to: '/', label: 'Dashboard' },
+  { to: '/league', label: 'League', match: ['/transactions', '/drafts'] },
+  { to: '/players', label: 'Players' },
+  { to: '/trade', label: 'Trade' },
+  { to: '/value-vote', label: "Rank 'Em" },
+  { to: '/settings', label: 'Settings' },
+  { to: '/feedback', label: 'Feedback' },
+];
+
 // Full nav for the mobile drawer, grouped into editorial sections that
 // mirror the desktop sidebar's hierarchy.
 // ── Component ───────────────────────────────────────────────────────
@@ -120,6 +132,28 @@ export default function Layout() {
             <MessageSquare className="h-[20px] w-[20px]" />
           </button>
         </div>
+
+        {/* Nav carousel — the old menu pages as scrollable pills */}
+        <nav className="flex gap-2 overflow-x-auto px-3 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {mobileNavCarousel.map((item) => {
+            const active =
+              item.match?.some((p) => location.pathname.startsWith(p)) ||
+              (item.to === '/'
+                ? location.pathname === '/'
+                : location.pathname === item.to || location.pathname.startsWith(item.to + '/'));
+            return (
+              <Link
+                key={item.to}
+                to={item.to}
+                className={`shrink-0 px-3.5 py-1.5 rounded-full text-[13px] font-medium whitespace-nowrap transition-colors ${
+                  active ? 'bg-accent-500 text-[#06110a]' : 'bg-[#1b1b22] text-[#9c9ca7] active:bg-[#22222b]'
+                }`}
+              >
+                {item.label}
+              </Link>
+            );
+          })}
+        </nav>
       </header>
 
       {/* ── Desktop Sidebar ── */}
@@ -183,7 +217,7 @@ export default function Layout() {
       {/* ── Main Content ── */}
       <div className="sidebar-layout-main">
         <TopBar />
-        <main className="min-h-dvh pt-[calc(56px+env(safe-area-inset-top))] lg:pt-0">
+        <main className="min-h-dvh pt-[calc(98px+env(safe-area-inset-top))] lg:pt-0">
           <Outlet />
         </main>
         <LookupSearch />
