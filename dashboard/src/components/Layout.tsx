@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { NavLink, Outlet, useLocation, Link } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -50,10 +51,14 @@ export default function Layout() {
   const location = useLocation();
   useRealtimeSync();
 
-  // Chat is a dedicated surface: no section tab-strip and no desktop top bar,
-  // so the conversation gets its own clean space rather than feeling wired into
-  // the primary navigation.
+  // Inside an individual chat conversation we go fully immersive on mobile: the
+  // entire app header is hidden so the thread is the whole screen (the chat's
+  // own back/title/New bar is the only top chrome — back returns to the list,
+  // where the header + tabs reappear). The sessions list keeps the full header.
+  // Chat reports its view up through the Outlet context below.
   const isChat = location.pathname === '/chat' || location.pathname.startsWith('/chat/');
+  const [inConversation, setInConversation] = useState(false);
+  const chatImmersive = isChat && inConversation;
 
   const isNavItemActive = (to: string, match?: string[]) => {
     if (match?.some((p) => location.pathname.startsWith(p))) return true;
@@ -105,8 +110,10 @@ export default function Layout() {
 
   return (
     <div className="min-h-dvh">
-      {/* ── Mobile Header: logo + league switcher + search, then a persistent tab strip ── */}
-      <header className="lg:hidden fixed top-0 left-0 right-0 z-[80] bg-[#0d0d11]/90 backdrop-blur-xl border-b border-[#2a2a34] pt-[env(safe-area-inset-top)]">
+      {/* ── Mobile Header: logo + league switcher + search, then a persistent
+          tab strip. Hidden entirely inside a chat conversation — the chat's own
+          bar becomes the only chrome (fully immersive). ── */}
+      <header className={`lg:hidden fixed top-0 left-0 right-0 z-[80] bg-[#0d0d11]/90 backdrop-blur-xl border-b border-[#2a2a34] pt-[env(safe-area-inset-top)] ${chatImmersive ? 'hidden' : ''}`}>
         {/* Row 1 — search (left) · logo (center → dashboard) · league switcher (right) */}
         <div className="relative flex items-center justify-between h-14 px-3">
           <button
@@ -127,28 +134,25 @@ export default function Layout() {
         </div>
 
         {/* Row 2 — persistent tab strip. Primary destinations only; Settings &
-            Feedback live in the league-switcher menu (top-right avatar). Hidden
-            on /chat so the assistant reads as its own surface. */}
-        {!isChat && (
-          <nav className="flex items-stretch h-12 px-1 overflow-x-auto no-scrollbar border-t border-[#1b1b22]">
-            {primaryNav.map(({ to, label, match }) => {
-              const active = isNavItemActive(to, match);
-              return (
-                <Link
-                  key={to}
-                  to={to}
-                  className={`shrink-0 flex items-center px-3.5 text-[13.5px] whitespace-nowrap border-b-2 transition-colors ${
-                    active
-                      ? 'text-accent-500 border-accent-500 font-semibold'
-                      : 'text-[#80808c] border-transparent font-medium active:text-white'
-                  }`}
-                >
-                  {label}
-                </Link>
-              );
-            })}
-          </nav>
-        )}
+            Feedback live in the league-switcher menu (top-right avatar). */}
+        <nav className="flex items-stretch h-12 px-1 overflow-x-auto no-scrollbar border-t border-[#1b1b22]">
+          {primaryNav.map(({ to, label, match }) => {
+            const active = isNavItemActive(to, match);
+            return (
+              <Link
+                key={to}
+                to={to}
+                className={`shrink-0 flex items-center px-3.5 text-[13.5px] whitespace-nowrap border-b-2 transition-colors ${
+                  active
+                    ? 'text-accent-500 border-accent-500 font-semibold'
+                    : 'text-[#80808c] border-transparent font-medium active:text-white'
+                }`}
+              >
+                {label}
+              </Link>
+            );
+          })}
+        </nav>
       </header>
 
       {/* ── Desktop Sidebar ── */}
@@ -196,15 +200,17 @@ export default function Layout() {
 
       {/* ── Main Content ── */}
       <div className="sidebar-layout-main">
+        {/* Desktop top bar is redundant on /chat (sidebar already marks it
+            active); hide it across the whole chat route for a full-height pane. */}
         {!isChat && <TopBar />}
         <main
           className={
-            isChat
-              ? 'min-h-dvh pt-[calc(56px+env(safe-area-inset-top))] lg:pt-0'
+            chatImmersive
+              ? 'min-h-dvh pt-[env(safe-area-inset-top)] lg:pt-0'
               : 'min-h-dvh pt-[calc(104px+env(safe-area-inset-top))] lg:pt-0'
           }
         >
-          <Outlet />
+          <Outlet context={{ setInConversation }} />
         </main>
         <LookupSearch />
       </div>

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, useOutletContext } from 'react-router-dom';
 import {
   Sparkles, Loader2, SendHorizonal, Plus, Trash2, ArrowLeft, MessageSquare,
 } from 'lucide-react';
@@ -20,6 +20,11 @@ function relTime(ms: number): string {
   return `${Math.floor(s / 86400)}d ago`;
 }
 
+interface ChatOutletContext {
+  /** Lets Layout hide the mobile tab strip once a conversation is open. */
+  setInConversation: (v: boolean) => void;
+}
+
 /**
  * Full-page assistant. The command palette (⌘K) hands questions off here via
  * router state ({ seed }); the sidebar/tab-strip link opens it cold. Left rail
@@ -29,6 +34,7 @@ function relTime(ms: number): string {
 export default function Chat() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { setInConversation } = useOutletContext<ChatOutletContext>();
   const { activeLeagueId } = useActiveLeague();
   const { data: leagueContext } = useChatLeagueContext();
   const chatLeagueId = leagueContext?.seasons[0]?.league_id ?? activeLeagueId ?? null;
@@ -44,6 +50,14 @@ export default function Chat() {
 
   const setActiveSession = (id: string | null) => { activeIdRef.current = id; };
   const refreshSessions = () => setSessions(listSessions(chatLeagueId));
+
+  // Tell Layout when we're inside a conversation (mobile) so it can drop the
+  // section tab strip. The sessions list keeps the tabs. Always restore on
+  // leaving the page.
+  useEffect(() => {
+    setInConversation(mobileView === 'chat');
+  }, [mobileView, setInConversation]);
+  useEffect(() => () => setInConversation(false), [setInConversation]);
 
   // Load this league's saved conversations (and reload on league switch).
   useEffect(() => {
@@ -126,7 +140,13 @@ export default function Chat() {
   const title = messages.length ? titleFromMessages(messages) : 'New chat';
 
   return (
-    <div className="flex h-[calc(100dvh-56px-env(safe-area-inset-top))] lg:h-dvh">
+    <div
+      className={`flex lg:h-dvh ${
+        mobileView === 'chat'
+          ? 'h-[calc(100dvh-env(safe-area-inset-top))]'
+          : 'h-[calc(100dvh-104px-env(safe-area-inset-top))]'
+      }`}
+    >
       {/* ── Sessions rail ── */}
       <aside
         className={`w-full lg:w-72 shrink-0 flex-col bg-[#0f0f14] lg:border-r border-[#1b1b22] ${
