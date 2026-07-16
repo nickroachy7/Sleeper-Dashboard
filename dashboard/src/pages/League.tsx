@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Trophy, Users, ChevronRight, Flame, ListOrdered, Swords, ArrowLeftRight, Layers, History as HistoryIcon } from 'lucide-react';
 import { TabBar } from '../components/TabBar';
+import { PageHeader } from '../components/PageHeader';
 import { SectionCard } from '../components/SectionCard';
 import { NoLeagueState } from '../components/NoLeagueState';
 import { TransactionsPanel } from './Transactions';
@@ -406,23 +407,17 @@ export default function League() {
     </div>
   );
 
+  const leagueMeta = [
+    league?.name,
+    `${teamCount}-team`,
+    league?.season ? `${league.season} season` : null,
+    nfl && !nfl.isOffseason ? `Week ${nfl.week}` : nfl?.isOffseason ? 'Offseason' : null,
+  ].filter(Boolean).join(' · ');
+
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto space-y-4">
       {/* ── Header ── */}
-      <section className="relative overflow-hidden rounded-2xl border border-[#22222b] bg-gradient-to-br from-[#16161c] via-[#141419] to-[#111116]">
-        <div className="pointer-events-none absolute -top-20 -right-12 h-48 w-48 rounded-full bg-accent-500/10 blur-3xl" />
-        <div className="relative p-4 sm:p-6">
-          <p className="text-[11px] font-bold text-accent-500 tracking-[0.2em] uppercase mb-0.5">The League</p>
-          <h1 className="font-display text-xl sm:text-3xl font-bold text-white tracking-tight truncate">
-            {league?.name ?? 'League'}
-          </h1>
-          <p className="text-[12px] text-[#9c9ca7] mt-1 flex items-center gap-1.5">
-            <Users className="h-3.5 w-3.5" />
-            {teamCount}-team {league?.season ? `· ${league.season} season` : ''}
-            {nfl && !nfl.isOffseason ? ` · Week ${nfl.week}` : nfl?.isOffseason ? ' · Offseason' : ''}
-          </p>
-        </div>
-      </section>
+      <PageHeader title="League" subtitle={leagueMeta} />
 
       {/* ── Section tabs ── */}
       <TabBar
