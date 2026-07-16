@@ -9,6 +9,8 @@ import { VALUE_SOURCE } from '../lib/value-source';
 import { Pagination } from '../components/Pagination';
 import { FilterBar, SearchInput, FilterPills, SortSelect } from '../components/FilterBar';
 import { PlayerRow } from '../components/PlayerRow';
+import { BiggestMovers } from '../components/BiggestMovers';
+import { useGlobalMovers } from '../hooks/useGlobalMovers';
 
 // ── Player Values Types ──────────────────────────────────────────
 
@@ -353,6 +355,7 @@ const PLAYERS_TABS = [
 export function PlayersPage() {
   const { get, setMany } = useUrlState();
   const activeTab = get('tab', 'players') as TabType;
+  const movers = useGlobalMovers(30);
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto">
@@ -373,6 +376,14 @@ export function PlayersPage() {
           <Swords className="h-4 w-4" /> <span className="hidden sm:inline">Help rank players</span>
         </Link>
       </div>
+      {/* Biggest movers — a glance at what's rising/falling, above the rankings.
+          Players tab only (movers are players, not picks). */}
+      {activeTab === 'players' && (
+        <div className="mt-4">
+          <BiggestMovers risers={movers.risers} fallers={movers.fallers} windowLabel="30d" loading={movers.loading} />
+        </div>
+      )}
+
       <div className="mt-4">
         {activeTab === 'picks' ? <ValuesTab kind="pick" /> : <ValuesTab kind="player" />}
       </div>
