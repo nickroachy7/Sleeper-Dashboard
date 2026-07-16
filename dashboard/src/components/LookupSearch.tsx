@@ -159,29 +159,32 @@ export function LookupSearch() {
         className="flex flex-col w-full h-full sm:h-auto sm:max-h-[80vh] sm:max-w-xl bg-[#141419] sm:border sm:border-[#2a2a34] sm:rounded-2xl overflow-hidden sm:shadow-2xl sm:ring-1 sm:ring-black/40 pt-[env(safe-area-inset-top)] sm:pt-0 animate-palette-in"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Search input */}
-        <div className="flex items-center gap-2.5 px-4 border-b border-[#22222b] shrink-0">
-          <Search className="h-[18px] w-[18px] text-[#75757f] shrink-0" />
-          <input
-            ref={inputRef}
-            value={query}
-            onChange={(e) => { setQuery(e.target.value); setActiveIdx(0); }}
-            onKeyDown={(e) => {
-              if (e.key === 'ArrowDown') { e.preventDefault(); setActiveIdx((i) => Math.min(i + 1, flat.length - 1)); }
-              if (e.key === 'ArrowUp') { e.preventDefault(); setActiveIdx((i) => Math.max(i - 1, 0)); }
-              if (e.key === 'Enter') { e.preventDefault(); go(flat[activeIdx]); }
-            }}
-            placeholder="Search, go to a page, or ask a question"
-            type="search" inputMode="search" enterKeyHint="go"
-            autoComplete="off" autoCorrect="off" autoCapitalize="none" spellCheck={false}
-            className="flex-1 min-w-0 bg-transparent py-3.5 sm:py-4 text-base text-white placeholder-[#75757f] focus:outline-none [appearance:none] [&::-webkit-search-cancel-button]:hidden"
-          />
-          {query && (
-            <button onClick={() => { setQuery(''); inputRef.current?.focus(); }} className="w-8 h-8 -mr-1 flex items-center justify-center text-[#60606a] hover:text-white shrink-0" aria-label="Clear">
-              <X className="h-4 w-4" />
-            </button>
-          )}
-          <button onClick={() => setOpen(false)} className="sm:hidden ml-1 text-[15px] font-semibold text-accent-400 shrink-0">Cancel</button>
+        {/* Search input — shaped like the chat bubble (rounded pill, same
+            surface + accent focus) so search and chat read as one family. */}
+        <div className="flex items-center gap-2 px-3 sm:px-4 py-3 border-b border-[#22222b] shrink-0">
+          <div className="flex-1 min-w-0 flex items-center gap-2.5 rounded-full bg-[#1b1b22] border border-[#2a2a34] focus-within:border-accent-500/50 pl-4 pr-2 transition-colors">
+            <Search className="h-[18px] w-[18px] text-[#75757f] shrink-0" />
+            <input
+              ref={inputRef}
+              value={query}
+              onChange={(e) => { setQuery(e.target.value); setActiveIdx(0); }}
+              onKeyDown={(e) => {
+                if (e.key === 'ArrowDown') { e.preventDefault(); setActiveIdx((i) => Math.min(i + 1, flat.length - 1)); }
+                if (e.key === 'ArrowUp') { e.preventDefault(); setActiveIdx((i) => Math.max(i - 1, 0)); }
+                if (e.key === 'Enter') { e.preventDefault(); go(flat[activeIdx]); }
+              }}
+              placeholder="Search, go to a page, or ask a question"
+              type="search" inputMode="search" enterKeyHint="go"
+              autoComplete="off" autoCorrect="off" autoCapitalize="none" spellCheck={false}
+              className="flex-1 min-w-0 bg-transparent py-2.5 text-base text-white placeholder-[#75757f] focus:outline-none [appearance:none] [&::-webkit-search-cancel-button]:hidden"
+            />
+            {query && (
+              <button onClick={() => { setQuery(''); inputRef.current?.focus(); }} className="w-7 h-7 -mr-0.5 flex items-center justify-center text-[#60606a] hover:text-white shrink-0" aria-label="Clear">
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+          <button onClick={() => setOpen(false)} className="sm:hidden text-[15px] font-semibold text-accent-400 shrink-0">Cancel</button>
         </div>
 
         {/* Results */}
