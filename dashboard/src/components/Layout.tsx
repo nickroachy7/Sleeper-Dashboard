@@ -50,6 +50,11 @@ export default function Layout() {
   const location = useLocation();
   useRealtimeSync();
 
+  // Chat is a dedicated surface: no section tab-strip and no desktop top bar,
+  // so the conversation gets its own clean space rather than feeling wired into
+  // the primary navigation.
+  const isChat = location.pathname === '/chat' || location.pathname.startsWith('/chat/');
+
   const isNavItemActive = (to: string, match?: string[]) => {
     if (match?.some((p) => location.pathname.startsWith(p))) return true;
     if (to === '/') return location.pathname === '/';
@@ -122,25 +127,28 @@ export default function Layout() {
         </div>
 
         {/* Row 2 — persistent tab strip. Primary destinations only; Settings &
-            Feedback live in the league-switcher menu (top-right avatar). */}
-        <nav className="flex items-stretch h-12 px-1 overflow-x-auto no-scrollbar border-t border-[#1b1b22]">
-          {primaryNav.map(({ to, label, match }) => {
-            const active = isNavItemActive(to, match);
-            return (
-              <Link
-                key={to}
-                to={to}
-                className={`shrink-0 flex items-center px-3.5 text-[13.5px] whitespace-nowrap border-b-2 transition-colors ${
-                  active
-                    ? 'text-accent-500 border-accent-500 font-semibold'
-                    : 'text-[#80808c] border-transparent font-medium active:text-white'
-                }`}
-              >
-                {label}
-              </Link>
-            );
-          })}
-        </nav>
+            Feedback live in the league-switcher menu (top-right avatar). Hidden
+            on /chat so the assistant reads as its own surface. */}
+        {!isChat && (
+          <nav className="flex items-stretch h-12 px-1 overflow-x-auto no-scrollbar border-t border-[#1b1b22]">
+            {primaryNav.map(({ to, label, match }) => {
+              const active = isNavItemActive(to, match);
+              return (
+                <Link
+                  key={to}
+                  to={to}
+                  className={`shrink-0 flex items-center px-3.5 text-[13.5px] whitespace-nowrap border-b-2 transition-colors ${
+                    active
+                      ? 'text-accent-500 border-accent-500 font-semibold'
+                      : 'text-[#80808c] border-transparent font-medium active:text-white'
+                  }`}
+                >
+                  {label}
+                </Link>
+              );
+            })}
+          </nav>
+        )}
       </header>
 
       {/* ── Desktop Sidebar ── */}
@@ -188,8 +196,14 @@ export default function Layout() {
 
       {/* ── Main Content ── */}
       <div className="sidebar-layout-main">
-        <TopBar />
-        <main className="min-h-dvh pt-[calc(104px+env(safe-area-inset-top))] lg:pt-0">
+        {!isChat && <TopBar />}
+        <main
+          className={
+            isChat
+              ? 'min-h-dvh pt-[calc(56px+env(safe-area-inset-top))] lg:pt-0'
+              : 'min-h-dvh pt-[calc(104px+env(safe-area-inset-top))] lg:pt-0'
+          }
+        >
           <Outlet />
         </main>
         <LookupSearch />

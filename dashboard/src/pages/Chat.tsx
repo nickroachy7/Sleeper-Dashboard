@@ -126,7 +126,7 @@ export default function Chat() {
   const title = messages.length ? titleFromMessages(messages) : 'New chat';
 
   return (
-    <div className="flex h-[calc(100dvh-104px-env(safe-area-inset-top))] lg:h-[calc(100dvh-56px)]">
+    <div className="flex h-[calc(100dvh-56px-env(safe-area-inset-top))] lg:h-dvh">
       {/* ── Sessions rail ── */}
       <aside
         className={`w-full lg:w-72 shrink-0 flex-col bg-[#0f0f14] lg:border-r border-[#1b1b22] ${
