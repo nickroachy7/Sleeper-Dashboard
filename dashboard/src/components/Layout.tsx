@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { NavLink, Outlet, useLocation, Link } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -5,6 +6,8 @@ import {
   Settings,
   TrendingUp,
   Trophy,
+  Menu,
+  X,
   Search,
   MessageSquare,
   MessageSquarePlus,
@@ -36,16 +39,29 @@ const primaryNav: NavItem[] = [
   { to: '/trade', icon: Scale, label: 'Trade' },
 ];
 
-// Mobile nav carousel (below the header) — the pages that used to live in the
-// burger menu, as a horizontally-scrollable row of pills.
-const mobileNavCarousel: { to: string; label: string; match?: string[] }[] = [
-  { to: '/', label: 'Dashboard' },
-  { to: '/league', label: 'League', match: ['/transactions', '/drafts'] },
-  { to: '/players', label: 'Players' },
-  { to: '/trade', label: 'Trade' },
-  { to: '/value-vote', label: "Rank 'Em" },
-  { to: '/settings', label: 'Settings' },
-  { to: '/feedback', label: 'Feedback' },
+// Mobile burger-menu sections — the pages that live in the drop-down nav.
+interface NavSection {
+  heading: string;
+  items: { to: string; label: string; match?: string[] }[];
+}
+
+const drawerSections: NavSection[] = [
+  {
+    heading: 'Main',
+    items: [
+      { to: '/', label: 'Dashboard' },
+      { to: '/league', label: 'League', match: ['/transactions', '/drafts'] },
+      { to: '/players', label: 'Players', match: ['/value-vote'] },
+      { to: '/trade', label: 'Trade' },
+    ],
+  },
+  {
+    heading: 'More',
+    items: [
+      { to: '/settings', label: 'Settings' },
+      { to: '/feedback', label: 'Feedback' },
+    ],
+  },
 ];
 
 // Full nav for the mobile drawer, grouped into editorial sections that
@@ -54,7 +70,14 @@ const mobileNavCarousel: { to: string; label: string; match?: string[] }[] = [
 
 export default function Layout() {
   const location = useLocation();
+  const [navOpen, setNavOpen] = useState(false);
   useRealtimeSync();
+
+  const isNavItemActive = (to: string, match?: string[]) => {
+    if (match?.some((p) => location.pathname.startsWith(p))) return true;
+    if (to === '/') return location.pathname === '/';
+    return location.pathname === to || location.pathname.startsWith(to + '/');
+  };
 
   // ── Shared NavLink renderer ──
   const renderNavItem = ({ to, icon: Icon, iconImage, label, match }: NavItem, isPrimary: boolean) => {
@@ -107,16 +130,26 @@ export default function Layout() {
 
   return (
     <div className="min-h-dvh">
-      {/* ── Mobile Header: search (left) · logo (center → dashboard) · chat (right) ── */}
+      {/* ── Mobile Header: burger + search (left) · logo (center → dashboard) · chat (right) ── */}
       <header className="lg:hidden fixed top-0 left-0 right-0 z-[80] bg-[#0d0d11]/90 backdrop-blur-xl border-b border-[#2a2a34] pt-[env(safe-area-inset-top)]">
         <div className="relative flex items-center justify-between h-14 px-2">
-          <button
-            onClick={openLookup}
-            aria-label="Search or ask"
-            className="w-10 h-10 rounded-lg flex items-center justify-center text-[#9c9ca7] hover:text-white hover:bg-[#1b1b22] active:bg-[#22222b] transition-colors"
-          >
-            <Search className="h-[20px] w-[20px]" />
-          </button>
+          <div className="flex items-center">
+            <button
+              onClick={() => setNavOpen((o) => !o)}
+              aria-label={navOpen ? 'Close menu' : 'Open menu'}
+              aria-expanded={navOpen}
+              className="w-10 h-10 rounded-lg flex items-center justify-center text-[#9c9ca7] hover:text-white hover:bg-[#1b1b22] active:bg-[#22222b] transition-colors"
+            >
+              {navOpen ? <X className="h-[22px] w-[22px]" /> : <Menu className="h-[22px] w-[22px]" />}
+            </button>
+            <button
+              onClick={openLookup}
+              aria-label="Search or ask"
+              className="w-10 h-10 rounded-lg flex items-center justify-center text-[#9c9ca7] hover:text-white hover:bg-[#1b1b22] active:bg-[#22222b] transition-colors"
+            >
+              <Search className="h-[20px] w-[20px]" />
+            </button>
+          </div>
           <Link
             to="/"
             aria-label="Dashboard"
@@ -132,29 +165,47 @@ export default function Layout() {
             <MessageSquare className="h-[20px] w-[20px]" />
           </button>
         </div>
-
-        {/* Nav carousel — the old menu pages as scrollable pills */}
-        <nav className="flex gap-2 overflow-x-auto px-3 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          {mobileNavCarousel.map((item) => {
-            const active =
-              item.match?.some((p) => location.pathname.startsWith(p)) ||
-              (item.to === '/'
-                ? location.pathname === '/'
-                : location.pathname === item.to || location.pathname.startsWith(item.to + '/'));
-            return (
-              <Link
-                key={item.to}
-                to={item.to}
-                className={`shrink-0 px-3.5 py-1.5 rounded-full text-[13px] font-medium whitespace-nowrap transition-colors ${
-                  active ? 'bg-accent-500 text-[#06110a]' : 'bg-[#1b1b22] text-[#9c9ca7] active:bg-[#22222b]'
-                }`}
-              >
-                {item.label}
-              </Link>
-            );
-          })}
-        </nav>
       </header>
+
+      {/* ── Mobile Nav Drop-Down (burger) ── */}
+      {navOpen && (
+        <div className="lg:hidden fixed inset-0 z-[70]" role="dialog" aria-modal="true">
+          <div
+            className="absolute inset-x-0 bottom-0 top-[calc(56px+env(safe-area-inset-top))] bg-black/70 backdrop-blur-sm animate-menu-fade"
+            onClick={() => setNavOpen(false)}
+          />
+          <div className="absolute inset-x-0 top-[calc(56px+env(safe-area-inset-top))] max-h-[calc(100dvh-56px-env(safe-area-inset-top))] overflow-y-auto bg-[#0f0f14] border-b border-[#2a2a34] shadow-2xl animate-menu-drop">
+            <div className="px-4 py-3.5 border-b border-[#1b1b22]">
+              <LeagueSwitcher onNavigate={() => setNavOpen(false)} />
+            </div>
+            <nav className="px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+              {drawerSections.map((section, si) => (
+                <div key={section.heading} className={si > 0 ? 'mt-6' : ''}>
+                  <h2 className="mb-1 text-[10px] font-semibold text-[#60606a] uppercase tracking-[2px]">
+                    {section.heading}
+                  </h2>
+                  <div>
+                    {section.items.map(({ to, label, match }) => (
+                      <Link
+                        key={to}
+                        to={to}
+                        onClick={() => setNavOpen(false)}
+                        className={`group flex items-center py-2.5 text-[16px] tracking-tight transition-colors ${
+                          isNavItemActive(to, match)
+                            ? 'text-accent-500 font-semibold'
+                            : 'text-[#c4c4cd] font-medium active:text-white'
+                        }`}
+                      >
+                        {label}
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </nav>
+          </div>
+        </div>
+      )}
 
       {/* ── Desktop Sidebar ── */}
       <aside className="hidden lg:flex fixed top-0 left-0 z-50 h-full w-64 bg-[#141419] border-r border-[#2a2a34] flex-col">
@@ -217,7 +268,7 @@ export default function Layout() {
       {/* ── Main Content ── */}
       <div className="sidebar-layout-main">
         <TopBar />
-        <main className="min-h-dvh pt-[calc(98px+env(safe-area-inset-top))] lg:pt-0">
+        <main className="min-h-dvh pt-[calc(56px+env(safe-area-inset-top))] lg:pt-0">
           <Outlet />
         </main>
         <LookupSearch />
