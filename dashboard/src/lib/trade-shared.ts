@@ -32,9 +32,9 @@ export function txDraftPicks(j: TransactionRow['draft_picks']): TxDraftPick[] {
 // ── Positional Weighting (Superflex Calibration) ──────────────────
 // Starter counts per position in a Superflex league (QB+SF, 2RB+flex, 3WR+flex, 1TE).
 // Full value for starters, 50% for quality depth, 10% for deep bench.
-// Shared between KTCValues Team tab, Trade Evaluator's roster impact,
-// and Trade Finder's roster-fit scoring so "team strength at position X"
-// means the same thing everywhere.
+// Shared by the useTeamStrength hook (League standings Power column), the
+// Trade Evaluator's roster impact, and Trade Finder's roster-fit scoring so
+// "team strength at position X" means the same thing everywhere.
 
 export type RosterPosition = 'QB' | 'RB' | 'WR' | 'TE';
 

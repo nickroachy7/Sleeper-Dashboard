@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { PlayersTabs } from '../components/PlayersTabs';
+import { Link } from 'react-router-dom';
+import { ArrowLeft } from 'lucide-react';
 import { PositionBadge } from '../components/PositionBadge';
 import { usePlayers, usePlayerValuesList } from '../hooks/queries';
 import { getPlayerImageUrl } from '../lib/trade-shared';
@@ -62,9 +63,12 @@ export default function ValueVote() {
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto">
-      <PlayersTabs />
+      <Link to="/players" className="inline-flex items-center gap-1.5 text-[13px] text-[#75757f] hover:text-white transition-colors mb-4">
+        <ArrowLeft className="h-4 w-4" /> Back to Values
+      </Link>
 
-      <p className="text-[13px] text-muted mb-4">Who'd you rather keep? Every pick trains the community values.</p>
+      <h1 className="font-display text-xl sm:text-2xl font-bold text-white tracking-tight">Rank 'Em</h1>
+      <p className="text-[13px] text-muted mt-1 mb-4">Who'd you rather keep? Every pick trains the community values.</p>
 
       <div className="flex items-center justify-between text-[13px] text-muted mb-4">
         <span>{votes} {votes === 1 ? 'vote' : 'votes'} this session</span>

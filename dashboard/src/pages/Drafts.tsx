@@ -5,8 +5,6 @@ import {
   FileText,
   ArrowRightLeft,
   ChevronRight,
-  History,
-  Calendar,
   CircleDot,
   MinusCircle,
   TrendingUp,
@@ -17,7 +15,7 @@ import {
 import { Link } from 'react-router-dom';
 import { useState, useMemo } from 'react';
 import { useUrlState } from '../hooks/useUrlState';
-import { TabBar } from '../components/TabBar';
+import { FilterPills } from '../components/FilterBar';
 import { PlayerRow } from '../components/PlayerRow';
 import type { DraftPickRow } from '../types/domain';
 
@@ -244,15 +242,16 @@ export function DraftsPanel() {
 
   return (
     <div>
-      {/* Draft sub-view: History (past selections) vs Capital (future picks) */}
+      {/* Draft sub-view filter: History (past selections) vs Capital (future picks).
+          A lightweight pill toggle, not a tab — Drafts is itself a League tab. */}
       <div className="mb-4">
-        <TabBar
-          tabs={[
-            { id: 'history', label: 'History', icon: History },
-            { id: 'capital', label: 'Capital', icon: Calendar },
+        <FilterPills
+          options={[
+            { value: 'history', label: 'History' },
+            { value: 'capital', label: 'Capital' },
           ]}
-          active={activeTab}
-          onChange={(id) => setMany({ dview: id === 'history' ? null : id })}
+          selected={activeTab}
+          onChange={(v) => setMany({ dview: v === 'history' ? null : v })}
         />
       </div>
 

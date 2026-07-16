@@ -9,6 +9,7 @@ import { DraftsPanel } from './Drafts';
 import { useLeagueDirectory } from '../hooks/detail';
 import { useLeagueMatchups, type MatchupRow } from '../hooks/league';
 import { useLeague, useNflState } from '../hooks/queries';
+import { useTeamStrength } from '../hooks/useTeamStrength';
 import { useUrlState } from '../hooks/useUrlState';
 import { useActiveLeague } from '../lib/active-league';
 
@@ -18,7 +19,7 @@ type LeagueTab = 'standings' | 'scoreboard' | 'transactions' | 'drafts' | 'histo
 
 const LEAGUE_TABS = [
   { id: 'standings' as const, label: 'Standings', icon: ListOrdered },
-  { id: 'scoreboard' as const, label: 'Scoreboard', icon: Swords },
+  { id: 'scoreboard' as const, label: 'Matchups', icon: Swords },
   { id: 'transactions' as const, label: 'Transactions', icon: ArrowLeftRight },
   { id: 'drafts' as const, label: 'Drafts', icon: Layers },
   { id: 'history' as const, label: 'History', icon: HistoryIcon },
@@ -110,6 +111,7 @@ export default function League() {
   const { data: league } = useLeague();
   const { data: matchups } = useLeagueMatchups();
   const { data: nfl } = useNflState();
+  const { byRoster: teamStrength } = useTeamStrength();
   const { get, set } = useUrlState();
 
   const reqTab = get('tab');
@@ -237,6 +239,9 @@ export default function League() {
     });
   }, [directory, selectedLeagueId, selectedSeason, matchupsByLeague]);
   const showExpected = standings.some((s) => s.hasExp);
+  // Team strength ranks CURRENT rosters, so the Power column only applies when
+  // the standings are showing the current season.
+  const showPower = selectedLeagueId === directory?.currentLeagueId && teamStrength.size > 0;
 
   // ── Scoreboard (selected season + week) ──────────────────────────
   const seasonGames = useMemo(
@@ -449,6 +454,9 @@ export default function League() {
                     {showExpected && (
                       <th className="font-bold py-2 px-2 text-center" title="Expected record from all-play win% — how you'd do against everyone each week (luck-neutral)">Exp</th>
                     )}
+                    {showPower && (
+                      <th className="font-bold py-2 px-2 text-center" title="Power rank by weighted roster value (current rosters)">Pwr</th>
+                    )}
                     <th className="font-bold py-2 px-2 text-right">PF</th>
                     <th className="font-bold py-2 px-2 text-right">PA</th>
                     <th className="font-bold py-2 px-2 pr-4 sm:pr-5 text-center">Streak</th>
@@ -485,6 +493,11 @@ export default function League() {
                             {s.hasExp ? <span className={luckColor}>{s.expWins}-{s.expLosses}</span> : <span className="text-[#4c4c56]">—</span>}
                           </td>
                         )}
+                        {showPower && (
+                          <td className="py-2.5 px-2 text-center text-[12px] tabular-nums" title="Power rank by weighted roster value">
+                            {teamStrength.get(s.rosterId) ? <span className="text-[#c4c4cd]">#{teamStrength.get(s.rosterId)!.rank}</span> : <span className="text-[#4c4c56]">—</span>}
+                          </td>
+                        )}
                         <td className="py-2.5 px-2 text-right text-[12px] tabular-nums text-[#9c9ca7]">{fmtPts(s.pf)}</td>
                         <td className="py-2.5 px-2 text-right text-[12px] tabular-nums text-[#75757f]">{fmtPts(s.pa)}</td>
                         <td className={`py-2.5 px-2 pr-4 sm:pr-5 text-center text-[12px] font-semibold tabular-nums ${streakColor}`}>{s.streak}</td>
@@ -501,7 +514,7 @@ export default function League() {
       {/* ═══ SCOREBOARD ═══ */}
       {activeTab === 'scoreboard' && (
         <SectionCard
-          label="Scoreboard"
+          label="Matchups"
           sub={weeks.length ? `${selectedSeason} · Week ${selectedWeek}` : `${selectedSeason} season`}
           right={showSeasonPills ? seasonPills : undefined}
           flush

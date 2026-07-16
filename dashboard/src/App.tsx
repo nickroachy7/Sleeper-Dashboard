@@ -4,7 +4,7 @@ import { ScrollManager } from './components/ScrollManager';
 import Home from './pages/Home';
 import League from './pages/League';
 import Settings from './pages/Settings';
-import { KTCValues } from './pages/KTCValues';
+import { PlayersPage } from './pages/PlayersPage';
 import ValueVote from './pages/ValueVote';
 import TradeTools from './pages/TradeTools';
 import PlayerDetail from './pages/PlayerDetail';
@@ -22,7 +22,7 @@ function App() {
         <Route index element={<Home />} />
         <Route path="league" element={<League />} />
         <Route path="trade" element={<TradeTools />} />
-        <Route path="players" element={<KTCValues />} />
+        <Route path="players" element={<PlayersPage />} />
         <Route path="value-vote" element={<ValueVote />} />
         <Route path="players/:playerId" element={<PlayerDetail />} />
         <Route path="teams/:rosterId" element={<TeamDetail />} />

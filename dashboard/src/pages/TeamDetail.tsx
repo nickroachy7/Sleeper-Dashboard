@@ -430,7 +430,7 @@ export default function TeamDetail() {
       </>)}
 
       {/* ═══ OVERVIEW (cont.): roster construction (positional strengths/holes) ═══ */}
-      {activeTab === 'overview' && construction && (
+      {activeTab === 'roster' && construction && (
         <SectionCard label="Roster Construction" sub="Weighted value by position vs the league average — the team's strengths and holes">
           <div className="space-y-3">
             {construction.rows.map((r) => {
@@ -470,8 +470,8 @@ export default function TeamDetail() {
         </SectionCard>
       )}
 
-      {/* ═══ OVERVIEW (cont.): draft capital ═══ */}
-      {activeTab === 'overview' && draftCapital && draftCapital.picks.length > 0 && (
+      {/* ═══ ROSTER (cont.): draft capital ═══ */}
+      {activeTab === 'roster' && draftCapital && draftCapital.picks.length > 0 && (
         <SectionCard
           label="Draft Capital"
           sub="Future rookie picks this team controls"

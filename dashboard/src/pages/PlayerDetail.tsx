@@ -569,6 +569,18 @@ export default function PlayerDetail() {
         </SectionCard>
       )}
 
+      {/* Weekly Scoring is league-scoped. Show a clear empty state rather than
+          silently dropping it, so the Production tab never looks half-empty. */}
+      {(!hasLeague || !activeSeason || activeSeason.games === 0) && (
+        <SectionCard label="Weekly Scoring">
+          <p className="text-[12px] text-[#75757f] py-6 text-center">
+            {hasLeague
+              ? 'No weekly scoring yet — this season hasn’t been played in your league.'
+              : 'Add your league to see week-by-week scoring and start/sit history.'}
+          </p>
+        </SectionCard>
+      )}
+
       {hasLeague && activeSeason && activeSeason.games > 0 && (
         <SectionCard
           label="Weekly Scoring"
