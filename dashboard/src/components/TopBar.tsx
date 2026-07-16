@@ -8,7 +8,6 @@ const TITLES: Record<string, string> = {
   '/trade': 'Trade',
   '/players': 'Players',
   '/value-vote': 'Players',
-  '/chat': 'Chat',
   '/transactions': 'League',
   '/drafts': 'League',
   '/settings': 'Settings',
@@ -39,11 +38,11 @@ export function TopBar() {
 
       <button
         onClick={openLookup}
-        aria-label="Search players and teams"
+        aria-label="Search or ask the assistant"
         className="group flex items-center gap-2.5 h-9 w-72 px-3 rounded-lg bg-[#141419] border border-[#26262f] text-[#75757f] hover:border-[#363641] hover:text-[#9c9ca7] transition-colors"
       >
         <Search className="h-4 w-4 shrink-0" />
-        <span className="text-[13px]">Search players, teams…</span>
+        <span className="text-[13px]">Search or ask…</span>
         <kbd className="ml-auto text-[10px] font-semibold text-[#60606a] bg-[#1b1b22] border border-[#26262f] rounded px-1.5 py-0.5 leading-none">
           ⌘K
         </kbd>

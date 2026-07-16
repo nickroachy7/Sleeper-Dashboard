@@ -12,7 +12,6 @@ import TradeTools from './pages/TradeTools';
 import PlayerDetail from './pages/PlayerDetail';
 import TeamDetail from './pages/TeamDetail';
 import TradeDetail from './pages/TradeDetail';
-import Chat from './pages/Chat';
 import Feedback from './pages/Feedback';
 
 function App() {
@@ -26,7 +25,6 @@ function App() {
         <Route path="trade" element={<TradeTools />} />
         <Route path="players" element={<KTCValues />} />
         <Route path="value-vote" element={<ValueVote />} />
-        <Route path="chat" element={<Chat />} />
         <Route path="transactions" element={<Transactions />} />
         <Route path="drafts" element={<Drafts />} />
         <Route path="players/:playerId" element={<PlayerDetail />} />
@@ -36,6 +34,7 @@ function App() {
         <Route path="feedback" element={<Feedback />} />
 
         {/* Redirects for old routes */}
+        <Route path="chat" element={<Navigate to="/" replace />} />
         <Route path="ktc-values" element={<Navigate to="/players" replace />} />
         <Route path="trade-evaluator" element={<Navigate to="/trade" replace />} />
         <Route path="trade-finder" element={<Navigate to="/trade" replace />} />

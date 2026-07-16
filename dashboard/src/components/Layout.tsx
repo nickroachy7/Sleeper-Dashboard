@@ -5,7 +5,6 @@ import {
   Scale,
   Settings,
   TrendingUp,
-  Sparkles,
   Trophy,
   Menu,
   X,
@@ -37,7 +36,6 @@ const primaryNav: NavItem[] = [
   { to: '/league', icon: Trophy, label: 'League', match: ['/transactions', '/drafts'] },
   { to: '/players', icon: TrendingUp, label: 'Players', match: ['/value-vote'] },
   { to: '/trade', icon: Scale, label: 'Trade' },
-  { to: '/chat', icon: Sparkles, label: 'Chat' },
 ];
 
 // Full nav for the mobile drawer, grouped into editorial sections that
@@ -55,7 +53,6 @@ const drawerSections: NavSection[] = [
       { to: '/league', icon: Trophy, label: 'League' },
       { to: '/players', icon: TrendingUp, label: 'Players' },
       { to: '/trade', icon: Scale, label: 'Trade' },
-      { to: '/chat', icon: Sparkles, label: 'Chat' },
     ],
   },
   {

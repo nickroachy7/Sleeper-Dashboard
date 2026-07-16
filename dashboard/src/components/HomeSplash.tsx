@@ -5,8 +5,10 @@ import { openAddLeague } from '../lib/add-league-modal';
 // ─── Types ───────────────────────────────────────────────────────────
 
 export interface SplashAction {
-  to: string;
+  /** Navigation target. Omit when using `onClick` (e.g. open the command bar). */
+  to?: string;
   label: string;
+  onClick?: () => void;
 }
 
 interface HomeSplashProps {
@@ -75,16 +77,24 @@ export function HomeSplash({
 
           {/* Action buttons */}
           <div className="mx-auto mt-8 flex max-w-md flex-col gap-2.5">
-            {actions.map(({ to, label }) => (
-              <Link
-                key={to}
-                to={to}
-                className="group relative flex items-center justify-center rounded-xl border border-[#2a2a34] bg-gradient-to-b from-[#1b1b22] to-[#141419] px-5 py-3.5 text-[15px] font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition-all hover:border-accent-500/50 hover:from-[#1f1f27] hover:to-[#17171d]"
-              >
+            {actions.map(({ to, label, onClick }) => {
+              const cls =
+                'group relative flex items-center justify-center rounded-xl border border-[#2a2a34] bg-gradient-to-b from-[#1b1b22] to-[#141419] px-5 py-3.5 text-[15px] font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition-all hover:border-accent-500/50 hover:from-[#1f1f27] hover:to-[#17171d]';
+              const underline = (
                 <span className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-accent-500/60 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
-                {label}
-              </Link>
-            ))}
+              );
+              return to ? (
+                <Link key={label} to={to} className={cls}>
+                  {underline}
+                  {label}
+                </Link>
+              ) : (
+                <button key={label} onClick={onClick} className={cls}>
+                  {underline}
+                  {label}
+                </button>
+              );
+            })}
 
             {/* Add-league CTA — the primary action for a logged-out visitor. */}
             {addLeagueCta && (

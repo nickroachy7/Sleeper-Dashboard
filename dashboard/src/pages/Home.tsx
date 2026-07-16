@@ -4,6 +4,7 @@ import { useLeague, usePlayerValuesList } from '../hooks/queries';
 import { usePlayerMap, useTradeData } from '../hooks/useLeagueData';
 import { useActiveLeague } from '../lib/active-league';
 import { openAddLeague } from '../lib/add-league-modal';
+import { openLookup } from '../lib/lookup';
 import { NoLeagueState } from '../components/NoLeagueState';
 import { Plus } from 'lucide-react';
 import { useCallback, useMemo } from 'react';
@@ -41,7 +42,7 @@ const STATUS_LABEL: Record<string, string> = {
 const LEAGUE_ACTIONS = [
   { to: '/league', label: 'League' },
   { to: '/trade', label: 'Trade' },
-  { to: '/chat', label: 'Chat' },
+  { label: 'Ask', onClick: openLookup },
 ] as const;
 
 // Buttons for a logged-out visitor — only tools that work WITHOUT a league.
