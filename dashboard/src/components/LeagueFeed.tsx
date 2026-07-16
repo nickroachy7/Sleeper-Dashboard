@@ -1,22 +1,26 @@
 import { useQuery } from '@tanstack/react-query';
-import { useMemo, useCallback } from 'react';
+import { useMemo, useCallback, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Clock, Users, Sparkles } from 'lucide-react';
+import { Clock, Users, Sparkles, Swords, Check } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { usePlayerMap } from '../hooks/useLeagueData';
 import { usePlayerValuesList, usePickValues, useLeagueIds } from '../hooks/queries';
 import { useLeaguePickResolutions, useLeagueDirectory } from '../hooks/detail';
+import { useVoteMatchups } from '../hooks/useVoteMatchups';
+import { recordPairwiseVote } from '../lib/community-events';
 import { TradeCard as SharedTradeCard, type TradeSide } from './TradeCard';
 import { PlayerRow } from './PlayerRow';
+import { PositionBadge } from './PositionBadge';
 import { analyzeTrade } from '../lib/trade-value-adjustment';
 import {
   lookupPickValue,
   formatResolvedPick,
   playerMoves,
   txDraftPicks,
+  getPlayerImageUrl,
   type TxDraftPick,
 } from '../lib/trade-shared';
-import type { Fairness, TradeAsset, TransactionRow } from '../types/domain';
+import type { Player, Fairness, TradeAsset, TransactionRow } from '../types/domain';
 
 // ── Feed item model ───────────────────────────────────────────────
 // The home feed is a reverse-chron stream of typed items. Today it's league
@@ -44,9 +48,20 @@ export interface FeedMoveItem {
   adds: string[];
   drops: string[];
 }
-export type FeedItem = FeedTradeItem | FeedMoveItem;
+export interface FeedVoteItem {
+  kind: 'vote';
+  id: string;
+  a: Player;
+  b: Player;
+}
+export type FeedItem = FeedTradeItem | FeedMoveItem | FeedVoteItem;
 
 const FEED_LIMIT = 40;
+// A vote CTA every ~N activity items — the "core rhythm" — and if activity is
+// sparse (e.g. offseason) we top up with extra CTAs so the feed never feels
+// dead. Both are tunable knobs for the future live-signal-driven version.
+const CTA_EVERY = 4;
+const MIN_CTAS = 3;
 
 /**
  * The league activity feed for the home page — a social-style reverse-chron
@@ -97,10 +112,10 @@ export function LeagueFeed() {
     });
   }, [pickResolutions, pickValuesData, directory, getPlayerValue, players]);
 
-  const feed = useMemo<FeedItem[]>(() => {
+  const activity = useMemo<(FeedTradeItem | FeedMoveItem)[]>(() => {
     if (!txData || !directory) return [];
     const teamName = (rid: number) => directory.teamName(rid);
-    const items: FeedItem[] = [];
+    const items: (FeedTradeItem | FeedMoveItem)[] = [];
 
     for (const tx of txData) {
       const ts = tx.created || tx.status_updated || (tx.created_at ? new Date(tx.created_at).getTime() : 0);
@@ -171,6 +186,32 @@ export function LeagueFeed() {
     return items.sort((a, b) => b.sortKey - a.sortKey);
   }, [txData, directory, getPlayer, getPlayerValue, resolvePick, pickValuesData]);
 
+  // How many vote CTAs to weave in: one per CTA_EVERY activity items, but at
+  // least MIN_CTAS so a quiet/offseason feed still has something live. Seed the
+  // matchups off the activity count so they're stable within a render but vary
+  // as the feed changes.
+  const ctaCount = Math.max(MIN_CTAS, Math.floor(activity.length / CTA_EVERY));
+  const matchups = useVoteMatchups(ctaCount, activity.length);
+
+  // Interleave: after every CTA_EVERY activity items, drop in the next CTA. Any
+  // leftover CTAs (when activity is sparse) are appended so none are lost.
+  const feed = useMemo<FeedItem[]>(() => {
+    const out: FeedItem[] = [];
+    let m = 0;
+    activity.forEach((item, i) => {
+      out.push(item);
+      if ((i + 1) % CTA_EVERY === 0 && m < matchups.length) {
+        out.push({ kind: 'vote', id: matchups[m].id, a: matchups[m].a, b: matchups[m].b });
+        m++;
+      }
+    });
+    while (m < matchups.length) {
+      out.push({ kind: 'vote', id: matchups[m].id, a: matchups[m].a, b: matchups[m].b });
+      m++;
+    }
+    return out;
+  }, [activity, matchups]);
+
   if (isLoading) {
     return (
       <div className="space-y-3">
@@ -215,6 +256,10 @@ function FeedItemView({ item, getPlayer, getPlayerValue, directory }: {
     );
   }
 
+  if (item.kind === 'vote') {
+    return <VoteFeedCard a={item.a} b={item.b} />;
+  }
+
   const label = item.moveType === 'free_agent' ? 'FREE AGENT' : item.moveType === 'waiver' ? 'WAIVER' : item.moveType.toUpperCase();
   const avatar = item.team ? directory?.teamAvatar(item.team.rosterId) ?? null : null;
   const total = item.adds.length + item.drops.length;
@@ -245,6 +290,77 @@ function FeedItemView({ item, getPlayer, getPlayerValue, directory }: {
             return <PlayerRow key={`d-${pid}`} playerId={pid} name={p?.full_name || pid} position={p?.position} team={p?.team} value={getPlayerValue(pid)} prefix={<span className="text-red-400 font-bold text-[13px]">−</span>} dim />;
           })}
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Vote CTA card ─────────────────────────────────────────────────
+// An inline "who'd you rather keep?" that records one pairwise value event —
+// the same signal as the Rank 'Em page — so the feed feeds the community values
+// (and keeps a quiet/offseason feed alive). Once voted, it shows a thank-you.
+
+function VoteFeedCard({ a, b }: { a: Player; b: Player }) {
+  const [picked, setPicked] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
+
+  const vote = async (winner: Player, loser: Player) => {
+    if (pending || picked) return;
+    setPending(true);
+    setPicked(winner.player_id);
+    try {
+      await recordPairwiseVote({ winnerId: winner.player_id, loserId: loser.player_id });
+    } catch {
+      setPicked(null); // let them try again on failure
+    } finally {
+      setPending(false);
+    }
+  };
+
+  const side = (p: Player, other: Player) => {
+    const chosen = picked === p.player_id;
+    const dimmed = picked && !chosen;
+    return (
+      <button
+        onClick={() => vote(p, other)}
+        disabled={!!picked || pending}
+        className={`group flex-1 min-w-0 flex flex-col items-center rounded-xl border p-3 transition-all disabled:cursor-default ${
+          chosen ? 'border-accent-500 bg-accent-500/10'
+          : dimmed ? 'border-[#1b1b22] bg-[#101015] opacity-50'
+          : 'border-[#22222b] bg-[#141419] hover:border-accent-500/60 hover:bg-[#1b1b22]'
+        }`}
+      >
+        <img
+          src={getPlayerImageUrl(p.player_id)}
+          alt={p.full_name}
+          loading="lazy"
+          className="h-14 w-14 rounded-full object-cover object-top bg-[#101015] mb-2"
+        />
+        <span className="text-[13px] font-semibold text-white text-center leading-tight truncate max-w-full">{p.full_name}</span>
+        <span className="mt-1 flex items-center gap-1.5">
+          <PositionBadge position={p.position} />
+          {p.team && <span className="text-[11px] text-[#75757f]">{p.team}</span>}
+        </span>
+      </button>
+    );
+  };
+
+  return (
+    <div className="rounded-2xl border border-accent-500/20 bg-accent-500/[0.04] p-3">
+      <div className="flex items-center justify-between gap-2 mb-2.5 px-0.5">
+        <span className="flex items-center gap-1.5 text-[11px] font-bold tracking-[0.14em] uppercase text-accent-400">
+          <Swords className="h-3.5 w-3.5" /> Who'd you rather keep?
+        </span>
+        {picked ? (
+          <span className="flex items-center gap-1 text-[11px] text-[#75757f]"><Check className="h-3.5 w-3.5 text-accent-500" /> Thanks — that trains the values</span>
+        ) : (
+          <Link to="/value-vote" className="text-[11px] text-[#75757f] hover:text-accent-400 transition-colors">More →</Link>
+        )}
+      </div>
+      <div className="flex items-stretch gap-2.5">
+        {side(a, b)}
+        <div className="flex items-center text-[11px] font-medium uppercase tracking-widest text-[#4c4c56]">or</div>
+        {side(b, a)}
       </div>
     </div>
   );
