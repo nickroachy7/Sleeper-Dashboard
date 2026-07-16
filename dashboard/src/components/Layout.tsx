@@ -6,8 +6,7 @@ import {
   Settings,
   TrendingUp,
   Trophy,
-  Menu,
-  X,
+  ChevronDown,
   Search,
   MessageSquarePlus,
 } from 'lucide-react';
@@ -128,23 +127,25 @@ export default function Layout() {
 
   return (
     <div className="min-h-dvh">
-      {/* ── Mobile Header (stays fixed; burger toggles the drop-down menu) ── */}
+      {/* ── Mobile Header (the logo doubles as the menu button) ── */}
       <header className="lg:hidden fixed top-0 left-0 right-0 z-[80] bg-[#0d0d11]/90 backdrop-blur-xl border-b border-[#2a2a34] pt-[env(safe-area-inset-top)]">
-        <div className="relative flex items-center justify-between h-14 px-2">
+        <div className="flex items-center justify-between h-14 px-2">
           <button
             onClick={() => setNavOpen((open) => !open)}
             aria-label={navOpen ? 'Close menu' : 'Open menu'}
             aria-expanded={navOpen}
-            className="w-10 h-10 rounded-lg flex items-center justify-center text-[#9c9ca7] hover:text-white hover:bg-[#1b1b22] active:bg-[#22222b] transition-colors"
+            className={`flex items-center gap-1 h-10 pl-2 pr-1.5 rounded-lg transition-colors ${
+              navOpen ? 'bg-[#1b1b22]' : 'hover:bg-[#1b1b22] active:bg-[#22222b]'
+            }`}
           >
-            {navOpen ? <X className="h-[22px] w-[22px]" /> : <Menu className="h-[22px] w-[22px]" />}
-          </button>
-          <Link to="/" aria-label="Home" className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 active:opacity-70 transition-opacity">
             <img src="/yapsports-logo.webp" alt="Sleeper Dashboard" className="h-7 w-auto" />
-          </Link>
+            <ChevronDown
+              className={`h-4 w-4 text-[#75757f] transition-transform ${navOpen ? 'rotate-180' : ''}`}
+            />
+          </button>
           <button
             onClick={openLookup}
-            aria-label="Search players and teams"
+            aria-label="Search or ask the assistant"
             className="w-10 h-10 rounded-lg flex items-center justify-center text-[#9c9ca7] hover:text-white hover:bg-[#1b1b22] active:bg-[#22222b] transition-colors"
           >
             <Search className="h-[20px] w-[20px]" />

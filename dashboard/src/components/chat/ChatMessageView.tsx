@@ -95,7 +95,7 @@ export function ChatMessageView({ message: m }: { message: ChatMessage }) {
   if (m.role === 'user') {
     return (
       <div className="flex justify-end">
-        <div className="max-w-[85%] rounded-2xl rounded-br-md bg-accent-500/15 border border-accent-500/20 px-4 py-2.5 text-[13.5px] text-white whitespace-pre-wrap">
+        <div className="max-w-[82%] rounded-[18px] rounded-br-md bg-accent-500 px-3.5 py-2 text-[13.5px] leading-relaxed text-[#06110a] font-medium whitespace-pre-wrap shadow-sm">
           {m.content}
         </div>
       </div>
