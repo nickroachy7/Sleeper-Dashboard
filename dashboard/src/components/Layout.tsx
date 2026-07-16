@@ -32,7 +32,7 @@ interface NavItem {
 
 // Primary destinations — desktop sidebar + mobile top tab strip.
 const primaryNav: NavItem[] = [
-  { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
+  { to: '/', icon: LayoutDashboard, label: 'Home' },
   { to: '/league', icon: Trophy, label: 'League' },
   { to: '/players', icon: TrendingUp, label: 'Players', match: ['/value-vote'] },
   { to: '/trade', icon: Scale, label: 'Trade' },
@@ -119,7 +119,7 @@ export default function Layout() {
           </button>
           <Link
             to="/"
-            aria-label="Dashboard"
+            aria-label="Home"
             className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 active:opacity-70 transition-opacity"
           >
             <img src="/yapsports-logo.webp" alt="Sleeper Dashboard" className="h-7 w-auto" />
@@ -128,15 +128,16 @@ export default function Layout() {
         </div>
 
         {/* Row 2 — persistent tab strip. Primary destinations only; Settings &
-            Feedback live in the league-switcher menu (top-right avatar). */}
-        <nav className="flex items-stretch h-12 px-1 overflow-x-auto no-scrollbar border-t border-[#1b1b22]">
+            Feedback live in the league-switcher menu (top-right avatar). Tabs
+            share the row equally (flex-1) so all five fit with no side-scroll. */}
+        <nav className="flex items-stretch h-12 border-t border-[#1b1b22]">
           {primaryNav.map(({ to, label, match }) => {
             const active = isNavItemActive(to, match);
             return (
               <Link
                 key={to}
                 to={to}
-                className={`shrink-0 flex items-center px-3.5 text-[13.5px] whitespace-nowrap border-b-2 transition-colors ${
+                className={`flex-1 min-w-0 flex items-center justify-center text-[13px] whitespace-nowrap border-b-2 transition-colors ${
                   active
                     ? 'text-accent-500 border-accent-500 font-semibold'
                     : 'text-[#80808c] border-transparent font-medium active:text-white'

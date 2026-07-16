@@ -12,7 +12,7 @@ import { TeamRow } from './TeamRow';
 import { OPEN_LOOKUP_EVENT } from '../lib/lookup';
 
 const PAGES = [
-  { label: 'Dashboard', to: '/' },
+  { label: 'Home', to: '/' },
   { label: 'League', to: '/league' },
   { label: 'Players', to: '/players' },
   { label: 'Trade', to: '/trade' },

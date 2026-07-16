@@ -3,7 +3,7 @@ import { Search } from 'lucide-react';
 import { openLookup } from '../lib/lookup';
 
 const TITLES: Record<string, string> = {
-  '/': 'Dashboard',
+  '/': 'Home',
   '/league': 'League',
   '/trade': 'Trade',
   '/players': 'Players',
@@ -17,7 +17,7 @@ function titleForPath(pathname: string): string {
   if (TITLES[pathname]) return TITLES[pathname];
   if (pathname.startsWith('/players/')) return 'Player';
   if (pathname.startsWith('/teams/')) return 'Team';
-  return 'Dashboard';
+  return 'Home';
 }
 
 /**
