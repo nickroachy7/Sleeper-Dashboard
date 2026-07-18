@@ -85,12 +85,13 @@ export interface AddLeagueResult {
   rootLeagueId: string;
   name: string;
   season: string;
-  seasonsProcessed: number;
 }
 
 /**
- * Ask the edge function to ingest a league and register it for ongoing sync.
- * Runs the initial multi-season sync server-side, so this can take a while.
+ * Ask the edge function to register a league and kick off its ingest. The
+ * function responds immediately (202) while the multi-season sync runs in the
+ * background — poll `tracked_leagues.last_sync_status` ('pending' → 'ok' |
+ * 'error') to know when data has landed (see useImportStatus).
  */
 export async function ingestLeague(leagueId: string): Promise<AddLeagueResult> {
   const { data, error } = await supabase.functions.invoke('add-league', {
@@ -117,6 +118,5 @@ export async function ingestLeague(leagueId: string): Promise<AddLeagueResult> {
     rootLeagueId: data.league.rootLeagueId,
     name: data.league.name,
     season: data.league.season,
-    seasonsProcessed: data.seasonsProcessed ?? 0,
   };
 }

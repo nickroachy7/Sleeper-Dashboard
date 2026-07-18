@@ -78,12 +78,12 @@ export function AddLeagueModal() {
     setImportingId(league.league_id);
     setPhase('importing');
     try {
+      // Registers the league and kicks off the multi-season ingest in the
+      // background — returns in ~a second. Home shows the import-in-progress
+      // state and useImportStatus polls until the data lands.
       const res = await ingestLeague(league.league_id);
       addLeague({ rootLeagueId: res.rootLeagueId, name: res.name, season: res.season });
-      // add-league backfilled player rows (incl. IDP), so refresh the cached
-      // player name/value maps or freshly imported players render as raw ids.
-      queryClient.invalidateQueries({ queryKey: ['players'] });
-      queryClient.invalidateQueries({ queryKey: ['playerValues'] });
+      queryClient.invalidateQueries({ queryKey: ['import-status', res.rootLeagueId] });
       setOpen(false);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Import failed');
@@ -191,7 +191,7 @@ export function AddLeagueModal() {
 
           {phase === 'importing' && (
             <p className="mt-3 text-[12px] text-[#75757f]">
-              Importing all seasons from Sleeper — this can take up to a minute.
+              Starting your import…
             </p>
           )}
         </div>

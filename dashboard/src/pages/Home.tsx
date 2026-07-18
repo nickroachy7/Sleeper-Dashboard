@@ -5,8 +5,9 @@ import { usePlayerMap, useTradeData } from '../hooks/useLeagueData';
 import { useActiveLeague } from '../lib/active-league';
 import { openAddLeague } from '../lib/add-league-modal';
 import { NoLeagueState } from '../components/NoLeagueState';
-import { Plus } from 'lucide-react';
+import { Plus, Loader2 } from 'lucide-react';
 import { useMemo } from 'react';
+import { useImportStatus } from '../hooks/useImportStatus';
 import { ValueWatch } from '../components/ValueWatch';
 import { HomeSplash } from '../components/HomeSplash';
 import { MyTeamCard, type MyTeamStanding } from '../components/MyTeamCard';
@@ -45,6 +46,8 @@ export default function Home() {
 
   // League-agnostic movers + rankings for the logged-out home.
   const globalMovers = useGlobalMovers(30);
+  // Background-import progress for a just-added league.
+  const importStatus = useImportStatus();
 
   const { data: rostersData } = useQuery({
     queryKey: ['home-rosters', league?.league_id],
@@ -147,15 +150,34 @@ export default function Home() {
   }
 
   // hasLeague is true but no current league resolved — still importing, or an
-  // unknown ?league= id.
+  // unknown ?league= id. useImportStatus polls tracked_leagues while the
+  // background ingest runs and invalidates queries when it lands, so this
+  // state resolves itself without a manual refresh.
   if (!league) {
     return (
       <div className="min-h-dvh p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto">
-        <NoLeagueState
-          heading="Getting your league ready…"
-          sub="If you just added a league, its data is still importing — this can take a moment. Otherwise, add your Sleeper league to get started."
-          compact
-        />
+        {importStatus.status === 'pending' ? (
+          <div className="rounded-2xl border border-accent-500/20 bg-accent-500/[0.04] p-8 text-center">
+            <Loader2 className="h-6 w-6 text-accent-500 animate-spin mx-auto mb-3" />
+            <p className="text-[15px] font-semibold text-white">Importing your league…</p>
+            <p className="text-[12px] text-[#75757f] mt-1 max-w-sm mx-auto">
+              Pulling every season, roster, and trade from Sleeper. This usually takes under a
+              minute — the page will update on its own.
+            </p>
+          </div>
+        ) : importStatus.status === 'error' ? (
+          <NoLeagueState
+            heading="Import hit a snag"
+            sub={importStatus.error ?? 'Something went wrong syncing your league. Try adding it again.'}
+            compact
+          />
+        ) : (
+          <NoLeagueState
+            heading="Getting your league ready…"
+            sub="If you just added a league, its data is still importing — this can take a moment. Otherwise, add your Sleeper league to get started."
+            compact
+          />
+        )}
       </div>
     );
   }

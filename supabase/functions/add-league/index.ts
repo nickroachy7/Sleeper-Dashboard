@@ -71,8 +71,13 @@ Deno.serve(async (req) => {
       return jsonResponse({ success: false, error: "League not found on Sleeper" }, 404);
     }
 
-    // Register first (so the cron would pick it up even if this ingest is slow),
-    // then do the full initial ingest synchronously so the UI can show data.
+    // Register first with a "pending" status, then run the (potentially
+    // minutes-long, multi-season) ingest in the BACKGROUND and respond
+    // immediately. A synchronous ingest regularly outlived the browser's/
+    // gateway's patience and surfaced as "Failed to send a request to the
+    // Edge Function" — even though the sync itself completed server-side.
+    // The client polls tracked_leagues.last_sync_status to know when data
+    // has landed ('pending' → 'ok' | 'error').
     await supabase.from("tracked_leagues").upsert(
       {
         root_league_id: root.league_id,
@@ -84,50 +89,58 @@ Deno.serve(async (req) => {
       { onConflict: "root_league_id", ignoreDuplicates: false }
     );
 
-    const currentWeek = await getCurrentWeek();
-    const startTime = Date.now();
-
-    try {
-      const outcome = await syncLeagueChain(supabase, root.league_id, currentWeek);
-      await supabase
-        .from("tracked_leagues")
-        .update({ last_synced_at: new Date().toISOString(), last_sync_status: "ok", sync_error: null })
-        .eq("root_league_id", root.league_id);
-
-      // Backfill player rows for this league. The curated players table only
-      // holds offensive skill players + whatever was rostered in already-synced
-      // leagues, so a new league (especially an IDP league) references players
-      // with no name row yet. sync-players scans all rosters — including the one
-      // we just wrote — so invoking it names every player in this league.
-      // Awaited so names are present when the client loads; non-fatal (the
-      // weekly cron is the backstop).
+    const ingest = (async () => {
       try {
-        await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/sync-players`, {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
-            "Content-Type": "application/json",
-          },
-        });
-      } catch (e) {
-        console.error("player backfill (sync-players) failed — cron will catch up:", e);
-      }
+        const currentWeek = await getCurrentWeek();
+        await syncLeagueChain(supabase, root.league_id, currentWeek);
+        await supabase
+          .from("tracked_leagues")
+          .update({ last_synced_at: new Date().toISOString(), last_sync_status: "ok", sync_error: null })
+          .eq("root_league_id", root.league_id);
 
-      return jsonResponse({
-        success: true,
-        league: { rootLeagueId: root.league_id, name: root.name, season: root.season },
-        seasonsProcessed: outcome.seasonsProcessed,
-        records: outcome.result,
-        durationMs: Date.now() - startTime,
-      });
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      await supabase
-        .from("tracked_leagues")
-        .update({ last_synced_at: new Date().toISOString(), last_sync_status: "error", sync_error: msg })
-        .eq("root_league_id", root.league_id);
-      throw e;
+        // Backfill player rows for this league. The curated players table only
+        // holds offensive skill players + whatever was rostered in already-synced
+        // leagues, so a new league (especially an IDP league) references players
+        // with no name row yet. sync-players scans all rosters — including the
+        // one we just wrote. Non-fatal (the weekly cron is the backstop).
+        try {
+          await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/sync-players`, {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+              "Content-Type": "application/json",
+            },
+          });
+        } catch (e) {
+          console.error("player backfill (sync-players) failed — cron will catch up:", e);
+        }
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        console.error("add-league background ingest failed:", msg);
+        await supabase
+          .from("tracked_leagues")
+          .update({ last_synced_at: new Date().toISOString(), last_sync_status: "error", sync_error: msg })
+          .eq("root_league_id", root.league_id);
+      }
+    })();
+
+    // Keep the isolate alive until the ingest settles, without blocking the
+    // response. Fall back to fire-and-forget if waitUntil is unavailable.
+    try {
+      // deno-lint-ignore no-explicit-any
+      (globalThis as any).EdgeRuntime?.waitUntil?.(ingest) ?? ingest.catch(() => {});
+    } catch {
+      ingest.catch(() => {});
     }
+
+    return jsonResponse(
+      {
+        success: true,
+        importing: true,
+        league: { rootLeagueId: root.league_id, name: root.name, season: root.season },
+      },
+      202
+    );
   } catch (error) {
     console.error("add-league error:", error);
     return errorResponse(error);
