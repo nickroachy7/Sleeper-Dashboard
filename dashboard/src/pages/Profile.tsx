@@ -5,17 +5,25 @@ import { UserRound, Share2, Check, Swords, TrendingUp, ChevronLeft } from 'lucid
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
 import { usePlayerMap } from '../hooks/useLeagueData';
+import { usePlayerValuesList } from '../hooks/queries';
 import { PlayerRow } from '../components/PlayerRow';
 import { FilterPills } from '../components/FilterBar';
 
 // ── Public profile: /u/<username> ─────────────────────────────────
-// The shareable face of an account: identity + a live leaderboard of the
-// user's personal player rankings. Every pairwise vote they cast moves their
-// board (user_player_ratings, updated by a DB trigger), so the page is always
-// current — vote, refresh, compare with friends. Public by design; there's
-// nothing sensitive here.
+// The shareable face of an account: a COMPLETE player-rankings board from day
+// one. Everyone starts at the community rankings (no player is unranked);
+// each pairwise vote nudges the user's copy away from the crowd — favorites
+// drift up, fades drift down. What makes a board interesting is the ▲/▼
+// disagreements with the community, so moved players carry a delta chip.
+// Ratings come from user_player_ratings (DB trigger, Elo around 1500 = "no
+// opinion"); the board value is community value + deviation × ELO_SCALE.
 
 const POSITIONS = ['ALL', 'QB', 'RB', 'WR', 'TE'] as const;
+
+// One vote moves a player ±16 Elo (K=32 from even); ×8 ≈ ±128 board points —
+// enough to hop a few spots among the stars, minor further down. Repeated
+// votes compound.
+const ELO_SCALE = 8;
 
 interface BoardRow {
   player_id: string;
@@ -28,6 +36,7 @@ export default function Profile() {
   const { username = '' } = useParams<{ username: string }>();
   const { user } = useAuth();
   const { data: playersMap } = usePlayerMap();
+  const { data: communityValues } = usePlayerValuesList();
   const [pos, setPos] = useState<(typeof POSITIONS)[number]>('ALL');
   const [copied, setCopied] = useState(false);
 
@@ -59,17 +68,50 @@ export default function Profile() {
     },
   });
 
+  // Blend: community baseline + the user's Elo deviation. Every valued player
+  // appears (complete board from day one); voted players shift and carry a
+  // rank delta vs the pure community order.
   const rows = useMemo(() => {
-    if (!board || !playersMap) return [];
-    return board
-      .map((r) => ({ ...r, player: playersMap.get(r.player_id) }))
-      .filter((r) => !!r.player)
-      .filter((r) => pos === 'ALL' || r.player!.position === pos)
-      .map((r, i) => ({ ...r, rank: i + 1 }));
-  }, [board, playersMap, pos]);
+    if (!playersMap || !communityValues) return [];
+    const personal = new Map((board ?? []).map((r) => [r.player_id, r]));
+
+    const all = [...communityValues.entries()]
+      .map(([playerId, communityValue]) => {
+        const mine = personal.get(playerId);
+        const deviation = mine ? (mine.rating - 1500) * ELO_SCALE : 0;
+        return {
+          player_id: playerId,
+          player: playersMap.get(playerId),
+          communityValue,
+          blended: communityValue + deviation,
+          moved: !!mine && mine.rating !== 1500,
+          wins: mine?.wins ?? 0,
+          losses: mine?.losses ?? 0,
+        };
+      })
+      .filter((r) => !!r.player);
+
+    // Rank deltas compare like-for-like within the SAME position filter.
+    const scoped = all.filter((r) => pos === 'ALL' || r.player!.position === pos);
+    const communityOrder = [...scoped].sort((a, b) => b.communityValue - a.communityValue);
+    const communityRank = new Map(communityOrder.map((r, i) => [r.player_id, i + 1]));
+
+    return scoped
+      .sort((a, b) => b.blended - a.blended)
+      .map((r, i) => ({
+        ...r,
+        rank: i + 1,
+        delta: (communityRank.get(r.player_id) ?? i + 1) - (i + 1), // + = above crowd
+      }));
+  }, [board, playersMap, communityValues, pos]);
 
   const totalVotes = useMemo(
     () => (board ?? []).reduce((sum, r) => sum + r.wins + r.losses, 0) / 2,
+    [board]
+  );
+  // "Hot takes": players this user has moved off the community consensus.
+  const movedCount = useMemo(
+    () => (board ?? []).filter((r) => r.rating !== 1500).length,
     [board]
   );
 
@@ -149,8 +191,8 @@ export default function Profile() {
               <p className="font-display text-[15px] font-bold text-white tabular-nums mt-0.5">{Math.round(totalVotes).toLocaleString()}</p>
             </div>
             <div className="px-4 sm:px-5 py-3">
-              <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#75757f] flex items-center gap-1"><TrendingUp className="h-3 w-3" /> Players ranked</p>
-              <p className="font-display text-[15px] font-bold text-white tabular-nums mt-0.5">{(board ?? []).length.toLocaleString()}</p>
+              <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#75757f] flex items-center gap-1"><TrendingUp className="h-3 w-3" /> Players moved</p>
+              <p className="font-display text-[15px] font-bold text-white tabular-nums mt-0.5">{movedCount.toLocaleString()}</p>
             </div>
           </div>
         </section>
@@ -160,7 +202,9 @@ export default function Profile() {
           <div className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3.5 border-b border-[#1b1b22]">
             <div>
               <p className="text-[11px] font-bold text-accent-500 tracking-[0.18em] uppercase">The board</p>
-              <p className="text-[11px] text-[#75757f] mt-0.5">Built from every "who'd you rather" vote — updates live.</p>
+              <p className="text-[11px] text-[#75757f] mt-0.5">
+                Community rankings, reshaped by {isMe ? 'your' : `${profile.username}'s`} votes — ▲▼ marks the disagreements.
+              </p>
             </div>
             <FilterPills
               options={POSITIONS.map((p) => ({ value: p, label: p === 'ALL' ? 'All' : p }))}
@@ -169,28 +213,9 @@ export default function Profile() {
             />
           </div>
 
-          {boardLoading ? (
+          {boardLoading || rows.length === 0 ? (
             <div className="p-4 space-y-2">
               {Array.from({ length: 8 }).map((_, i) => <div key={i} className="skeleton h-11 w-full rounded-lg" />)}
-            </div>
-          ) : rows.length === 0 ? (
-            <div className="px-4 sm:px-5 py-10 text-center">
-              <p className="text-[14px] font-medium text-[#c4c4cd]">
-                {isMe ? 'Your board is empty' : `${profile.username} hasn't ranked anyone yet`}
-              </p>
-              <p className="text-[12px] text-[#75757f] mt-1 max-w-xs mx-auto">
-                {isMe
-                  ? 'Vote on player matchups and your personal rankings build themselves.'
-                  : 'Their rankings will appear here once they start voting.'}
-              </p>
-              {isMe && (
-                <Link
-                  to="/value-vote"
-                  className="inline-flex items-center gap-1.5 mt-4 h-9 px-4 rounded-lg bg-accent-500 text-[#06110a] text-[13px] font-semibold hover:bg-accent-400 transition-colors"
-                >
-                  <Swords className="h-4 w-4" /> Start ranking
-                </Link>
-              )}
             </div>
           ) : (
             <div className="divide-y divide-[#17171d]">
@@ -202,8 +227,14 @@ export default function Profile() {
                   name={r.player!.full_name}
                   position={r.player!.position}
                   team={r.player!.team}
-                  value={Math.round(r.rating)}
-                  meta={`${r.wins}-${r.losses}`}
+                  value={Math.round(r.blended)}
+                  meta={
+                    r.moved ? (
+                      <span className={r.delta > 0 ? 'text-accent-400 font-semibold' : r.delta < 0 ? 'text-red-400 font-semibold' : 'text-[#75757f]'}>
+                        {r.delta > 0 ? `▲${r.delta} vs crowd` : r.delta < 0 ? `▼${Math.abs(r.delta)} vs crowd` : `${r.wins}-${r.losses}`}
+                      </span>
+                    ) : undefined
+                  }
                   size="sm"
                 />
               ))}
@@ -211,13 +242,14 @@ export default function Profile() {
           )}
         </section>
 
-        {/* Owner nudge: keep voting to refine the board */}
-        {isMe && rows.length > 0 && (
+        {/* Owner nudge: an untouched board is just the community's — make it yours */}
+        {isMe && (
           <Link
             to="/value-vote"
             className="flex items-center justify-center gap-2 h-11 rounded-xl border border-accent-500/25 bg-accent-500/[0.06] text-[14px] font-semibold text-accent-400 hover:bg-accent-500/[0.1] transition-colors"
           >
-            <Swords className="h-4 w-4" /> Keep ranking — every vote sharpens your board
+            <Swords className="h-4 w-4" />
+            {movedCount === 0 ? 'This is the crowd’s board — start voting to make it yours' : 'Keep ranking — every vote sharpens your board'}
           </Link>
         )}
       </div>
