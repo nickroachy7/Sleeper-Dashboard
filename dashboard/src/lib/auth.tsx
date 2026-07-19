@@ -55,6 +55,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const user = session?.user ?? null;
 
+  // Self-heal: accounts created before the profiles table shipped have a
+  // username in auth metadata but no public profiles row, so /u/<username>
+  // 404s. Upsert it once per session. (ON CONFLICT via upsert keeps this a
+  // no-op for healthy accounts.)
+  const healUserId = user?.id ?? null;
+  const healUsername = typeof user?.user_metadata?.username === 'string' ? user.user_metadata.username : null;
+  const healAvatar = typeof user?.user_metadata?.avatar_url === 'string' ? user.user_metadata.avatar_url : null;
+  useEffect(() => {
+    if (!healUserId || !healUsername) return;
+    supabase
+      .from('profiles')
+      .upsert(
+        { user_id: healUserId, username: healUsername, avatar_url: healAvatar },
+        { onConflict: 'user_id' }
+      )
+      .then(({ error }) => {
+        if (error) console.warn('profile self-heal failed:', error.message);
+      });
+  }, [healUserId, healUsername, healAvatar]);
+
   const value: AuthValue = {
     user,
     // Username + avatar live in auth user_metadata — no extra table needed;
