@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { ArrowLeft, UserRound } from 'lucide-react';
 import { PositionBadge } from '../components/PositionBadge';
 import { usePlayers, usePlayerValuesList } from '../hooks/queries';
 import { getPlayerImageUrl } from '../lib/trade-shared';
 import { recordPairwiseVote } from '../lib/community-events';
+import { useAuth } from '../lib/auth';
 import type { Player } from '../types/domain';
 
 const VOTABLE = new Set(['QB', 'RB', 'WR', 'TE']);
@@ -19,6 +20,8 @@ const VOTABLE = new Set(['QB', 'RB', 'WR', 'TE']);
 export default function ValueVote() {
   const { data: players } = usePlayers();
   const { data: valueMap } = usePlayerValuesList();
+  const { user, username } = useAuth();
+  const navigate = useNavigate();
   const [pair, setPair] = useState<[Player, Player] | null>(null);
   const [votes, setVotes] = useState(0);
   const [pending, setPending] = useState(false);
@@ -68,7 +71,33 @@ export default function ValueVote() {
       </Link>
 
       <h1 className="font-display text-xl sm:text-2xl font-bold text-white tracking-tight">Rank 'Em</h1>
-      <p className="text-[13px] text-muted mt-1 mb-4">Who'd you rather keep? Every pick trains the community values.</p>
+      <p className="text-[13px] text-muted mt-1 mb-4">
+        Who'd you rather keep? Every pick trains the community values
+        {user ? ' — and builds your personal board.' : '.'}
+      </p>
+
+      {/* Personal-board hook: signed-in users get a link to their live
+          rankings; guests learn what an account adds, right where it pays off. */}
+      {user && username ? (
+        <Link
+          to={`/u/${username}`}
+          className="flex items-center gap-2 mb-4 px-3.5 py-2.5 rounded-xl border border-[#22222b] bg-[#141419] text-[12.5px] text-[#9c9ca7] hover:border-accent-500/40 hover:text-white transition-colors"
+        >
+          <UserRound className="h-4 w-4 text-accent-400 shrink-0" />
+          Your votes are building <span className="font-semibold text-white">your rankings board</span> — view it anytime.
+        </Link>
+      ) : !user ? (
+        <button
+          onClick={() => navigate('/welcome')}
+          className="flex w-full items-center gap-2 mb-4 px-3.5 py-2.5 rounded-xl border border-[#22222b] bg-[#141419] text-[12.5px] text-[#9c9ca7] hover:border-accent-500/40 hover:text-white transition-colors text-left"
+        >
+          <UserRound className="h-4 w-4 text-accent-400 shrink-0" />
+          <span>
+            <span className="font-semibold text-white">Create an account</span> and every vote builds your own
+            shareable player rankings.
+          </span>
+        </button>
+      ) : null}
 
       <div className="flex items-center justify-between text-[13px] text-muted mb-4">
         <span>{votes} {votes === 1 ? 'vote' : 'votes'} this session</span>

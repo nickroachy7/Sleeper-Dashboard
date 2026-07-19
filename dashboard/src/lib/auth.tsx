@@ -64,6 +64,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     loading,
 
     async signUp(email, password, username) {
+      // Usernames are public identity (/u/<username>) — check availability
+      // before burning the email on an account.
+      const { data: taken } = await supabase
+        .from('profiles')
+        .select('user_id')
+        .ilike('username', username)
+        .maybeSingle();
+      if (taken) throw new Error('That username is taken — try another.');
+
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -80,6 +89,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Sign In / Up); surface it rather than silently staying a guest.
       if (!data.session) {
         throw new Error('Account created, but email confirmation is required by the server. Check your inbox, then sign in.');
+      }
+      // Public profile row — the shareable /u/<username> identity. Best-effort:
+      // a unique-index race just means the page 404s until support fixes it.
+      if (data.user) {
+        const { error: pErr } = await supabase
+          .from('profiles')
+          .insert({ user_id: data.user.id, username });
+        if (pErr) console.warn('profile create failed:', pErr.message);
       }
     },
 
@@ -103,6 +120,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (Object.keys(data).length === 0) return;
       const { error } = await supabase.auth.updateUser({ data });
       if (error) console.warn('profile update failed:', error.message);
+      // Mirror the avatar onto the public profile (/u/<username>).
+      if ('avatarUrl' in fields && user) {
+        await supabase.from('profiles').update({ avatar_url: fields.avatarUrl }).eq('user_id', user.id);
+      }
     },
   };
 

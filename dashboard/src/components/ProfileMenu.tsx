@@ -72,15 +72,29 @@ export function ProfileMenu({ compact = false }: { compact?: boolean }) {
           role="menu"
           className="absolute right-0 top-[calc(100%+8px)] z-[90] w-72 rounded-xl bg-[#141419] border border-[#2a2a34] shadow-2xl overflow-hidden py-1"
         >
-          {/* Identity row (guests get the save-your-leagues pitch) */}
+          {/* Identity row (guests get the save-your-leagues pitch). For users
+              with a username it links to their public rankings profile. */}
           {user ? (
-            <div className="flex items-center gap-3 px-3 py-3 border-b border-[#22222b]">
-              <AvatarFace />
-              <div className="flex-1 min-w-0">
-                <p className="text-[13px] font-semibold text-white truncate">{username ?? user.email}</p>
-                {username && <p className="text-[11px] text-[#75757f] truncate">{user.email}</p>}
+            username ? (
+              <button
+                role="menuitem"
+                onClick={() => go(() => navigate(`/u/${username}`))}
+                className="w-full flex items-center gap-3 px-3 py-3 border-b border-[#22222b] text-left hover:bg-[#1b1b22] transition-colors"
+              >
+                <AvatarFace />
+                <div className="flex-1 min-w-0">
+                  <p className="text-[13px] font-semibold text-white truncate">{username}</p>
+                  <p className="text-[11px] text-[#75757f] truncate">View my rankings profile</p>
+                </div>
+              </button>
+            ) : (
+              <div className="flex items-center gap-3 px-3 py-3 border-b border-[#22222b]">
+                <AvatarFace />
+                <div className="flex-1 min-w-0">
+                  <p className="text-[13px] font-semibold text-white truncate">{user.email}</p>
+                </div>
               </div>
-            </div>
+            )
           ) : (
             <div className="border-b border-[#22222b]">
               {/* Guests: create-account leads to the full-page onboarding;

@@ -1014,6 +1014,27 @@ export type Database = {
           },
         ]
       }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          user_id: string
+          username: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          user_id: string
+          username: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          user_id?: string
+          username?: string
+        }
+        Relationships: []
+      }
       user_leagues: {
         Row: {
           added_at: string
@@ -1038,6 +1059,33 @@ export type Database = {
           root_league_id?: string
           season?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      user_player_ratings: {
+        Row: {
+          losses: number
+          player_id: string
+          rating: number
+          updated_at: string
+          user_id: string
+          wins: number
+        }
+        Insert: {
+          losses?: number
+          player_id: string
+          rating?: number
+          updated_at?: string
+          user_id: string
+          wins?: number
+        }
+        Update: {
+          losses?: number
+          player_id?: string
+          rating?: number
+          updated_at?: string
+          user_id?: string
+          wins?: number
         }
         Relationships: []
       }
@@ -1083,6 +1131,7 @@ export type Database = {
           side_a: Json
           side_b: Json
           source_ref: string | null
+          user_id: string | null
           voter_id: string | null
           weight: number
         }
@@ -1097,6 +1146,7 @@ export type Database = {
           side_a: Json
           side_b: Json
           source_ref?: string | null
+          user_id?: string | null
           voter_id?: string | null
           weight?: number
         }
@@ -1111,6 +1161,7 @@ export type Database = {
           side_a?: Json
           side_b?: Json
           source_ref?: string | null
+          user_id?: string | null
           voter_id?: string | null
           weight?: number
         }

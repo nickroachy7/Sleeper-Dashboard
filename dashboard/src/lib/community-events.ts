@@ -20,6 +20,14 @@ function voterId(): string {
   return id;
 }
 
+/** Signed-in user id, or null for guests. Attributed votes feed the user's
+ *  personal ranking board (user_player_ratings, via DB trigger) on top of the
+ *  community engine; RLS only accepts the caller's own id. */
+async function userId(): Promise<string | null> {
+  const { data } = await supabase.auth.getSession();
+  return data.session?.user.id ?? null;
+}
+
 export interface PairwiseVoteArgs {
   /** The player kept / preferred. */
   winnerId: string;
@@ -38,6 +46,7 @@ export async function recordPairwiseVote(args: PairwiseVoteArgs): Promise<void> 
     outcome: 1.0,
     weight: 1.0,
     voter_id: voterId(),
+    user_id: await userId(),
     format_sf: args.superflex ?? true,
   });
   if (error) throw new Error(error.message);
@@ -60,6 +69,7 @@ export async function recordCalculatorVote(args: CalculatorVoteArgs): Promise<vo
     outcome: args.verdict,
     weight: 1.5,
     voter_id: voterId(),
+    user_id: await userId(),
     format_sf: args.superflex ?? true,
   });
   if (error) throw new Error(error.message);

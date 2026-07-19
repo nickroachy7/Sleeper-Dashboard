@@ -13,6 +13,7 @@ import TradeDetail from './pages/TradeDetail';
 import Feedback from './pages/Feedback';
 import Chat from './pages/Chat';
 import Welcome from './pages/Welcome';
+import Profile from './pages/Profile';
 import { AuthModal } from './components/AuthModal';
 
 function App() {
@@ -38,6 +39,9 @@ function App() {
         <Route path="settings" element={<Settings />} />
         <Route path="feedback" element={<Feedback />} />
         <Route path="chat" element={<Chat />} />
+        {/* Public share target — friends land here from a link, so it keeps
+            the app chrome (nav = the funnel into the rest of the product). */}
+        <Route path="u/:username" element={<Profile />} />
 
         {/* Redirects for old routes */}
         <Route path="ktc-values" element={<Navigate to="/players" replace />} />
