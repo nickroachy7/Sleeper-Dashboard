@@ -1,4 +1,4 @@
-import { useMemo, Fragment } from 'react';
+import { useMemo, useState, Fragment } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { TrendingUp, Layers, Trophy } from 'lucide-react';
 import { supabase } from '../lib/supabase';
@@ -9,7 +9,10 @@ import { Pagination } from '../components/Pagination';
 import { FilterBar, SearchInput, FilterPills, SortSelect } from '../components/FilterBar';
 import { PlayerRow } from '../components/PlayerRow';
 import { RecordsPanel } from '../components/RecordsPanel';
+import { LeaguePicker } from '../components/LeaguePicker';
 import { useValueMovers } from '../hooks/detail';
+import { useLeagueRoster } from '../hooks/useLeagueRoster';
+import { useActiveLeague } from '../lib/active-league';
 
 // ── Player Values Types ──────────────────────────────────────────
 
@@ -123,13 +126,18 @@ const tierAccents: Record<number, string> = {
 // filters) or draft-'pick' rankings. Picks are no longer interleaved into the
 // player list — they're their own tab.
 
-function ValuesTab({ kind }: { kind: 'player' | 'pick' }) {
+function ValuesTab({ kind, leagueFilterId }: { kind: 'player' | 'pick'; leagueFilterId?: string | null }) {
   const { get, setMany } = useUrlState();
   const searchQuery = get('q');
   const positionFilter = get('pos', 'ALL');
   const sortField = get('sf', 'rank') as SortField;
   const sortDirection = get('sd', 'asc') as SortDirection;
   const currentPage = Number(get('page', '1')) || 1;
+
+  // When a league is picked (Players tab only), keep only players rostered in
+  // it — but on the GLOBAL value scale, so ranks read as "where my league's
+  // players sit in the community" rather than a renumbered 1..N board.
+  const { data: rosterSet } = useLeagueRoster(kind === 'player' ? leagueFilterId ?? null : null);
 
   const { data: playerValues, isLoading: playersLoading, error: playersError } = useQuery({
     queryKey: ['playerValues', 'detailed'],
@@ -191,8 +199,25 @@ function ValuesTab({ kind }: { kind: 'player' | 'pick' }) {
     return combined;
   }, [kind, playerValues, pickValues, deltaById]);
 
+  // Each player's true GLOBAL rank — their position in the full list ordered
+  // exactly as the default "All" view (by stored rank, nulls last). Computed
+  // over everything so a league-filtered view shows the SAME number the player
+  // would carry in the global list, not a renumbered 1..N.
+  const globalRankById = useMemo(() => {
+    const map = new Map<string, number>();
+    [...unifiedValues]
+      .sort((a, b) => (a.rank || 99999) - (b.rank || 99999))
+      .forEach((item, i) => { if (item.playerId) map.set(item.playerId, i + 1); });
+    return map;
+  }, [unifiedValues]);
+
+  const leagueFiltered = kind === 'player' && !!leagueFilterId && !!rosterSet;
+
   const filteredAndSorted = useMemo(() => {
     let filtered = [...unifiedValues];
+    if (leagueFiltered) {
+      filtered = filtered.filter((item) => item.playerId && rosterSet!.has(item.playerId));
+    }
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(item =>
@@ -227,7 +252,7 @@ function ValuesTab({ kind }: { kind: 'player' | 'pick' }) {
       return sortDirection === 'asc' ? comparison : -comparison;
     });
     return filtered;
-  }, [unifiedValues, kind, searchQuery, positionFilter, sortField, sortDirection]);
+  }, [unifiedValues, kind, searchQuery, positionFilter, sortField, sortDirection, leagueFiltered, rosterSet]);
 
   const totalPages = Math.ceil(filteredAndSorted.length / ITEMS_PER_PAGE);
   const paginatedValues = useMemo(() => {
@@ -333,11 +358,18 @@ function ValuesTab({ kind }: { kind: 'player' | 'pick' }) {
         )}
         {paginatedValues.map((item, idx) => {
           const prevItem = idx > 0 ? paginatedValues[idx - 1] : null;
-          const showTierHeader = sortField === 'rank' &&
+          // Tier headers only make sense in the unfiltered, rank-sorted global
+          // view — hide them once a league filter renumbers the set.
+          const showTierHeader = sortField === 'rank' && !leagueFiltered &&
             item.tier &&
             (!prevItem || prevItem.tier !== item.tier);
 
-          const globalRank = (currentPage - 1) * ITEMS_PER_PAGE + idx + 1;
+          // League-filtered: show the player's true GLOBAL rank (their place in
+          // the community) — the whole point of the comparison. Otherwise the
+          // row's position in the list is the rank.
+          const globalRank = leagueFiltered && item.playerId
+            ? globalRankById.get(item.playerId) ?? ((currentPage - 1) * ITEMS_PER_PAGE + idx + 1)
+            : (currentPage - 1) * ITEMS_PER_PAGE + idx + 1;
 
           return (
             <Fragment key={`${item.type}-${item.id}`}>
@@ -411,22 +443,46 @@ const PLAYERS_TABS = [
 export function PlayersPage() {
   const { get, setMany } = useUrlState();
   const activeTab = get('tab', 'players') as TabType;
+  const { leagues } = useActiveLeague();
+
+  // League filter for the Players list: null = "All" (global rankings, the
+  // default). Picking a league shows just its rostered players on the global
+  // value scale, so you can see where your roster stands in the community.
+  // Page-level (not URL) — it's a lens on the list, resets on reload.
+  const [leagueFilterId, setLeagueFilterId] = useState<string | null>(null);
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto">
-      {/* Tabs lead the page (the nav already names it "Ranking"). The
-          "Rank 'Em" contribution flow moved to Tools → Rank 'Em. Rising/falling
-          movers are now a sort option on the list, not a separate section. */}
+    <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto space-y-4">
+      {/* League filter — leads the page on the Players tab (like the League
+          page's switcher). "All" = global community rankings; pick a league to
+          compare your roster against them. Only when the user has a league. */}
+      {activeTab === 'players' && leagues.length > 0 && (
+        <div className="flex items-center justify-between gap-3 rounded-2xl border border-[#1f1f27] bg-white/[0.03] px-3 py-2.5 sm:px-4">
+          <p className="text-[12px] text-[#75757f]">
+            {leagueFilterId ? 'Your league on the global scale' : 'Global community rankings'}
+          </p>
+          <LeaguePicker
+            leagues={leagues}
+            selected={leagueFilterId}
+            onSelect={(id) => { setLeagueFilterId(id); setMany({ page: null }); }}
+            allLabel="All"
+          />
+        </div>
+      )}
+
+      {/* Tabs (the nav already names the page "Ranking"). The "Rank 'Em"
+          contribution flow moved to Minis. Rising/falling movers are a sort
+          option on the list, not a separate section. */}
       <TabBar
         tabs={PLAYERS_TABS}
         active={activeTab}
         onChange={(id) => setMany({ tab: id === 'players' ? null : id, page: null, pos: null })}
       />
 
-      <div className="mt-4">
+      <div>
         {activeTab === 'records' ? <RecordsPanel />
           : activeTab === 'picks' ? <ValuesTab kind="pick" />
-          : <ValuesTab kind="player" />}
+          : <ValuesTab kind="player" leagueFilterId={leagueFilterId} />}
       </div>
     </div>
   );

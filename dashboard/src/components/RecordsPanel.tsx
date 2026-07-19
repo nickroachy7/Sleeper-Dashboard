@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Trophy, Users, ChevronRight, Flame, ChevronsUpDown } from 'lucide-react';
+import { Trophy, Users, ChevronRight, Flame } from 'lucide-react';
 import { SectionCard } from './SectionCard';
 import { NoLeagueState } from './NoLeagueState';
+import { LeaguePicker } from './LeaguePicker';
 import { useActiveLeague } from '../lib/active-league';
 import { useRecordBook } from '../hooks/useRecordBook';
 
@@ -14,51 +15,6 @@ const fmtPts = (n: number): string => Math.round(n).toLocaleString();
 // Ranking (Players/Picks) is community-wide; Records lets the user FILTER to
 // one of their leagues via a local picker (default = the active league). App
 // chrome stays league-neutral — this picker is scoped to the tab, not global.
-
-/** Local league picker (multi-league users only) — mirrors the LeagueSwitcher
- *  look but writes to local tab state, not the app-wide active league. */
-function LeaguePicker({ leagues, selected, onSelect }: {
-  leagues: { rootLeagueId: string; name: string; season: string }[];
-  selected: string;
-  onSelect: (id: string) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const current = leagues.find((l) => l.rootLeagueId === selected);
-  return (
-    <div className="relative">
-      <button
-        onClick={() => setOpen((o) => !o)}
-        aria-haspopup="menu"
-        aria-expanded={open}
-        className="flex items-center gap-1.5 h-8 pl-3 pr-2 rounded-lg border border-[#2a2a34] text-[12px] font-semibold text-[#c4c4cd] hover:bg-[#1b1b22] transition-colors max-w-[52vw] sm:max-w-none"
-      >
-        <span className="truncate">{current?.name ?? 'Select league'}</span>
-        <ChevronsUpDown className="h-3.5 w-3.5 text-[#60606a] shrink-0" />
-      </button>
-      {open && (
-        <>
-          <div className="fixed inset-0 z-[80]" onClick={() => setOpen(false)} />
-          <div role="menu" className="absolute right-0 top-[calc(100%+6px)] z-[90] w-60 rounded-xl bg-[#141419] border border-[#2a2a34] shadow-2xl overflow-hidden py-1">
-            {leagues.map((l) => (
-              <button
-                key={l.rootLeagueId}
-                role="menuitem"
-                onClick={() => { onSelect(l.rootLeagueId); setOpen(false); }}
-                className="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-[#1b1b22] transition-colors"
-              >
-                <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${l.rootLeagueId === selected ? 'bg-accent-500' : 'bg-[#3a3a44]'}`} />
-                <div className="flex-1 min-w-0">
-                  <p className="text-[13px] font-medium text-white truncate">{l.name}</p>
-                  <p className="text-[11px] text-[#75757f]">{l.season} Season</p>
-                </div>
-              </button>
-            ))}
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
 
 export function RecordsPanel() {
   const { leagues, activeLeagueId } = useActiveLeague();
