@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { Trophy, Users, ChevronRight, Flame, ListOrdered, Swords, ArrowLeftRight, Layers, History as HistoryIcon } from 'lucide-react';
+import { Trophy, Users, ChevronRight, Flame, ListOrdered, ArrowLeftRight, Layers, History as HistoryIcon } from 'lucide-react';
 import { TabBar } from '../components/TabBar';
 import { SectionCard } from '../components/SectionCard';
 import { MyTeamPicker } from '../components/MyTeamCard';
@@ -8,8 +8,7 @@ import { NoLeagueState } from '../components/NoLeagueState';
 import { TransactionsPanel } from './Transactions';
 import { DraftsPanel } from './Drafts';
 import { useLeagueDirectory } from '../hooks/detail';
-import { useLeagueMatchups, type MatchupRow } from '../hooks/league';
-import { useNflState } from '../hooks/queries';
+import { useLeagueMatchups, pairGames, type MatchupRow, type Game } from '../hooks/league';
 import { useTeamStrength } from '../hooks/useTeamStrength';
 import { useMyTeam } from '../hooks/useMyTeam';
 import { useUrlState } from '../hooks/useUrlState';
@@ -17,11 +16,12 @@ import { useActiveLeague } from '../lib/active-league';
 
 // ── Types ───────────────────────────────────────────────────────────
 
-type LeagueTab = 'standings' | 'scoreboard' | 'transactions' | 'drafts' | 'history';
+type LeagueTab = 'standings' | 'transactions' | 'drafts' | 'history';
 
+// Weekly matchups live on each team's page (Schedule tab) — a per-team
+// schedule reads better than a league-wide scoreboard and saves a tab here.
 const LEAGUE_TABS = [
   { id: 'standings' as const, label: 'Standings', icon: ListOrdered },
-  { id: 'scoreboard' as const, label: 'Matchups', icon: Swords },
   { id: 'transactions' as const, label: 'Transactions', icon: ArrowLeftRight },
   { id: 'drafts' as const, label: 'Drafts', icon: Layers },
   { id: 'history' as const, label: 'History', icon: HistoryIcon },
@@ -56,18 +56,6 @@ interface StandingRow {
   hasExp: boolean; // whether all-play data was available
 }
 
-interface GameSide {
-  rosterId: number;
-  points: number;
-}
-interface Game {
-  leagueId: string;
-  season: string;
-  week: number;
-  a: GameSide;
-  b: GameSide;
-}
-
 // ── Helpers ─────────────────────────────────────────────────────────
 
 const num = (v: number | string | null | undefined): number => (v == null ? 0 : Number(v) || 0);
@@ -80,49 +68,22 @@ function standingsOrder(rosters: DirRoster[]): DirRoster[] {
   );
 }
 
-/** Pair matchup rows for one league into head-to-head games (2 sides each). */
-function pairGames(rows: MatchupRow[], season: string): Game[] {
-  const byKey = new Map<string, MatchupRow[]>();
-  for (const m of rows) {
-    if (m.matchup_id == null || m.points == null) continue;
-    const key = `${m.week}-${m.matchup_id}`;
-    const arr = byKey.get(key) || [];
-    arr.push(m);
-    byKey.set(key, arr);
-  }
-  const games: Game[] = [];
-  for (const [, pair] of byKey) {
-    if (pair.length !== 2) continue;
-    const [x, y] = pair;
-    games.push({
-      leagueId: x.league_id,
-      season,
-      week: x.week,
-      a: { rosterId: x.roster_id, points: num(x.points) },
-      b: { rosterId: y.roster_id, points: num(y.points) },
-    });
-  }
-  return games;
-}
-
 // ── Page ────────────────────────────────────────────────────────────
 
 export default function League() {
   const { hasLeague } = useActiveLeague();
   const { data: directory, isLoading } = useLeagueDirectory();
   const { data: matchups } = useLeagueMatchups();
-  const { data: nfl } = useNflState();
   const { byRoster: teamStrength } = useTeamStrength();
   const { rosterId: myRosterId } = useMyTeam();
   const { get, set } = useUrlState();
 
   const reqTab = get('tab');
   const activeTab: LeagueTab =
-    reqTab === 'scoreboard' ? 'scoreboard'
-    : reqTab === 'transactions' ? 'transactions'
+    reqTab === 'transactions' ? 'transactions'
     : reqTab === 'drafts' ? 'drafts'
     : reqTab === 'history' ? 'history'
-    : 'standings';
+    : 'standings'; // old ?tab=scoreboard links land here too
 
   // Seasons in the dynasty, newest first, flagged by whether they've kicked off.
   const seasons = useMemo(() => {
@@ -244,27 +205,6 @@ export default function League() {
   // Team strength ranks CURRENT rosters, so the Power column only applies when
   // the standings are showing the current season.
   const showPower = selectedLeagueId === directory?.currentLeagueId && teamStrength.size > 0;
-
-  // ── Scoreboard (selected season + week) ──────────────────────────
-  const seasonGames = useMemo(
-    () => pairGames(matchupsByLeague.get(selectedLeagueId ?? '') ?? [], selectedSeason),
-    [matchupsByLeague, selectedLeagueId, selectedSeason]
-  );
-  const weeks = useMemo(
-    () => [...new Set(seasonGames.map((g) => g.week))].sort((a, b) => a - b),
-    [seasonGames]
-  );
-  const requestedWeek = Number(get('week'));
-  const selectedWeek = useMemo(() => {
-    if (requestedWeek && weeks.includes(requestedWeek)) return requestedWeek;
-    // Default to the current NFL week if it has games, else the latest played.
-    if (nfl?.week && weeks.includes(nfl.week)) return nfl.week;
-    return weeks[weeks.length - 1] ?? 0;
-  }, [requestedWeek, weeks, nfl]);
-  const weekGames = useMemo(
-    () => seasonGames.filter((g) => g.week === selectedWeek).sort((a, b) => b.a.points + b.b.points - (a.a.points + a.b.points)),
-    [seasonGames, selectedWeek]
-  );
 
   // ── Record book (all played seasons) ─────────────────────────────
   const records = useMemo(() => {
@@ -388,8 +328,8 @@ export default function League() {
     );
   }
 
-  // Season pill selector (standings + scoreboard tabs).
-  const showSeasonPills = (activeTab === 'standings' || activeTab === 'scoreboard') && seasons.filter((s) => s.started).length > 1;
+  // Season pill selector (standings tab).
+  const showSeasonPills = activeTab === 'standings' && seasons.filter((s) => s.started).length > 1;
   const seasonPills = (
     <div className="flex gap-1 flex-wrap">
       {seasons.filter((s) => s.started).map((s) => (
@@ -504,71 +444,6 @@ export default function League() {
                 </tbody>
               </table>
             </div>
-          )}
-        </SectionCard>
-      )}
-
-      {/* ═══ SCOREBOARD ═══ */}
-      {activeTab === 'scoreboard' && (
-        <SectionCard
-          label="Matchups"
-          sub={weeks.length ? `${selectedSeason} · Week ${selectedWeek}` : `${selectedSeason} season`}
-          right={showSeasonPills ? seasonPills : undefined}
-          flush
-        >
-          {weeks.length === 0 ? (
-            <p className="text-[12px] text-[#60606a] px-4 sm:px-5 pb-5">
-              No games played yet this season.
-            </p>
-          ) : (
-            <>
-              {/* Week rail */}
-              <div className="flex gap-1 overflow-x-auto no-scrollbar px-4 sm:px-5 pb-3">
-                {weeks.map((w) => (
-                  <button
-                    key={w}
-                    onClick={() => set('week', w === (nfl?.week && weeks.includes(nfl.week) ? nfl.week : weeks[weeks.length - 1]) ? null : String(w))}
-                    className={`shrink-0 px-2.5 py-1 rounded-md text-[11px] font-semibold tabular-nums transition-colors ${
-                      w === selectedWeek ? 'bg-accent-500 text-white' : 'text-[#75757f] hover:text-white bg-[#1b1b22]'
-                    }`}
-                  >
-                    Wk {w}
-                  </button>
-                ))}
-              </div>
-              <div className="grid sm:grid-cols-2 gap-2 px-4 sm:px-5 pb-4">
-                {weekGames.map((g, idx) => {
-                  const aWin = g.a.points > g.b.points;
-                  const bWin = g.b.points > g.a.points;
-                  const row = (side: GameSide, win: boolean) => (
-                    <Link to={`/teams/${side.rosterId}`} className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg hover:bg-[#1b1b22] transition-colors group">
-                      <span className="flex items-center gap-2 min-w-0">
-                        <span className="w-6 h-6 rounded-full overflow-hidden bg-[#22222b] shrink-0 ring-1 ring-inset ring-white/10 flex items-center justify-center">
-                          {directory.teamAvatar(side.rosterId, selectedLeagueId) ? (
-                            <img src={directory.teamAvatar(side.rosterId, selectedLeagueId)!} alt="" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.visibility = 'hidden'; }} />
-                          ) : (
-                            <Users className="h-3 w-3 text-[#60606a]" />
-                          )}
-                        </span>
-                        <span className={`text-[12.5px] truncate group-hover:text-accent-400 transition-colors ${win ? 'text-white font-semibold' : 'text-[#9c9ca7]'}`}>
-                          {directory.teamName(side.rosterId, selectedLeagueId)}
-                        </span>
-                      </span>
-                      <span className={`font-display text-[13px] font-bold tabular-nums shrink-0 ${win ? 'text-white' : 'text-[#75757f]'}`}>
-                        {side.points.toFixed(1)}
-                      </span>
-                    </Link>
-                  );
-                  return (
-                    <div key={idx} className="rounded-xl border border-[#22222b] bg-[#101015]/60 p-1.5">
-                      {row(g.a, aWin)}
-                      <div className="h-px bg-[#1b1b22] mx-3" />
-                      {row(g.b, bWin)}
-                    </div>
-                  );
-                })}
-              </div>
-            </>
           )}
         </SectionCard>
       )}

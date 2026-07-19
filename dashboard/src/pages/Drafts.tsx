@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
-import { fetchAllRows, useLeagueIds } from '../hooks/queries';
+import { useLeagueIds } from '../hooks/queries';
+import { usePlayerMap } from '../hooks/useLeagueData';
 import {
   FileText,
   ArrowRightLeft,
@@ -61,19 +62,11 @@ export function DraftsPanel() {
   const [expandedRounds, setExpandedRounds] = useState<Set<number>>(new Set([1]));
   const [showLegend, setShowLegend] = useState(false);
 
-  const { data: players } = useQuery({
-    queryKey: ['players'],
-    queryFn: async () => {
-      // Page past PostgREST's 1000-row cap — the players table is larger, so an
-      // unpaged select drops the tail (recent rookies show as raw ids).
-      const data = await fetchAllRows((from, to) =>
-        supabase.from('players').select('*').range(from, to)
-      );
-      const playerMap = new Map<string, Player>();
-      data.forEach(p => playerMap.set(p.player_id, p as Player));
-      return playerMap;
-    },
-  });
+  // Shared players map. This previously declared its own query under the key
+  // ['players'] returning a Map while usePlayers() cached an ARRAY under the
+  // same key — whichever loaded first poisoned the other, crashing this tab
+  // with "players?.get is not a function".
+  const { data: players } = usePlayerMap();
 
   const { data: leagueIds } = useLeagueIds();
   const chain = leagueIds?.chain ?? null;
@@ -239,6 +232,8 @@ export function DraftsPanel() {
   const currentDraft = data.drafts.find((d) => d.draft_id === selectedDraft);
   const currentDraftPicks = selectedDraft ? picksByDraftAndRound[selectedDraft] || {} : {};
   const rounds = Object.keys(currentDraftPicks).map(Number).sort((a, b) => a - b);
+  // Slot math (pick 1.05 etc.) needs the real league size, not a hardcoded 12.
+  const teamsInDraft = data.league?.total_rosters || 12;
 
   return (
     <div>
@@ -314,7 +309,7 @@ export function DraftsPanel() {
                         <div className="divide-y divide-[#17171d]">
                           {picks.map((pick) => {
                             const player = pick.player_id ? getPlayer(pick.player_id) : undefined;
-                            const pickDisplay = `${round}.${String(pick.pick_no - (round - 1) * 12).padStart(2, '0')}`;
+                            const pickDisplay = `${round}.${String(pick.pick_no - (round - 1) * teamsInDraft).padStart(2, '0')}`;
 
                             return (
                               <PlayerRow

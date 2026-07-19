@@ -17,6 +17,43 @@ export interface MatchupRow {
   points: number | null;
 }
 
+export interface GameSide {
+  rosterId: number;
+  points: number;
+}
+export interface Game {
+  leagueId: string;
+  season: string;
+  week: number;
+  a: GameSide;
+  b: GameSide;
+}
+
+/** Pair matchup rows for one league into head-to-head games (2 sides each). */
+export function pairGames(rows: MatchupRow[], season: string): Game[] {
+  const byKey = new Map<string, MatchupRow[]>();
+  for (const m of rows) {
+    if (m.matchup_id == null || m.points == null) continue;
+    const key = `${m.week}-${m.matchup_id}`;
+    const arr = byKey.get(key) || [];
+    arr.push(m);
+    byKey.set(key, arr);
+  }
+  const games: Game[] = [];
+  for (const [, pair] of byKey) {
+    if (pair.length !== 2) continue;
+    const [x, y] = pair;
+    games.push({
+      leagueId: x.league_id,
+      season,
+      week: x.week,
+      a: { rosterId: x.roster_id, points: x.points == null ? 0 : Number(x.points) || 0 },
+      b: { rosterId: y.roster_id, points: y.points == null ? 0 : Number(y.points) || 0 },
+    });
+  }
+  return games;
+}
+
 /**
  * Every matchup row across the active dynasty's season chain, in one cached
  * query. Powers the weekly scoreboard, win/loss streaks in the standings, and

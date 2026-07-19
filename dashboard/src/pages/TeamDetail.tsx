@@ -1,6 +1,6 @@
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useMemo, useState } from 'react';
-import { ArrowRightLeft, ChevronRight, Users, LayoutGrid, ListChecks, BarChart3, Sparkles, Target } from 'lucide-react';
+import { ArrowRightLeft, ChevronRight, Users, LayoutGrid, ListChecks, BarChart3, Sparkles, Swords, Target } from 'lucide-react';
 import { ValueChart } from '../components/charts/ValueChart';
 import { SeasonRankChart } from '../components/charts/SeasonRankChart';
 import { TeamAnalyticsCharts } from '../components/charts/TeamAnalytics';
@@ -10,16 +10,18 @@ import { StatTile } from '../components/StatTile';
 import { SectionCard } from '../components/SectionCard';
 import { TabBar } from '../components/TabBar';
 import { useLeagueDirectory, useSeasonRanks, useTeamAnalytics, useTeamTrades, useTeamMoves, useLineupEfficiency, useHeadToHead, useTeamLineup } from '../hooks/detail';
+import { useLeagueMatchups, pairGames } from '../hooks/league';
 import { usePlayerMap } from '../hooks/useLeagueData';
 import { usePlayerValuesList, usePickValues, useTradedPicks, useNflState } from '../hooks/queries';
 import { useUrlState } from '../hooks/useUrlState';
 import { playerMoves, txDraftPicks, lookupPickValue, calcWeightedPositionValue, buildPicksForRoster, POSITION_WEIGHT_TIERS, type RosterPosition } from '../lib/trade-shared';
 import type { Roster } from '../types/domain';
 
-type TeamTab = 'overview' | 'roster' | 'analytics' | 'transactions';
+type TeamTab = 'overview' | 'roster' | 'schedule' | 'analytics' | 'transactions';
 const TEAM_TABS: { id: TeamTab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { id: 'overview', label: 'Overview', icon: BarChart3 },
   { id: 'roster', label: 'Roster', icon: LayoutGrid },
+  { id: 'schedule', label: 'Schedule', icon: Swords },
   { id: 'analytics', label: 'Analytics', icon: Sparkles },
   { id: 'transactions', label: 'Transactions', icon: ListChecks },
 ];
@@ -96,6 +98,36 @@ export default function TeamDetail() {
   // Starting lineup + slots, to group the roster tab by lineup slot vs bench.
   const { data: teamLineup } = useTeamLineup(Number.isFinite(rosterId) ? rosterId : undefined);
   const { data: nfl } = useNflState();
+  // All matchup rows across the dynasty — the Schedule tab filters to this team.
+  const { data: allMatchups } = useLeagueMatchups();
+
+  // ── Schedule: this team's games, one season at a time ──
+  const scheduleSeasonReq = get('sseason');
+  const scheduleSeasons = useMemo(() => {
+    if (!directory) return [] as { leagueId: string; season: string }[];
+    return directory.leagues
+      .map((lg) => ({ leagueId: lg.league_id, season: lg.season }))
+      .sort((a, b) => b.season.localeCompare(a.season));
+  }, [directory]);
+  const scheduleLeagueId = useMemo(() => {
+    const hit = scheduleSeasons.find((s) => s.season === scheduleSeasonReq);
+    return hit?.leagueId ?? directory?.currentLeagueId ?? null;
+  }, [scheduleSeasons, scheduleSeasonReq, directory]);
+  const schedule = useMemo(() => {
+    if (!allMatchups || !scheduleLeagueId) return [];
+    const season = scheduleSeasons.find((s) => s.leagueId === scheduleLeagueId)?.season ?? '';
+    const games = pairGames(allMatchups.filter((m) => m.league_id === scheduleLeagueId), season);
+    return games
+      .filter((g) => g.a.rosterId === rosterId || g.b.rosterId === rosterId)
+      // Sleeper reports unplayed weeks as 0–0; don't show them as ties.
+      .filter((g) => g.a.points > 0 || g.b.points > 0)
+      .map((g) => {
+        const me = g.a.rosterId === rosterId ? g.a : g.b;
+        const opp = g.a.rosterId === rosterId ? g.b : g.a;
+        return { week: g.week, me, opp, won: me.points > opp.points, tied: me.points === opp.points };
+      })
+      .sort((a, b) => a.week - b.week);
+  }, [allMatchups, scheduleLeagueId, scheduleSeasons, rosterId]);
 
   // Season-by-season record with league finish (by wins, then fpts)
   const seasons = useMemo(() => {
@@ -428,6 +460,79 @@ export default function TeamDetail() {
         )}
       </section>
       </>)}
+
+      {/* ═══ SCHEDULE: this team's weekly matchups (moved from the League page —
+          a per-team schedule reads better than a league-wide scoreboard) ═══ */}
+      {activeTab === 'schedule' && (
+        <SectionCard
+          label="Schedule"
+          sub={`${scheduleSeasons.find((s) => s.leagueId === scheduleLeagueId)?.season ?? ''} season · week by week`}
+          right={
+            scheduleSeasons.length > 1 ? (
+              <div className="flex gap-1">
+                {scheduleSeasons.map((s) => (
+                  <button
+                    key={s.leagueId}
+                    onClick={() => set('sseason', s.leagueId === (directory?.currentLeagueId ?? null) ? null : s.season)}
+                    className={`px-2.5 py-1 rounded-md text-[11px] font-semibold tabular-nums transition-colors ${
+                      s.leagueId === scheduleLeagueId ? 'bg-accent-500 text-white' : 'text-[#75757f] hover:text-white bg-[#1b1b22]'
+                    }`}
+                  >
+                    {s.season}
+                  </button>
+                ))}
+              </div>
+            ) : undefined
+          }
+          flush
+        >
+          {schedule.length === 0 ? (
+            <p className="text-[12px] text-[#60606a] px-4 sm:px-5 pb-5">
+              No games played this season yet.
+            </p>
+          ) : (
+            <div className="divide-y divide-[#1b1b22]">
+              {schedule.map((g) => (
+                <Link
+                  key={g.week}
+                  to={`/teams/${g.opp.rosterId}`}
+                  className="flex items-center gap-3 px-4 sm:px-5 py-2.5 hover:bg-[#17171d] transition-colors group"
+                >
+                  <span className="w-10 shrink-0 text-[11px] font-bold text-[#60606a] tabular-nums uppercase">Wk {g.week}</span>
+                  <span
+                    className={`w-5 shrink-0 text-center text-[11px] font-bold ${
+                      g.tied ? 'text-[#75757f]' : g.won ? 'text-accent-400' : 'text-red-400'
+                    }`}
+                  >
+                    {g.tied ? 'T' : g.won ? 'W' : 'L'}
+                  </span>
+                  <span className="w-7 h-7 rounded-full overflow-hidden bg-[#22222b] shrink-0 ring-1 ring-inset ring-white/10 flex items-center justify-center">
+                    {directory.teamAvatar(g.opp.rosterId, scheduleLeagueId ?? undefined) ? (
+                      <img
+                        src={directory.teamAvatar(g.opp.rosterId, scheduleLeagueId ?? undefined)!}
+                        alt=""
+                        className="w-full h-full object-cover"
+                        onError={(e) => { (e.target as HTMLImageElement).style.visibility = 'hidden'; }}
+                      />
+                    ) : (
+                      <Users className="h-3.5 w-3.5 text-[#60606a]" />
+                    )}
+                  </span>
+                  <span className="flex-1 min-w-0 text-[13px] text-white truncate group-hover:text-accent-400 transition-colors">
+                    {directory.teamName(g.opp.rosterId, scheduleLeagueId ?? undefined)}
+                  </span>
+                  <span className="shrink-0 font-display text-[13px] font-bold tabular-nums">
+                    <span className={g.won ? 'text-white' : 'text-[#75757f]'}>{g.me.points.toFixed(1)}</span>
+                    <span className="text-[#4c4c56] mx-1">–</span>
+                    <span className={!g.won && !g.tied ? 'text-white' : 'text-[#75757f]'}>{g.opp.points.toFixed(1)}</span>
+                  </span>
+                  <ChevronRight className="h-4 w-4 text-[#4c4c56] group-hover:text-accent-400 shrink-0 transition-colors" />
+                </Link>
+              ))}
+            </div>
+          )}
+        </SectionCard>
+      )}
 
       {/* ═══ OVERVIEW (cont.): roster construction (positional strengths/holes) ═══ */}
       {activeTab === 'roster' && construction && (
