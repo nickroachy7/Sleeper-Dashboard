@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Loader2, LogOut, UserRound } from 'lucide-react';
 import { useAuth } from '../lib/auth';
 import { openAuth } from '../lib/auth-modal';
@@ -10,6 +11,7 @@ import { openAuth } from '../lib/auth-modal';
  * since it now lives on the account.
  */
 export function AccountSection() {
+  const navigate = useNavigate();
   const { user, username, loading, signOut } = useAuth();
   const [signingOut, setSigningOut] = useState(false);
 
@@ -60,12 +62,20 @@ export function AccountSection() {
               Everything works without an account. Create one to keep your leagues on any device.
             </p>
           </div>
-          <button
-            onClick={openAuth}
-            className="inline-flex items-center justify-center gap-1.5 h-9 px-4 rounded-lg bg-accent-500 text-[#06110a] text-[13px] font-semibold hover:bg-accent-400 transition-colors shrink-0"
-          >
-            <UserRound className="h-4 w-4" /> Sign in / create account
-          </button>
+          <div className="flex flex-col items-stretch sm:items-end gap-1.5 shrink-0">
+            <button
+              onClick={() => navigate('/welcome')}
+              className="inline-flex items-center justify-center gap-1.5 h-9 px-4 rounded-lg bg-accent-500 text-[#06110a] text-[13px] font-semibold hover:bg-accent-400 transition-colors"
+            >
+              <UserRound className="h-4 w-4" /> Create an account
+            </button>
+            <button
+              onClick={openAuth}
+              className="text-[12px] text-[#75757f] hover:text-[#9c9ca7] transition-colors text-center sm:text-right"
+            >
+              Already have one? Sign in
+            </button>
+          </div>
         </div>
       )}
     </section>

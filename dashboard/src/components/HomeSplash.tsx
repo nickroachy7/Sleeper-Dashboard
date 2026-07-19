@@ -1,7 +1,6 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Plus } from 'lucide-react';
 import { openAddLeague } from '../lib/add-league-modal';
-import { openAuth } from '../lib/auth-modal';
 import { useAuth } from '../lib/auth';
 
 // ─── Types ───────────────────────────────────────────────────────────
@@ -45,6 +44,7 @@ export function HomeSplash({
   heroImage,
 }: HomeSplashProps) {
   const { user } = useAuth();
+  const navigate = useNavigate();
   return (
     <section className="relative overflow-hidden rounded-2xl border border-[#22222b] bg-gradient-to-br from-[#16161c] via-[#121218] to-[#0e0e13]">
       {/* Optional background image with a legibility scrim */}
@@ -100,13 +100,14 @@ export function HomeSplash({
             })}
 
             {/* Add-league CTA — the primary action for a fresh visitor. For
-                guests it opens the sign-up wizard (account → leagues → teams);
-                the guest path stays one click behind it. Signed-in users with
-                no leagues get the plain add-league modal. */}
+                guests it leads to the full-page onboarding at /welcome
+                (account → leagues → teams); the guest path stays one click
+                behind it. Signed-in users with no leagues get the plain
+                add-league modal. */}
             {addLeagueCta && (
               <>
                 <button
-                  onClick={user ? openAddLeague : openAuth}
+                  onClick={user ? openAddLeague : () => navigate('/welcome')}
                   className="group mt-1 flex items-center justify-center gap-2 rounded-xl bg-accent-500 px-5 py-3.5 text-[15px] font-bold text-[#06110a] shadow-[0_0_20px_rgba(34,197,94,0.18)] transition-all hover:bg-accent-400"
                 >
                   <Plus className="h-[18px] w-[18px]" />

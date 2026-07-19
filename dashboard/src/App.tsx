@@ -12,12 +12,20 @@ import TeamDetail from './pages/TeamDetail';
 import TradeDetail from './pages/TradeDetail';
 import Feedback from './pages/Feedback';
 import Chat from './pages/Chat';
+import Welcome from './pages/Welcome';
+import { AuthModal } from './components/AuthModal';
 
 function App() {
   return (
     <>
     <ScrollManager />
+    {/* Mounted above the routes so openAuth() works everywhere, including
+        the chrome-less /welcome page. */}
+    <AuthModal />
     <Routes>
+      {/* Full-page onboarding — outside the Layout shell so there's no app
+          chrome competing with the wizard. */}
+      <Route path="/welcome" element={<Welcome />} />
       <Route path="/" element={<Layout />}>
         <Route index element={<Home />} />
         <Route path="league" element={<League />} />

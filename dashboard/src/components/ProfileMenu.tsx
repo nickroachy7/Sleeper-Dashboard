@@ -82,17 +82,28 @@ export function ProfileMenu({ compact = false }: { compact?: boolean }) {
               </div>
             </div>
           ) : (
-            <button
-              role="menuitem"
-              onClick={() => go(openAuth)}
-              className="w-full flex items-center gap-3 px-3 py-3 border-b border-[#22222b] text-left hover:bg-[#1b1b22] transition-colors"
-            >
-              <AvatarFace />
-              <div className="flex-1 min-w-0">
-                <p className="text-[13px] font-semibold text-white">Sign in or create account</p>
-                <p className="text-[11px] text-[#75757f]">Save your leagues to any device</p>
-              </div>
-            </button>
+            <div className="border-b border-[#22222b]">
+              {/* Guests: create-account leads to the full-page onboarding;
+                  returning users get the lightweight sign-in modal. */}
+              <button
+                role="menuitem"
+                onClick={() => go(() => navigate('/welcome'))}
+                className="w-full flex items-center gap-3 px-3 pt-3 pb-2 text-left hover:bg-[#1b1b22] transition-colors"
+              >
+                <AvatarFace />
+                <div className="flex-1 min-w-0">
+                  <p className="text-[13px] font-semibold text-white">Create an account</p>
+                  <p className="text-[11px] text-[#75757f]">Save your leagues to any device</p>
+                </div>
+              </button>
+              <button
+                role="menuitem"
+                onClick={() => go(openAuth)}
+                className="w-full px-3 pb-2.5 pl-[60px] text-left text-[12px] text-accent-400 hover:text-accent-300 transition-colors"
+              >
+                Already have one? Sign in
+              </button>
+            </div>
           )}
 
           {/* Leagues — the switcher now lives here */}

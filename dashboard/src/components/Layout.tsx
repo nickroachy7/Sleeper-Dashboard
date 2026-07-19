@@ -16,7 +16,6 @@ import { TopBar } from './TopBar';
 import { LeagueSwitcher } from './LeagueSwitcher';
 import { ProfileMenu } from './ProfileMenu';
 import { AddLeagueModal } from './AddLeagueModal';
-import { AuthModal } from './AuthModal';
 import { SessionContributeModal } from './SessionContributeModal';
 import { openLookup } from '../lib/lookup';
 
@@ -202,7 +201,6 @@ export default function Layout() {
         <LookupSearch />
       </div>
       <AddLeagueModal />
-      <AuthModal />
       <SessionContributeModal />
     </div>
   );
