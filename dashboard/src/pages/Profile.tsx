@@ -1,7 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
+import type { ReactNode } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { UserRound, Share2, Check, Swords, TrendingUp, ChevronLeft, ChevronUp, ChevronDown, Pencil, RotateCcw, X } from 'lucide-react';
+import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import type { DragEndEvent } from '@dnd-kit/core';
+import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { restrictToVerticalAxis } from '@dnd-kit/modifiers';
+import { CSS } from '@dnd-kit/utilities';
+import { UserRound, Share2, Check, Swords, TrendingUp, ChevronLeft, ChevronUp, ChevronDown, GripVertical, Pencil, RotateCcw, X } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
 import { usePlayerMap } from '../hooks/useLeagueData';
@@ -19,10 +25,11 @@ import { Pagination } from '../components/Pagination';
 // Ratings come from user_player_ratings (DB trigger, Elo around 1500 = "no
 // opinion"); the board value is community value + deviation × ELO_SCALE.
 //
-// Owners can also edit directly ("Adjust ranks"): ▲▼ nudges swap a player
-// with its neighbor, tapping the rank number sets an exact spot, and reset
-// returns a player to the crowd's position. Edits write the same rating
-// field votes do (own rows only under RLS), so both signals coexist.
+// Owners can also edit directly ("Adjust ranks"): drag a row to a new spot,
+// ▲▼ nudges swap a player with its neighbor, tapping the rank number sets an
+// exact spot, and reset returns a player to the crowd's position. Edits write
+// the same rating field votes do (own rows only under RLS), so both signals
+// coexist.
 
 const POSITIONS = ['ALL', 'QB', 'RB', 'WR', 'TE'] as const;
 const PAGE_SIZE = 50;
@@ -37,6 +44,32 @@ interface BoardRow {
   rating: number;
   wins: number;
   losses: number;
+}
+
+// Sortable shell around a board row: whole row is draggable in edit mode,
+// with a grip affordance. Kept outside Profile so dnd hooks re-render only
+// the rows, not the page.
+function DraggableRow({ id, children }: { id: string; children: ReactNode }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  return (
+    <div
+      ref={setNodeRef}
+      style={{ transform: CSS.Transform.toString(transform), transition }}
+      className={`flex items-stretch ${isDragging ? 'relative z-10 bg-[#1b1b22] shadow-lg shadow-black/40' : ''}`}
+    >
+      {/* Grip is the only drag surface — inner buttons/inputs stay tappable,
+          and touch-none keeps mobile scroll from eating the gesture. */}
+      <button
+        {...attributes}
+        {...listeners}
+        className="touch-none shrink-0 px-1.5 flex items-center text-[#4c4c56] hover:text-white cursor-grab active:cursor-grabbing"
+        aria-label="Drag to reorder"
+      >
+        <GripVertical className="h-4 w-4" />
+      </button>
+      <div className="flex-1 min-w-0">{children}</div>
+    </div>
+  );
 }
 
 export default function Profile() {
@@ -196,6 +229,17 @@ export default function Profile() {
     setRankDraft(null);
   };
 
+  // Drag-to-reorder: dropping on a row means "take its rank". setRank already
+  // knows how to land between the new neighbors, so a drop is just a lookup.
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } })
+  );
+  const onDragEnd = ({ active, over }: DragEndEvent) => {
+    if (!over || active.id === over.id) return;
+    const target = rows.find((r) => r.player_id === over.id);
+    if (target) setRank(String(active.id), target.rank);
+  };
+
   const share = async () => {
     const url = `${window.location.origin}/u/${profile?.username}`;
     try {
@@ -314,8 +358,19 @@ export default function Profile() {
               {Array.from({ length: 8 }).map((_, i) => <div key={i} className="skeleton h-11 w-full rounded-lg" />)}
             </div>
           ) : (
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              modifiers={[restrictToVerticalAxis]}
+              onDragEnd={onDragEnd}
+            >
+            <SortableContext
+              items={rows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE).map((r) => r.player_id)}
+              strategy={verticalListSortingStrategy}
+            >
             <div className="divide-y divide-[#17171d]">
-              {rows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE).map((r) => (
+              {rows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE).map((r) => {
+                const row = (
                 <PlayerRow
                   key={r.player_id}
                   playerId={r.player_id}
@@ -392,8 +447,16 @@ export default function Profile() {
                   }
                   size="sm"
                 />
-              ))}
+                );
+                return editing ? (
+                  <DraggableRow key={r.player_id} id={r.player_id}>{row}</DraggableRow>
+                ) : (
+                  row
+                );
+              })}
             </div>
+            </SortableContext>
+            </DndContext>
           )}
 
           {rows.length > PAGE_SIZE && (
