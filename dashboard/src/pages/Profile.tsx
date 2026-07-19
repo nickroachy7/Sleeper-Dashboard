@@ -1,13 +1,14 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
-import { UserRound, Share2, Check, Swords, TrendingUp, ChevronLeft } from 'lucide-react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { UserRound, Share2, Check, Swords, TrendingUp, ChevronLeft, ChevronUp, ChevronDown, Pencil, RotateCcw, X } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
 import { usePlayerMap } from '../hooks/useLeagueData';
 import { usePlayerValuesList } from '../hooks/queries';
 import { PlayerRow } from '../components/PlayerRow';
 import { FilterPills } from '../components/FilterBar';
+import { Pagination } from '../components/Pagination';
 
 // ── Public profile: /u/<username> ─────────────────────────────────
 // The shareable face of an account: a COMPLETE player-rankings board from day
@@ -17,8 +18,14 @@ import { FilterPills } from '../components/FilterBar';
 // disagreements with the community, so moved players carry a delta chip.
 // Ratings come from user_player_ratings (DB trigger, Elo around 1500 = "no
 // opinion"); the board value is community value + deviation × ELO_SCALE.
+//
+// Owners can also edit directly ("Adjust ranks"): ▲▼ nudges swap a player
+// with its neighbor, tapping the rank number sets an exact spot, and reset
+// returns a player to the crowd's position. Edits write the same rating
+// field votes do (own rows only under RLS), so both signals coexist.
 
 const POSITIONS = ['ALL', 'QB', 'RB', 'WR', 'TE'] as const;
+const PAGE_SIZE = 50;
 
 // One vote moves a player ±16 Elo (K=32 from even); ×8 ≈ ±128 board points —
 // enough to hop a few spots among the stars, minor further down. Repeated
@@ -35,10 +42,20 @@ interface BoardRow {
 export default function Profile() {
   const { username = '' } = useParams<{ username: string }>();
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const { data: playersMap } = usePlayerMap();
   const { data: communityValues } = usePlayerValuesList();
   const [pos, setPos] = useState<(typeof POSITIONS)[number]>('ALL');
   const [copied, setCopied] = useState(false);
+  const [page, setPage] = useState(1);
+  const [editing, setEditing] = useState(false);
+  // Row whose rank number is being typed over (set-exact-rank).
+  const [rankDraft, setRankDraft] = useState<{ id: string; value: string } | null>(null);
+
+  useEffect(() => {
+    setPage(1);
+    setRankDraft(null);
+  }, [pos]);
 
   const { data: profile, isLoading: profileLoading } = useQuery({
     queryKey: ['profile', username.toLowerCase()],
@@ -63,7 +80,7 @@ export default function Profile() {
         .select('player_id, rating, wins, losses')
         .eq('user_id', profile!.user_id)
         .order('rating', { ascending: false })
-        .limit(500);
+        .limit(2000);
       return (data ?? []) as BoardRow[];
     },
   });
@@ -116,6 +133,68 @@ export default function Profile() {
   );
 
   const isMe = !!user && user.id === profile?.user_id;
+
+  // ── Manual adjustments (owner only) ──────────────────────────────
+  // All edits reduce to "give this player the rating whose blended value
+  // lands at the right spot". Inverse of the blend above:
+  //   rating = 1500 + (targetBlended − communityValue) / ELO_SCALE
+  // Writes are optimistic: patch the cached board (the blend recomputes
+  // instantly), then upsert; on error, refetch to resync.
+  const setRating = async (playerId: string, rating: number) => {
+    if (!isMe || !profile) return;
+    queryClient.setQueryData<BoardRow[]>(['user-board', profile.user_id], (old) => {
+      const next = old ? [...old] : [];
+      const i = next.findIndex((r) => r.player_id === playerId);
+      if (i >= 0) next[i] = { ...next[i], rating };
+      else next.push({ player_id: playerId, rating, wins: 0, losses: 0 });
+      return next;
+    });
+    const { error } = await supabase
+      .from('user_player_ratings')
+      .upsert(
+        { user_id: profile.user_id, player_id: playerId, rating },
+        { onConflict: 'user_id,player_id' }
+      );
+    if (error) queryClient.invalidateQueries({ queryKey: ['user-board', profile.user_id] });
+  };
+
+  const ratingForBlended = (targetBlended: number, communityValue: number) =>
+    1500 + (targetBlended - communityValue) / ELO_SCALE;
+
+  // Swap with the neighbor above (dir −1) or below (dir +1): land 1 board
+  // point past its blended value.
+  const nudge = (rank: number, dir: -1 | 1) => {
+    const me = rows[rank - 1];
+    const neighbor = rows[rank - 1 + dir];
+    if (!me || !neighbor) return;
+    setRating(me.player_id, ratingForBlended(neighbor.blended - dir, me.communityValue));
+  };
+
+  // Set an exact rank within the current position scope: midpoint between the
+  // new neighbors' blended values (blended is global, so between two QBs is
+  // between them on every view).
+  const setRank = (playerId: string, targetRank: number) => {
+    const me = rows.find((r) => r.player_id === playerId);
+    if (!me) return;
+    const others = rows.filter((r) => r.player_id !== playerId);
+    const clamped = Math.min(Math.max(targetRank, 1), others.length + 1);
+    const above = others[clamped - 2];
+    const below = others[clamped - 1];
+    const targetBlended =
+      above && below ? (above.blended + below.blended) / 2
+      : below ? below.blended + 100
+      : above ? above.blended - 100
+      : null;
+    if (targetBlended === null) return;
+    setRating(playerId, ratingForBlended(targetBlended, me.communityValue));
+  };
+
+  const commitRankDraft = () => {
+    if (!rankDraft) return;
+    const n = parseInt(rankDraft.value, 10);
+    if (Number.isFinite(n)) setRank(rankDraft.id, n);
+    setRankDraft(null);
+  };
 
   const share = async () => {
     const url = `${window.location.origin}/u/${profile?.username}`;
@@ -203,14 +282,31 @@ export default function Profile() {
             <div>
               <p className="text-[11px] font-bold text-accent-500 tracking-[0.18em] uppercase">The board</p>
               <p className="text-[11px] text-[#75757f] mt-0.5">
-                Community rankings, reshaped by {isMe ? 'your' : `${profile.username}'s`} votes — ▲▼ marks the disagreements.
+                {editing
+                  ? 'Tap ▲▼ to nudge, or tap a rank number to type a new spot.'
+                  : `Community rankings, reshaped by ${isMe ? 'your' : `${profile.username}'s`} votes — ▲▼ marks the disagreements.`}
               </p>
             </div>
-            <FilterPills
-              options={POSITIONS.map((p) => ({ value: p, label: p === 'ALL' ? 'All' : p }))}
-              selected={pos}
-              onChange={(v) => setPos(v as (typeof POSITIONS)[number])}
-            />
+            <div className="flex items-center gap-2 shrink-0">
+              {isMe && (
+                <button
+                  onClick={() => { setEditing((e) => !e); setRankDraft(null); }}
+                  className={`flex items-center gap-1.5 h-8 px-3 rounded-lg text-[12px] font-semibold transition-colors ${
+                    editing
+                      ? 'bg-accent-500 text-[#06110a] hover:bg-accent-400'
+                      : 'border border-[#2a2a34] text-[#c4c4cd] hover:bg-[#1b1b22]'
+                  }`}
+                >
+                  {editing ? <X className="h-3.5 w-3.5" /> : <Pencil className="h-3.5 w-3.5" />}
+                  {editing ? 'Done' : 'Adjust ranks'}
+                </button>
+              )}
+              <FilterPills
+                options={POSITIONS.map((p) => ({ value: p, label: p === 'ALL' ? 'All' : p }))}
+                selected={pos}
+                onChange={(v) => setPos(v as (typeof POSITIONS)[number])}
+              />
+            </div>
           </div>
 
           {boardLoading || rows.length === 0 ? (
@@ -219,15 +315,42 @@ export default function Profile() {
             </div>
           ) : (
             <div className="divide-y divide-[#17171d]">
-              {rows.slice(0, 100).map((r) => (
+              {rows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE).map((r) => (
                 <PlayerRow
                   key={r.player_id}
                   playerId={r.player_id}
-                  rank={r.rank}
+                  rank={editing ? undefined : r.rank}
+                  lead={
+                    editing ? (
+                      rankDraft?.id === r.player_id ? (
+                        <input
+                          autoFocus
+                          inputMode="numeric"
+                          value={rankDraft.value}
+                          onChange={(e) => setRankDraft({ id: r.player_id, value: e.target.value.replace(/\D/g, '') })}
+                          onBlur={commitRankDraft}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') commitRankDraft();
+                            if (e.key === 'Escape') setRankDraft(null);
+                          }}
+                          className="w-11 h-7 rounded-md bg-[#1b1b22] border border-accent-500/50 text-center text-[13px] font-bold text-white tabular-nums outline-none"
+                        />
+                      ) : (
+                        <button
+                          onClick={() => setRankDraft({ id: r.player_id, value: String(r.rank) })}
+                          className="w-11 h-7 rounded-md border border-[#2a2a34] text-[13px] font-bold text-[#c4c4cd] tabular-nums hover:border-accent-500/50 hover:text-white transition-colors"
+                          title="Tap to set an exact rank"
+                        >
+                          {r.rank}
+                        </button>
+                      )
+                    ) : undefined
+                  }
+                  to={editing ? null : undefined}
+                  value={Math.round(r.blended)}
                   name={r.player!.full_name}
                   position={r.player!.position}
                   team={r.player!.team}
-                  value={Math.round(r.blended)}
                   meta={
                     r.moved ? (
                       <span className={r.delta > 0 ? 'text-accent-400 font-semibold' : r.delta < 0 ? 'text-red-400 font-semibold' : 'text-[#75757f]'}>
@@ -235,9 +358,53 @@ export default function Profile() {
                       </span>
                     ) : undefined
                   }
+                  suffix={
+                    editing ? (
+                      <span className="flex items-center gap-1 shrink-0">
+                        <button
+                          onClick={() => nudge(r.rank, -1)}
+                          disabled={r.rank === 1}
+                          className="p-1.5 rounded-md border border-[#2a2a34] text-[#9c9ca7] hover:text-white hover:bg-[#1b1b22] disabled:opacity-30 transition-colors"
+                          aria-label="Move up"
+                        >
+                          <ChevronUp className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => nudge(r.rank, 1)}
+                          disabled={r.rank === rows.length}
+                          className="p-1.5 rounded-md border border-[#2a2a34] text-[#9c9ca7] hover:text-white hover:bg-[#1b1b22] disabled:opacity-30 transition-colors"
+                          aria-label="Move down"
+                        >
+                          <ChevronDown className="h-4 w-4" />
+                        </button>
+                        {r.moved && (
+                          <button
+                            onClick={() => setRating(r.player_id, 1500)}
+                            className="p-1.5 rounded-md border border-[#2a2a34] text-[#75757f] hover:text-white hover:bg-[#1b1b22] transition-colors"
+                            aria-label="Reset to community rank"
+                            title="Reset to community rank"
+                          >
+                            <RotateCcw className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </span>
+                    ) : undefined
+                  }
                   size="sm"
                 />
               ))}
+            </div>
+          )}
+
+          {rows.length > PAGE_SIZE && (
+            <div className="px-4 sm:px-5 pb-4">
+              <Pagination
+                currentPage={page}
+                totalPages={Math.ceil(rows.length / PAGE_SIZE)}
+                totalItems={rows.length}
+                itemsPerPage={PAGE_SIZE}
+                onPageChange={(p) => { setPage(p); setRankDraft(null); }}
+              />
             </div>
           )}
         </section>
