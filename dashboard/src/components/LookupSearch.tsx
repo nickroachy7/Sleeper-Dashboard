@@ -17,7 +17,8 @@ import { OPEN_LOOKUP_EVENT, type OpenLookupDetail } from '../lib/lookup';
 const PAGES = [
   { label: 'Feed', to: '/' },
   { label: 'League', to: '/league' },
-  { label: 'Players', to: '/players' },
+  { label: 'Ranking', to: '/players' },
+  { label: 'Records', to: '/players?tab=records' },
   { label: 'Tools', to: '/trade' },
   { label: 'Rank \'Em', to: '/value-vote' },
   { label: 'Settings', to: '/settings' },

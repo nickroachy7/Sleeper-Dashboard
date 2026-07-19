@@ -1,7 +1,7 @@
 import { useMemo, Fragment } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { TrendingUp, Layers, Swords } from 'lucide-react';
+import { TrendingUp, Layers, Swords, Trophy } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useUrlState } from '../hooks/useUrlState';
 import { TabBar } from '../components/TabBar';
@@ -10,6 +10,7 @@ import { Pagination } from '../components/Pagination';
 import { FilterBar, SearchInput, FilterPills, SortSelect } from '../components/FilterBar';
 import { PlayerRow } from '../components/PlayerRow';
 import { BiggestMovers } from '../components/BiggestMovers';
+import { RecordsPanel } from '../components/RecordsPanel';
 import { useGlobalMovers } from '../hooks/useGlobalMovers';
 
 // ── Player Values Types ──────────────────────────────────────────
@@ -94,7 +95,7 @@ async function fetchPickValues(): Promise<PickValueDetailed[]> {
 
 type SortField = 'rank' | 'value' | 'name';
 type SortDirection = 'asc' | 'desc';
-type TabType = 'players' | 'picks';
+type TabType = 'players' | 'picks' | 'records';
 
 const ITEMS_PER_PAGE = 50;
 
@@ -348,10 +349,13 @@ function ValuesTab({ kind }: { kind: 'player' | 'pick' }) {
 const PLAYERS_TABS = [
   { id: 'players' as const, label: 'Players', icon: TrendingUp },
   { id: 'picks' as const, label: 'Picks', icon: Layers },
+  { id: 'records' as const, label: 'Records', icon: Trophy },
 ];
 
-/** The Players section: community-driven (YAP) player + rookie-pick values.
- *  Two tabs (Players / Picks); "Rank 'Em" is a contribution action, not a tab. */
+/** The Ranking section: community-driven (YAP) player + rookie-pick values,
+ *  plus a league-filtered Records tab (the record book that used to live under
+ *  League → History). Players/Picks are global; Records filters to one of the
+ *  user's leagues. "Rank 'Em" is a contribution action, not a tab. */
 export function PlayersPage() {
   const { get, setMany } = useUrlState();
   const activeTab = get('tab', 'players') as TabType;
@@ -359,8 +363,9 @@ export function PlayersPage() {
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto">
-      {/* Tabs lead the page (the nav already names it "Players"); the rank-players
-          action sits alongside so it isn't lost with the removed header. */}
+      {/* Tabs lead the page (the nav already names it "Ranking"); the rank-players
+          action sits alongside so it isn't lost with the removed header. It's a
+          player-ranking CTA, so it's hidden on the league-scoped Records tab. */}
       <div className="flex items-center gap-2">
         <div className="min-w-0 flex-1">
           <TabBar
@@ -369,12 +374,14 @@ export function PlayersPage() {
             onChange={(id) => setMany({ tab: id === 'players' ? null : id, page: null, pos: null })}
           />
         </div>
-        <Link
-          to="/value-vote"
-          className="shrink-0 inline-flex items-center gap-1.5 h-9 px-3 rounded-lg bg-accent-500/10 border border-accent-500/25 text-[13px] font-semibold text-accent-400 hover:bg-accent-500/15 transition-colors"
-        >
-          <Swords className="h-4 w-4" /> <span className="hidden sm:inline">Help rank players</span>
-        </Link>
+        {activeTab !== 'records' && (
+          <Link
+            to="/value-vote"
+            className="shrink-0 inline-flex items-center gap-1.5 h-9 px-3 rounded-lg bg-accent-500/10 border border-accent-500/25 text-[13px] font-semibold text-accent-400 hover:bg-accent-500/15 transition-colors"
+          >
+            <Swords className="h-4 w-4" /> <span className="hidden sm:inline">Help rank players</span>
+          </Link>
+        )}
       </div>
       {/* Biggest movers — a glance at what's rising/falling, above the rankings.
           Players tab only (movers are players, not picks). */}
@@ -385,7 +392,9 @@ export function PlayersPage() {
       )}
 
       <div className="mt-4">
-        {activeTab === 'picks' ? <ValuesTab kind="pick" /> : <ValuesTab kind="player" />}
+        {activeTab === 'records' ? <RecordsPanel />
+          : activeTab === 'picks' ? <ValuesTab kind="pick" />
+          : <ValuesTab kind="player" />}
       </div>
     </div>
   );

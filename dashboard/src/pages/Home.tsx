@@ -13,7 +13,7 @@ import { useGlobalMovers } from '../hooks/useGlobalMovers';
 // Buttons for a logged-out visitor — only tools that work WITHOUT a league.
 const GLOBAL_ACTIONS = [
   { to: '/trade', label: 'Tools' },
-  { to: '/players', label: 'Players' },
+  { to: '/players', label: 'Ranking' },
   { to: '/value-vote', label: "Rank 'Em" },
 ] as const;
 

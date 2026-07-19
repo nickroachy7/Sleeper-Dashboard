@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { Trophy, Users, ChevronRight, Flame, ListOrdered, ArrowLeftRight, Layers, History as HistoryIcon } from 'lucide-react';
+import { Users, ListOrdered, ArrowLeftRight, Layers } from 'lucide-react';
 import { TabBar } from '../components/TabBar';
 import { SectionCard } from '../components/SectionCard';
 import { MyTeamPicker } from '../components/MyTeamCard';
@@ -9,7 +9,7 @@ import { LeagueSwitcher } from '../components/LeagueSwitcher';
 import { TransactionsPanel } from './Transactions';
 import { DraftsPanel } from './Drafts';
 import { useLeagueDirectory } from '../hooks/detail';
-import { useLeagueMatchups, pairGames, type MatchupRow, type Game } from '../hooks/league';
+import { useLeagueMatchups, pairGames, type MatchupRow } from '../hooks/league';
 import { useTeamStrength } from '../hooks/useTeamStrength';
 import { useMyTeam } from '../hooks/useMyTeam';
 import { useUrlState } from '../hooks/useUrlState';
@@ -17,15 +17,16 @@ import { useActiveLeague } from '../lib/active-league';
 
 // ── Types ───────────────────────────────────────────────────────────
 
-type LeagueTab = 'standings' | 'transactions' | 'drafts' | 'history';
+type LeagueTab = 'standings' | 'transactions' | 'drafts';
 
 // Weekly matchups live on each team's page (Schedule tab) — a per-team
 // schedule reads better than a league-wide scoreboard and saves a tab here.
+// The record book + all-time history moved to Ranking → Records (it filters
+// by league there), which keeps these three tabs fitting in a row.
 const LEAGUE_TABS = [
   { id: 'standings' as const, label: 'Standings', icon: ListOrdered },
   { id: 'transactions' as const, label: 'Transactions', icon: ArrowLeftRight },
   { id: 'drafts' as const, label: 'Drafts', icon: Layers },
-  { id: 'history' as const, label: 'History', icon: HistoryIcon },
 ];
 
 interface DirRoster {
@@ -83,8 +84,7 @@ export default function League() {
   const activeTab: LeagueTab =
     reqTab === 'transactions' ? 'transactions'
     : reqTab === 'drafts' ? 'drafts'
-    : reqTab === 'history' ? 'history'
-    : 'standings'; // old ?tab=scoreboard links land here too
+    : 'standings'; // old ?tab=scoreboard / ?tab=history links land here too
 
   // Seasons in the dynasty, newest first, flagged by whether they've kicked off.
   const seasons = useMemo(() => {
@@ -207,106 +207,6 @@ export default function League() {
   // the standings are showing the current season.
   const showPower = selectedLeagueId === directory?.currentLeagueId && teamStrength.size > 0;
 
-  // ── Record book (all played seasons) ─────────────────────────────
-  const records = useMemo(() => {
-    if (!directory) return null;
-    const allGames: Game[] = [];
-    for (const s of seasons) {
-      if (!s.started) continue;
-      allGames.push(...pairGames(matchupsByLeague.get(s.leagueId) ?? [], s.season));
-    }
-    if (!allGames.length) return null;
-
-    // Flatten into per-team-game rows (each game contributes two rows).
-    interface TeamGame { rosterId: number; leagueId: string; season: string; week: number; pts: number; oppPts: number; won: boolean; }
-    const teamGames: TeamGame[] = [];
-    for (const g of allGames) {
-      teamGames.push({ rosterId: g.a.rosterId, leagueId: g.leagueId, season: g.season, week: g.week, pts: g.a.points, oppPts: g.b.points, won: g.a.points > g.b.points });
-      teamGames.push({ rosterId: g.b.rosterId, leagueId: g.leagueId, season: g.season, week: g.week, pts: g.b.points, oppPts: g.a.points, won: g.b.points > g.a.points });
-    }
-    const scored = teamGames.filter((t) => t.pts > 0);
-    const name = (r: TeamGame) => directory.teamName(r.rosterId, r.leagueId);
-
-    const maxBy = <T,>(arr: T[], f: (t: T) => number): T | null =>
-      arr.reduce<T | null>((best, cur) => (best == null || f(cur) > f(best) ? cur : best), null);
-    const minBy = <T,>(arr: T[], f: (t: T) => number): T | null =>
-      arr.reduce<T | null>((best, cur) => (best == null || f(cur) < f(best) ? cur : best), null);
-
-    const highGame = maxBy(scored, (t) => t.pts);
-    const lowGame = minBy(scored, (t) => t.pts);
-    const blowout = maxBy(allGames, (g) => Math.abs(g.a.points - g.b.points));
-    const narrowest = minBy(allGames.filter((g) => g.a.points !== g.b.points), (g) => Math.abs(g.a.points - g.b.points));
-    const highLoss = maxBy(scored.filter((t) => !t.won && t.pts !== t.oppPts), (t) => t.pts);
-    const lowWin = minBy(scored.filter((t) => t.won), (t) => t.pts);
-    const highCombined = maxBy(allGames, (g) => g.a.points + g.b.points);
-
-    const winnerSide = (g: Game) => (g.a.points >= g.b.points ? g.a : g.b);
-    const loserSide = (g: Game) => (g.a.points >= g.b.points ? g.b : g.a);
-
-    interface Rec { label: string; value: string; who: string; rosterId: number; leagueId: string; when: string; }
-    const recs: (Rec | null)[] = [
-      highGame && { label: 'Highest single game', value: `${highGame.pts.toFixed(1)} pts`, who: name(highGame), rosterId: highGame.rosterId, leagueId: highGame.leagueId, when: `${highGame.season} · Wk ${highGame.week}` },
-      lowGame && { label: 'Lowest single game', value: `${lowGame.pts.toFixed(1)} pts`, who: name(lowGame), rosterId: lowGame.rosterId, leagueId: lowGame.leagueId, when: `${lowGame.season} · Wk ${lowGame.week}` },
-      blowout && { label: 'Biggest blowout', value: `${Math.abs(blowout.a.points - blowout.b.points).toFixed(1)} margin`, who: directory.teamName(winnerSide(blowout).rosterId, blowout.leagueId), rosterId: winnerSide(blowout).rosterId, leagueId: blowout.leagueId, when: `over ${directory.teamName(loserSide(blowout).rosterId, blowout.leagueId)} · ${blowout.season} Wk ${blowout.week}` },
-      narrowest && { label: 'Narrowest win', value: `${Math.abs(narrowest.a.points - narrowest.b.points).toFixed(2)} margin`, who: directory.teamName(winnerSide(narrowest).rosterId, narrowest.leagueId), rosterId: winnerSide(narrowest).rosterId, leagueId: narrowest.leagueId, when: `over ${directory.teamName(loserSide(narrowest).rosterId, narrowest.leagueId)} · ${narrowest.season} Wk ${narrowest.week}` },
-      highLoss && { label: 'Most points in a loss', value: `${highLoss.pts.toFixed(1)} pts`, who: name(highLoss), rosterId: highLoss.rosterId, leagueId: highLoss.leagueId, when: `${highLoss.season} · Wk ${highLoss.week}` },
-      lowWin && { label: 'Fewest points in a win', value: `${lowWin.pts.toFixed(1)} pts`, who: name(lowWin), rosterId: lowWin.rosterId, leagueId: lowWin.leagueId, when: `${lowWin.season} · Wk ${lowWin.week}` },
-      highCombined && { label: 'Highest combined total', value: `${(highCombined.a.points + highCombined.b.points).toFixed(1)} pts`, who: `${directory.teamName(highCombined.a.rosterId, highCombined.leagueId)} vs ${directory.teamName(highCombined.b.rosterId, highCombined.leagueId)}`, rosterId: highCombined.a.rosterId, leagueId: highCombined.leagueId, when: `${highCombined.season} · Wk ${highCombined.week}` },
-    ];
-    return recs.filter((r): r is Rec => r != null);
-  }, [directory, seasons, matchupsByLeague]);
-
-  // ── History: all-time managers + season roll-call ────────────────
-  const history = useMemo(() => {
-    if (!directory) return null;
-    const played = seasons.filter((s) => s.started);
-
-    interface Mgr { ownerId: string; rosterId: number; name: string; avatar: string | null; wins: number; losses: number; ties: number; pf: number; seasons: number; titles: number; pointsTitles: number; }
-    const byOwner = new Map<string, Mgr>();
-    const seasonRoll: { season: string; champRosterId: number; champLeagueId: string; champName: string; pointsRosterId: number; pointsName: string; pointsPf: number }[] = [];
-
-    for (const s of played) {
-      const rosters = (directory.rosters as DirRoster[]).filter((r) => r.league_id === s.leagueId);
-      if (!rosters.length) continue;
-      const ordered = standingsOrder(rosters);
-      const champ = ordered[0];
-      const pointsLeader = [...rosters].sort((a, b) => num(b.fpts) - num(a.fpts))[0];
-      seasonRoll.push({
-        season: s.season,
-        champRosterId: champ.roster_id,
-        champLeagueId: s.leagueId,
-        champName: directory.teamName(champ.roster_id, s.leagueId),
-        pointsRosterId: pointsLeader.roster_id,
-        pointsName: directory.teamName(pointsLeader.roster_id, s.leagueId),
-        pointsPf: num(pointsLeader.fpts),
-      });
-
-      for (const r of rosters) {
-        const oid = r.owner_id || `roster-${s.leagueId}-${r.roster_id}`;
-        const m = byOwner.get(oid) || {
-          ownerId: oid, rosterId: r.roster_id, name: directory.teamName(r.roster_id, directory.currentLeagueId), avatar: directory.teamAvatar(r.roster_id, directory.currentLeagueId),
-          wins: 0, losses: 0, ties: 0, pf: 0, seasons: 0, titles: 0, pointsTitles: 0,
-        };
-        m.wins += num(r.wins);
-        m.losses += num(r.losses);
-        m.ties += num(r.ties);
-        m.pf += num(r.fpts);
-        m.seasons += 1;
-        if (r.roster_id === champ.roster_id) m.titles += 1;
-        if (r.roster_id === pointsLeader.roster_id) m.pointsTitles += 1;
-        // Prefer the manager's CURRENT team identity for display.
-        const curName = directory.teamName(r.roster_id, directory.currentLeagueId);
-        if (r.owner_id) { m.name = curName; }
-        byOwner.set(oid, m);
-      }
-    }
-    const managers = [...byOwner.values()].sort((a, b) => {
-      const wpA = a.wins + a.losses + a.ties ? a.wins / (a.wins + a.losses + a.ties) : 0;
-      const wpB = b.wins + b.losses + b.ties ? b.wins / (b.wins + b.losses + b.ties) : 0;
-      return wpB - wpA || b.wins - a.wins;
-    });
-    return { managers, seasonRoll };
-  }, [directory, seasons]);
 
   // ── Render ───────────────────────────────────────────────────────
 
@@ -460,111 +360,6 @@ export default function League() {
 
       {/* ═══ DRAFTS ═══ */}
       {activeTab === 'drafts' && <DraftsPanel />}
-
-      {/* ═══ HISTORY: record book ═══ */}
-      {activeTab === 'history' && (
-        <SectionCard label="Record Book" sub="All-time single-game records across every dynasty season" flush>
-          {!records || records.length === 0 ? (
-            <p className="text-[12px] text-[#60606a] px-4 sm:px-5 pb-5">
-              No games on record yet — records appear once weekly scores are synced.
-            </p>
-          ) : (
-            <div className="divide-y divide-[#1b1b22]">
-              {records.map((r) => (
-                <Link key={r.label} to={`/teams/${r.rosterId}`} className="group flex items-center gap-3 px-4 sm:px-5 py-3 hover:bg-[#1b1b22] transition-colors">
-                  <Trophy className="h-4 w-4 text-accent-500/70 shrink-0" />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[11px] uppercase tracking-[0.1em] text-[#75757f] font-bold">{r.label}</p>
-                    <p className="text-[13px] text-white font-medium truncate group-hover:text-accent-400 transition-colors">
-                      {r.who} <span className="text-[#60606a] font-normal">· {r.when}</span>
-                    </p>
-                  </div>
-                  <span className="font-display text-[15px] font-bold tabular-nums text-white shrink-0">{r.value}</span>
-                  <ChevronRight className="h-4 w-4 text-[#4c4c56] group-hover:text-accent-400 shrink-0 transition-colors" />
-                </Link>
-              ))}
-            </div>
-          )}
-        </SectionCard>
-      )}
-
-      {/* ═══ HISTORY ═══ */}
-      {activeTab === 'history' && (
-        <div className="space-y-4">
-          {/* Season roll-call */}
-          {history && history.seasonRoll.length > 0 && (
-            <SectionCard label="Season by Season" sub="Regular-season points leader each year (playoff data not synced)" flush>
-              <div className="divide-y divide-[#1b1b22]">
-                {history.seasonRoll.map((s) => (
-                  <div key={s.season} className="flex items-center gap-3 px-4 sm:px-5 py-3">
-                    <span className="font-display text-[15px] font-bold tabular-nums text-accent-400 w-12 shrink-0">{s.season}</span>
-                    <Link to={`/teams/${s.pointsRosterId}`} className="min-w-0 flex-1 group">
-                      <p className="text-[10px] uppercase tracking-[0.1em] text-[#75757f] font-bold flex items-center gap-1">
-                        <Flame className="h-3 w-3 text-orange-400" /> Points leader
-                      </p>
-                      <p className="text-[13px] text-white font-medium truncate group-hover:text-accent-400 transition-colors">
-                        {s.pointsName} <span className="text-[#60606a] font-normal">· {fmtPts(s.pointsPf)} pts</span>
-                      </p>
-                    </Link>
-                  </div>
-                ))}
-              </div>
-            </SectionCard>
-          )}
-
-          {/* All-time manager leaderboard */}
-          {history && history.managers.length > 0 && (
-            <SectionCard label="All-Time Managers" sub="Combined record across every synced season" flush>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse min-w-[560px]">
-                  <thead>
-                    <tr className="text-[10px] uppercase tracking-[0.1em] text-[#60606a] border-b border-[#1b1b22]">
-                      <th className="font-bold py-2 pl-4 sm:pl-5 pr-2">#</th>
-                      <th className="font-bold py-2 px-2">Manager</th>
-                      <th className="font-bold py-2 px-2 text-center">Record</th>
-                      <th className="font-bold py-2 px-2 text-right">Win%</th>
-                      <th className="font-bold py-2 px-2 text-right">Total PF</th>
-                      <th className="font-bold py-2 px-2 pr-4 sm:pr-5 text-center" title="Regular-season #1 finishes">Best</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {history.managers.map((m, i) => {
-                      const gp = m.wins + m.losses + m.ties;
-                      const wp = gp ? m.wins / gp : 0;
-                      return (
-                        <tr key={m.ownerId} className="group border-b border-[#1b1b22] last:border-0 hover:bg-[#1b1b22] transition-colors">
-                          <td className="py-2.5 pl-4 sm:pl-5 pr-2 font-display text-[13px] font-bold tabular-nums text-[#75757f]">{i + 1}</td>
-                          <td className="py-2.5 px-2">
-                            <Link to={`/teams/${m.rosterId}`} className="flex items-center gap-2.5 min-w-0">
-                              <span className="w-7 h-7 rounded-full overflow-hidden bg-[#22222b] shrink-0 ring-1 ring-inset ring-white/10 flex items-center justify-center">
-                                {m.avatar ? (
-                                  <img src={m.avatar} alt="" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.visibility = 'hidden'; }} />
-                                ) : (
-                                  <Users className="h-3.5 w-3.5 text-[#60606a]" />
-                                )}
-                              </span>
-                              <span className="text-[13px] font-medium text-white truncate group-hover:text-accent-400 transition-colors">{m.name}</span>
-                            </Link>
-                          </td>
-                          <td className="py-2.5 px-2 text-center text-[13px] tabular-nums text-[#d6d6de]">{m.wins}-{m.losses}{m.ties ? `-${m.ties}` : ''}</td>
-                          <td className="py-2.5 px-2 text-right text-[12px] tabular-nums text-[#9c9ca7]">{(wp * 100).toFixed(1)}%</td>
-                          <td className="py-2.5 px-2 text-right text-[12px] tabular-nums text-[#75757f]">{fmtPts(m.pf)}</td>
-                          <td className="py-2.5 px-2 pr-4 sm:pr-5 text-center text-[12px] tabular-nums text-[#9c9ca7]">
-                            {m.titles > 0 ? <span className="text-accent-400 font-semibold">{m.titles}×</span> : '—'}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-              <p className="text-[10px] text-[#60606a] px-4 sm:px-5 py-3">
-                "Best" counts regular-season #1 finishes (by record, then points). Playoff/championship results aren't synced from Sleeper.
-              </p>
-            </SectionCard>
-          )}
-        </div>
-      )}
     </div>
   );
 }
