@@ -8,9 +8,8 @@ import { VALUE_SOURCE } from '../lib/value-source';
 import { Pagination } from '../components/Pagination';
 import { FilterBar, SearchInput, FilterPills, SortSelect } from '../components/FilterBar';
 import { PlayerRow } from '../components/PlayerRow';
-import { BiggestMovers } from '../components/BiggestMovers';
 import { RecordsPanel } from '../components/RecordsPanel';
-import { useGlobalMovers } from '../hooks/useGlobalMovers';
+import { useValueMovers } from '../hooks/detail';
 
 // ── Player Values Types ──────────────────────────────────────────
 
@@ -61,6 +60,8 @@ interface UnifiedValue {
   injuryStatus: string | null;
   pickTier: string | null;
   fetchedAt: string | null;
+  /** 30-day community-value change (players only); null when unknown/flat. */
+  delta: number | null;
 }
 
 async function fetchPlayerValues(): Promise<PlayerValueDetailed[]> {
@@ -92,11 +93,14 @@ async function fetchPickValues(): Promise<PickValueDetailed[]> {
   return data || [];
 }
 
-type SortField = 'rank' | 'value' | 'name';
+type SortField = 'rank' | 'value' | 'name' | 'rising' | 'falling';
 type SortDirection = 'asc' | 'desc';
 type TabType = 'players' | 'picks' | 'records';
 
 const ITEMS_PER_PAGE = 50;
+const MOVER_WINDOW_DAYS = 30;
+// Below this the 30d change is day-to-day noise — matches BiggestMovers.
+const MOVER_MIN_DELTA = 100;
 
 const tierDescriptions: Record<number, string> = {
   1: 'Elite Dynasty Assets',
@@ -137,6 +141,22 @@ function ValuesTab({ kind }: { kind: 'player' | 'pick' }) {
     queryFn: fetchPickValues
   });
 
+  // 30d value movement — the same window the old Rising/Falling sections used.
+  // Only needed for the player list, where it also drives the sort modes.
+  const { data: moverValues } = useValueMovers(MOVER_WINDOW_DAYS);
+  const isMoverSort = sortField === 'rising' || sortField === 'falling';
+
+  const deltaById = useMemo(() => {
+    const map = new Map<string, number>();
+    if (!moverValues) return map;
+    for (const [pid, cur] of moverValues.current) {
+      const past = moverValues.past.get(pid);
+      if (!cur || !past) continue;
+      map.set(pid, cur - past);
+    }
+    return map;
+  }, [moverValues]);
+
   const isLoading = playersLoading || picksLoading;
   const error = playersError || picksError;
 
@@ -152,6 +172,7 @@ function ValuesTab({ kind }: { kind: 'player' | 'pick' }) {
           rank: pv.rank, positionRank: pv.position_rank, tier: pv.tier,
           trend: pv.trend, injuryStatus: pv.player.injury_status,
           pickTier: null, fetchedAt: pv.fetched_at,
+          delta: deltaById.get(pv.player_id) ?? null,
         });
       }
     }
@@ -163,11 +184,12 @@ function ValuesTab({ kind }: { kind: 'player' | 'pick' }) {
           value: pick.value, rank: pick.rank, positionRank: null,
           tier: null, trend: null, injuryStatus: null,
           pickTier: pick.pick_tier, fetchedAt: pick.fetched_at,
+          delta: null,
         });
       }
     }
     return combined;
-  }, [kind, playerValues, pickValues]);
+  }, [kind, playerValues, pickValues, deltaById]);
 
   const filteredAndSorted = useMemo(() => {
     let filtered = [...unifiedValues];
@@ -181,6 +203,19 @@ function ValuesTab({ kind }: { kind: 'player' | 'pick' }) {
     }
     if (kind === 'player' && positionFilter !== 'ALL') {
       filtered = filtered.filter(item => item.position === positionFilter);
+    }
+    // Rising/Falling: keep only players that meaningfully moved the right way,
+    // then order by size of the move. These modes have a fixed direction, so
+    // sortDirection doesn't apply.
+    if (sortField === 'rising') {
+      return filtered
+        .filter((i) => (i.delta ?? 0) >= MOVER_MIN_DELTA)
+        .sort((a, b) => (b.delta ?? 0) - (a.delta ?? 0));
+    }
+    if (sortField === 'falling') {
+      return filtered
+        .filter((i) => (i.delta ?? 0) <= -MOVER_MIN_DELTA)
+        .sort((a, b) => (a.delta ?? 0) - (b.delta ?? 0));
     }
     filtered.sort((a, b) => {
       let comparison = 0;
@@ -258,8 +293,13 @@ function ValuesTab({ kind }: { kind: 'player' | 'pick' }) {
         />
         )}
         <SortSelect
-          value={`${sortField}-${sortDirection}`}
+          value={isMoverSort ? sortField : `${sortField}-${sortDirection}`}
           onChange={(val) => {
+            // Rising/Falling are directionless mover sorts; the rest are field-dir pairs.
+            if (val === 'rising' || val === 'falling') {
+              setMany({ sf: val, sd: null, page: null });
+              return;
+            }
             const [field, dir] = val.split('-') as [SortField, SortDirection];
             setMany({
               sf: field === 'rank' ? null : field,
@@ -274,11 +314,23 @@ function ValuesTab({ kind }: { kind: 'player' | 'pick' }) {
             { value: 'value-asc', label: 'Value (Low → High)' },
             { value: 'name-asc', label: 'Name (A → Z)' },
             { value: 'name-desc', label: 'Name (Z → A)' },
+            // Movement sorts — player list only (picks have no value history).
+            ...(kind === 'player' ? [
+              { value: 'rising', label: `Rising (${MOVER_WINDOW_DAYS}d) ▲` },
+              { value: 'falling', label: `Falling (${MOVER_WINDOW_DAYS}d) ▼` },
+            ] : []),
           ]}
         />
       </FilterBar>
 
       <div className="bg-[#141419] rounded-2xl overflow-hidden border border-[#22222b]">
+        {paginatedValues.length === 0 && (
+          <p className="px-4 py-10 text-center text-[13px] text-[#75757f]">
+            {isMoverSort
+              ? `No ${sortField === 'rising' ? 'risers' : 'fallers'} in the last ${MOVER_WINDOW_DAYS} days${positionFilter !== 'ALL' ? ` at ${positionFilter}` : ''}.`
+              : 'No players match your filters.'}
+          </p>
+        )}
         {paginatedValues.map((item, idx) => {
           const prevItem = idx > 0 ? paginatedValues[idx - 1] : null;
           const showTierHeader = sortField === 'rank' &&
@@ -310,6 +362,7 @@ function ValuesTab({ kind }: { kind: 'player' | 'pick' }) {
                 position={item.position || undefined}
                 team={item.team}
                 value={item.value}
+                delta={isMoverSort && item.delta != null ? item.delta : undefined}
                 size="sm"
                 divided
                 lead={
@@ -358,24 +411,17 @@ const PLAYERS_TABS = [
 export function PlayersPage() {
   const { get, setMany } = useUrlState();
   const activeTab = get('tab', 'players') as TabType;
-  const movers = useGlobalMovers(30);
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto">
       {/* Tabs lead the page (the nav already names it "Ranking"). The
-          "Rank 'Em" contribution flow moved to Tools → Rank 'Em. */}
+          "Rank 'Em" contribution flow moved to Tools → Rank 'Em. Rising/falling
+          movers are now a sort option on the list, not a separate section. */}
       <TabBar
         tabs={PLAYERS_TABS}
         active={activeTab}
         onChange={(id) => setMany({ tab: id === 'players' ? null : id, page: null, pos: null })}
       />
-      {/* Biggest movers — a glance at what's rising/falling, above the rankings.
-          Players tab only (movers are players, not picks). */}
-      {activeTab === 'players' && (
-        <div className="mt-4">
-          <BiggestMovers risers={movers.risers} fallers={movers.fallers} windowLabel="30d" loading={movers.loading} />
-        </div>
-      )}
 
       <div className="mt-4">
         {activeTab === 'records' ? <RecordsPanel />
