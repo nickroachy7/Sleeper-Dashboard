@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { Trophy, Users, ChevronRight, Flame, ListOrdered, Swords, ArrowLeftRight, Layers, History as HistoryIcon } from 'lucide-react';
 import { TabBar } from '../components/TabBar';
 import { SectionCard } from '../components/SectionCard';
-import { MyTeamCard } from '../components/MyTeamCard';
+import { MyTeamPicker } from '../components/MyTeamCard';
 import { NoLeagueState } from '../components/NoLeagueState';
 import { TransactionsPanel } from './Transactions';
 import { DraftsPanel } from './Drafts';
@@ -11,7 +11,7 @@ import { useLeagueDirectory } from '../hooks/detail';
 import { useLeagueMatchups, type MatchupRow } from '../hooks/league';
 import { useNflState } from '../hooks/queries';
 import { useTeamStrength } from '../hooks/useTeamStrength';
-import { usePowerRankings } from '../hooks/usePowerRankings';
+import { useMyTeam } from '../hooks/useMyTeam';
 import { useUrlState } from '../hooks/useUrlState';
 import { useActiveLeague } from '../lib/active-league';
 
@@ -113,7 +113,7 @@ export default function League() {
   const { data: matchups } = useLeagueMatchups();
   const { data: nfl } = useNflState();
   const { byRoster: teamStrength } = useTeamStrength();
-  const powerRankings = usePowerRankings();
+  const { rosterId: myRosterId } = useMyTeam();
   const { get, set } = useUrlState();
 
   const reqTab = get('tab');
@@ -417,10 +417,10 @@ export default function League() {
       />
 
       {/* ═══ STANDINGS ═══ */}
-      {/* Your team leads the standings — "you, then everyone." (Moved here
-          from Home; its record/rank stats are standings-flavored.) Also the
-          home of the first-run pick-your-team prompt. */}
-      {activeTab === 'standings' && <MyTeamCard standings={powerRankings} />}
+      {/* First-run only: prompt to pick a team. Once chosen there's no
+          identity card — the visitor's own row is highlighted in the table
+          below and links to their team page like any other. */}
+      {activeTab === 'standings' && <MyTeamPicker />}
       {activeTab === 'standings' && (
         <SectionCard
           label="Standings"
@@ -457,10 +457,13 @@ export default function League() {
                     const playoffLine = i === Math.ceil(standings.length / 2) - 1; // rough top-half divider
                     const luckColor = s.luck >= 2 ? 'text-amber-400' : s.luck <= -2 ? 'text-sky-400' : 'text-[#75757f]';
                     const luckLabel = s.luck >= 2 ? `Lucky — ${s.luck} more win${s.luck !== 1 ? 's' : ''} than performance` : s.luck <= -2 ? `Unlucky — ${Math.abs(s.luck)} fewer win${Math.abs(s.luck) !== 1 ? 's' : ''} than performance` : 'Record matches performance';
+                    // The visitor's own team (roster ids are stable across the
+                    // season chain, so this holds on past seasons too).
+                    const isMine = s.rosterId === myRosterId;
                     return (
-                      <tr key={s.rosterId} className={`group border-b border-[#1b1b22] last:border-0 hover:bg-[#1b1b22] transition-colors ${playoffLine ? 'shadow-[inset_0_-1px_0_rgba(34,197,94,0.25)]' : ''}`}>
+                      <tr key={s.rosterId} className={`group border-b border-[#1b1b22] last:border-0 hover:bg-[#1b1b22] transition-colors ${isMine ? 'bg-accent-500/[0.06]' : ''} ${playoffLine ? 'shadow-[inset_0_-1px_0_rgba(34,197,94,0.25)]' : ''}`}>
                         <td className="py-2.5 pl-4 sm:pl-5 pr-2">
-                          <span className="font-display text-[13px] font-bold tabular-nums text-[#75757f]">{s.rank}</span>
+                          <span className={`font-display text-[13px] font-bold tabular-nums ${isMine ? 'text-accent-400' : 'text-[#75757f]'}`}>{s.rank}</span>
                         </td>
                         <td className="py-2.5 px-2">
                           <Link to={`/teams/${s.rosterId}`} className="flex items-center gap-2.5 min-w-0">
@@ -471,7 +474,12 @@ export default function League() {
                                 <Users className="h-3.5 w-3.5 text-[#60606a]" />
                               )}
                             </span>
-                            <span className="text-[13px] font-medium text-white truncate group-hover:text-accent-400 transition-colors">{s.name}</span>
+                            <span className={`text-[13px] truncate group-hover:text-accent-400 transition-colors ${isMine ? 'font-bold text-white' : 'font-medium text-white'}`}>{s.name}</span>
+                            {isMine && (
+                              <span className="text-[9px] uppercase tracking-wide font-bold text-accent-400 bg-accent-500/15 px-1.5 py-0.5 rounded shrink-0">
+                                You
+                              </span>
+                            )}
                           </Link>
                         </td>
                         <td className="py-2.5 px-2 text-center text-[13px] tabular-nums text-[#d6d6de]">

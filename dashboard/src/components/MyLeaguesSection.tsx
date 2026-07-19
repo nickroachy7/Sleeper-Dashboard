@@ -12,7 +12,7 @@ import { listLeagueTeams } from '../lib/add-league';
  * active one, remove leagues, add another, and correct "your team" per league.
  * This is deliberately the ONLY place to change a chosen team — the Home card
  * shows it without an edit affordance so a stray tap can't re-personalize the
- * dashboard (see MyTeamCard).
+ * dashboard (the standings table just highlights their row).
  */
 export function MyLeaguesSection() {
   const { data: active } = useLeague();
