@@ -14,6 +14,7 @@ import { useRealtimeSync } from '../hooks/useRealtimeSync';
 import { LookupSearch } from './LookupSearch';
 import { TopBar } from './TopBar';
 import { LeagueSwitcher } from './LeagueSwitcher';
+import { ProfileMenu } from './ProfileMenu';
 import { AddLeagueModal } from './AddLeagueModal';
 import { AuthModal } from './AuthModal';
 import { SessionContributeModal } from './SessionContributeModal';
@@ -109,7 +110,9 @@ export default function Layout() {
           tab strip. Hidden entirely inside a chat conversation — the chat's own
           bar becomes the only chrome (fully immersive). ── */}
       <header className={`lg:hidden fixed top-0 left-0 right-0 z-[80] bg-[#0d0d11]/90 backdrop-blur-xl border-b border-[#2a2a34] pt-[env(safe-area-inset-top)] ${chatImmersive ? 'hidden' : ''}`}>
-        {/* Row 1 — search (left) · logo (center → dashboard) · league switcher (right) */}
+        {/* Row 1 — search (left) · logo (center → dashboard) · profile (right).
+            The profile sheet carries identity, league switching, and account
+            actions (the old compact league switcher's job). */}
         <div className="relative flex items-center justify-between h-14 px-3">
           <button
             onClick={openLookup}
@@ -125,7 +128,7 @@ export default function Layout() {
           >
             <img src="/yapsports-logo.webp" alt="Sleeper Dashboard" className="h-7 w-auto" />
           </Link>
-          <LeagueSwitcher compact />
+          <ProfileMenu />
         </div>
 
         {/* Row 2 — persistent tab strip. Primary destinations only; Settings &

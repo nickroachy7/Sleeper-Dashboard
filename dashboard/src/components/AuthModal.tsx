@@ -40,7 +40,7 @@ interface LeagueSetup {
 }
 
 export function AuthModal() {
-  const { signIn, signUp } = useAuth();
+  const { signIn, signUp, updateProfile } = useAuth();
   const { leagues: added, addLeague, setActiveLeague } = useActiveLeague();
   const queryClient = useQueryClient();
 
@@ -144,6 +144,11 @@ export function AuthModal() {
     try {
       const res = await findLeaguesForUsername(handle);
       setSleeperUserId(res.sleeperUserId);
+      // The Sleeper lookup doubles as profile setup: their Sleeper avatar
+      // becomes the account's profile picture (best-effort, fire-and-forget).
+      if (res.sleeperUserId) {
+        void updateProfile({ sleeperUserId: res.sleeperUserId, avatarUrl: res.sleeperAvatarUrl });
+      }
       setDiscovered(res.leagues);
       setSelected(new Set(res.leagues.length === 1 ? [res.leagues[0].league_id] : []));
       setSearched(true);

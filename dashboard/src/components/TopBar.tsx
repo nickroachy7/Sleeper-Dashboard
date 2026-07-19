@@ -1,6 +1,7 @@
 import { useLocation } from 'react-router-dom';
 import { Search } from 'lucide-react';
 import { openLookup } from '../lib/lookup';
+import { ProfileMenu } from './ProfileMenu';
 
 const TITLES: Record<string, string> = {
   '/': 'Home',
@@ -21,9 +22,9 @@ function titleForPath(pathname: string): string {
 }
 
 /**
- * Desktop top bar: current-page title on the left, search box on the right.
- * The search box opens the shared LookupSearch palette. Rendered inside the
- * main content column so it aligns with the sidebar layout.
+ * Desktop top bar: current-page title on the left; search box + profile menu
+ * on the right. The search box opens the shared LookupSearch palette. Rendered
+ * inside the main content column so it aligns with the sidebar layout.
  */
 export function TopBar() {
   const { pathname } = useLocation();
@@ -35,17 +36,20 @@ export function TopBar() {
         {title}
       </h1>
 
-      <button
-        onClick={openLookup}
-        aria-label="Search or ask the assistant"
-        className="group flex items-center gap-2.5 h-9 w-72 px-3 rounded-lg bg-[#141419] border border-[#26262f] text-[#75757f] hover:border-[#363641] hover:text-[#9c9ca7] transition-colors"
-      >
-        <Search className="h-4 w-4 shrink-0" />
-        <span className="text-[13px]">Search or ask…</span>
-        <kbd className="ml-auto text-[10px] font-semibold text-[#60606a] bg-[#1b1b22] border border-[#26262f] rounded px-1.5 py-0.5 leading-none">
-          ⌘K
-        </kbd>
-      </button>
+      <div className="flex items-center gap-3">
+        <button
+          onClick={openLookup}
+          aria-label="Search or ask the assistant"
+          className="group flex items-center gap-2.5 h-9 w-72 px-3 rounded-lg bg-[#141419] border border-[#26262f] text-[#75757f] hover:border-[#363641] hover:text-[#9c9ca7] transition-colors"
+        >
+          <Search className="h-4 w-4 shrink-0" />
+          <span className="text-[13px]">Search or ask…</span>
+          <kbd className="ml-auto text-[10px] font-semibold text-[#60606a] bg-[#1b1b22] border border-[#26262f] rounded px-1.5 py-0.5 leading-none">
+            ⌘K
+          </kbd>
+        </button>
+        <ProfileMenu />
+      </div>
     </div>
   );
 }

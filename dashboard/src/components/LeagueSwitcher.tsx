@@ -1,11 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { ChevronsUpDown, Check, Plus, Settings, MessageSquarePlus, UserRound } from 'lucide-react';
+import { ChevronsUpDown, Check, Plus } from 'lucide-react';
 import { useLeague } from '../hooks/queries';
 import { useActiveLeague } from '../lib/active-league';
-import { useAuth } from '../lib/auth';
 import { openAddLeague } from '../lib/add-league-modal';
-import { openAuth } from '../lib/auth-modal';
 
 function statusDot(status?: string) {
   if (status === 'in_season' || status === 'drafting') return 'bg-emerald-500';
@@ -14,18 +11,15 @@ function statusDot(status?: string) {
 }
 
 /**
- * League identity + switcher. Shows the active league and, on click, a menu of
- * the visitor's added leagues plus actions to add or manage them. Replaces the
- * static league block in the sidebar and mobile drawer.
+ * League identity + switcher for the desktop sidebar. Shows the active league
+ * and, on click, a menu of the visitor's added leagues plus an add action.
+ * Account actions (Settings, Feedback, sign in/out) live in ProfileMenu.
  *
  * `compact` renders just a circular avatar trigger (league initial + status
- * dot) with a right-anchored menu — used in the mobile header so it can sit
- * beside a centered logo without stealing width.
+ * dot) with a right-anchored menu.
  */
 export function LeagueSwitcher({ onNavigate, compact = false }: { onNavigate?: () => void; compact?: boolean }) {
-  const navigate = useNavigate();
   const { data: active } = useLeague();
-  const { user, username } = useAuth();
   const { leagues, activeLeagueId, hasLeague, isPreview, setActiveLeague } = useActiveLeague();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -159,44 +153,10 @@ export function LeagueSwitcher({ onNavigate, compact = false }: { onNavigate?: (
           <div className="border-t border-[#22222b] mt-1 pt-1">
             <button
               role="menuitem"
-              onClick={() => { setOpen(false); openAddLeague(); }}
+              onClick={() => { setOpen(false); onNavigate?.(); openAddLeague(); }}
               className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-[13px] text-accent-400 hover:bg-[#1b1b22] transition-colors font-medium"
             >
               <Plus className="h-4 w-4" /> Add a league
-            </button>
-            {/* Account entry: guests get the save-your-leagues hook; signed-in
-                users see who they are (management lives in Settings). */}
-            {user ? (
-              <button
-                role="menuitem"
-                onClick={() => { setOpen(false); onNavigate?.(); navigate('/settings'); }}
-                className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-[13px] text-[#9c9ca7] hover:bg-[#1b1b22] transition-colors"
-              >
-                <UserRound className="h-4 w-4 shrink-0" />
-                <span className="truncate">{username ?? user.email}</span>
-              </button>
-            ) : (
-              <button
-                role="menuitem"
-                onClick={() => { setOpen(false); openAuth(); }}
-                className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-[13px] text-[#9c9ca7] hover:bg-[#1b1b22] transition-colors"
-              >
-                <UserRound className="h-4 w-4" /> Sign in to save leagues
-              </button>
-            )}
-            <button
-              role="menuitem"
-              onClick={() => { setOpen(false); onNavigate?.(); navigate('/settings'); }}
-              className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-[13px] text-[#9c9ca7] hover:bg-[#1b1b22] transition-colors"
-            >
-              <Settings className="h-4 w-4" /> Settings
-            </button>
-            <button
-              role="menuitem"
-              onClick={() => { setOpen(false); onNavigate?.(); navigate('/feedback'); }}
-              className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-[13px] text-[#9c9ca7] hover:bg-[#1b1b22] transition-colors"
-            >
-              <MessageSquarePlus className="h-4 w-4" /> Feedback
             </button>
           </div>
         </div>

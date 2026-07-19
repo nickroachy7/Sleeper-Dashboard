@@ -21,6 +21,8 @@ export interface FindResult {
   /** Sleeper user_id when the input matched a user — lets downstream flows
    *  auto-detect which roster is theirs in each league. */
   sleeperUserId: string | null;
+  /** The matched user's Sleeper avatar URL (thumb), when they have one. */
+  sleeperAvatarUrl: string | null;
   season: string;
   leagues: DiscoveredLeague[];
 }
@@ -55,13 +57,13 @@ export async function findLeaguesForUsername(input: string, season?: string): Pr
     try {
       const league = await sleeperApi.getLeague(handle);
       if (league?.league_id) {
-        return { matchedBy: 'league', displayName: league.name, sleeperUserId: null, season: league.season, leagues: [toDiscovered(league)] };
+        return { matchedBy: 'league', displayName: league.name, sleeperUserId: null, sleeperAvatarUrl: null, season: league.season, leagues: [toDiscovered(league)] };
       }
     } catch { /* not a league — fall through to a user lookup */ }
   }
 
   // Otherwise treat as a username (or numeric user ID) and list their leagues.
-  let user: { user_id: string; display_name?: string } | null;
+  let user: { user_id: string; display_name?: string; avatar?: string | null } | null;
   if (isNumeric) {
     user = { user_id: handle, display_name: handle };
   } else {
@@ -80,6 +82,7 @@ export async function findLeaguesForUsername(input: string, season?: string): Pr
     matchedBy: 'user',
     displayName: user.display_name || handle,
     sleeperUserId: user.user_id,
+    sleeperAvatarUrl: user.avatar ? `https://sleepercdn.com/avatars/thumbs/${user.avatar}` : null,
     season: resolvedSeason,
     leagues: (raw || []).map(toDiscovered),
   };

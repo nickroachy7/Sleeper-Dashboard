@@ -14,11 +14,15 @@ interface AuthValue {
   user: User | null;
   /** The user's chosen display handle (from sign-up), or null. */
   username: string | null;
+  /** Profile picture URL — their Sleeper avatar, captured during onboarding. */
+  avatarUrl: string | null;
   /** True until the initial getSession() resolves — gate store swaps on this. */
   loading: boolean;
   signUp: (email: string, password: string, username: string) => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
+  /** Merge fields into auth user_metadata (best-effort; resolves on completion). */
+  updateProfile: (fields: { avatarUrl?: string | null; sleeperUserId?: string }) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthValue | null>(null);
@@ -53,9 +57,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const value: AuthValue = {
     user,
-    // Username lives in auth user_metadata — no extra table needed; it's a
-    // display handle, not an identity (login stays email-based).
+    // Username + avatar live in auth user_metadata — no extra table needed;
+    // they're display fields, not identity (login stays email-based).
     username: typeof user?.user_metadata?.username === 'string' ? user.user_metadata.username : null,
+    avatarUrl: typeof user?.user_metadata?.avatar_url === 'string' ? user.user_metadata.avatar_url : null,
     loading,
 
     async signUp(email, password, username) {
@@ -89,6 +94,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // auth event so the store swap doesn't resurrect them.
       clearGuestLeagueState();
       await supabase.auth.signOut();
+    },
+
+    async updateProfile(fields) {
+      const data: Record<string, unknown> = {};
+      if ('avatarUrl' in fields) data.avatar_url = fields.avatarUrl;
+      if (fields.sleeperUserId) data.sleeper_user_id = fields.sleeperUserId;
+      if (Object.keys(data).length === 0) return;
+      const { error } = await supabase.auth.updateUser({ data });
+      if (error) console.warn('profile update failed:', error.message);
     },
   };
 
