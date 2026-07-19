@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Trophy, Users, ChevronRight, Flame, ListOrdered, Swords, ArrowLeftRight, Layers, History as HistoryIcon } from 'lucide-react';
 import { TabBar } from '../components/TabBar';
 import { SectionCard } from '../components/SectionCard';
+import { MyTeamCard } from '../components/MyTeamCard';
 import { NoLeagueState } from '../components/NoLeagueState';
 import { TransactionsPanel } from './Transactions';
 import { DraftsPanel } from './Drafts';
@@ -10,6 +11,7 @@ import { useLeagueDirectory } from '../hooks/detail';
 import { useLeagueMatchups, type MatchupRow } from '../hooks/league';
 import { useNflState } from '../hooks/queries';
 import { useTeamStrength } from '../hooks/useTeamStrength';
+import { usePowerRankings } from '../hooks/usePowerRankings';
 import { useUrlState } from '../hooks/useUrlState';
 import { useActiveLeague } from '../lib/active-league';
 
@@ -111,6 +113,7 @@ export default function League() {
   const { data: matchups } = useLeagueMatchups();
   const { data: nfl } = useNflState();
   const { byRoster: teamStrength } = useTeamStrength();
+  const powerRankings = usePowerRankings();
   const { get, set } = useUrlState();
 
   const reqTab = get('tab');
@@ -414,6 +417,10 @@ export default function League() {
       />
 
       {/* ═══ STANDINGS ═══ */}
+      {/* Your team leads the standings — "you, then everyone." (Moved here
+          from Home; its record/rank stats are standings-flavored.) Also the
+          home of the first-run pick-your-team prompt. */}
+      {activeTab === 'standings' && <MyTeamCard standings={powerRankings} />}
       {activeTab === 'standings' && (
         <SectionCard
           label="Standings"

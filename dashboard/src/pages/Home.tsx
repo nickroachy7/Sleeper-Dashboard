@@ -1,7 +1,5 @@
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '../lib/supabase';
 import { useLeague, usePlayerValuesList } from '../hooks/queries';
-import { usePlayerMap, useTradeData } from '../hooks/useLeagueData';
+import { usePlayerMap } from '../hooks/useLeagueData';
 import { useActiveLeague } from '../lib/active-league';
 import { openAddLeague } from '../lib/add-league-modal';
 import { NoLeagueState } from '../components/NoLeagueState';
@@ -10,16 +8,9 @@ import { useMemo } from 'react';
 import { useImportStatus } from '../hooks/useImportStatus';
 import { ValueWatch } from '../components/ValueWatch';
 import { HomeSplash } from '../components/HomeSplash';
-import { MyTeamCard, type MyTeamStanding } from '../components/MyTeamCard';
 import { BiggestMovers } from '../components/BiggestMovers';
 import { LeagueFeed } from '../components/LeagueFeed';
 import { useGlobalMovers } from '../hooks/useGlobalMovers';
-import {
-  calcWeightedPositionValue,
-  buildPicksForRoster,
-  POSITION_WEIGHT_TIERS,
-  type RosterPosition,
-} from '../lib/trade-shared';
 
 const STATUS_LABEL: Record<string, string> = {
   in_season: 'In Season',
@@ -42,64 +33,11 @@ export default function Home() {
   const { data: league, isLoading: leagueLoading } = useLeague();
   const { data: playersMap } = usePlayerMap();
   const { data: playerValues } = usePlayerValuesList();
-  const { rosters: tradeRosters, pickValues, tradedPicks } = useTradeData();
 
   // League-agnostic movers + rankings for the logged-out home.
   const globalMovers = useGlobalMovers(30);
   // Background-import progress for a just-added league.
   const importStatus = useImportStatus();
-
-  const { data: rostersData } = useQuery({
-    queryKey: ['home-rosters', league?.league_id],
-    queryFn: async () => {
-      const { data: rosters } = await supabase.from('rosters').select('*').eq('league_id', league!.league_id);
-      const { data: users } = await supabase.from('users').select('*');
-
-      // Fetch team avatars from Sleeper API (metadata.avatar has custom team logos)
-      const teamAvatars = new Map<string, string>();
-      try {
-        const res = await fetch(`https://api.sleeper.app/v1/league/${league!.league_id}/users`);
-        const sleeperUsers: { user_id?: string; metadata?: { avatar?: string } }[] = await res.json();
-        if (Array.isArray(sleeperUsers)) {
-          sleeperUsers.forEach((u) => {
-            const teamAvatar = u.metadata?.avatar;
-            if (teamAvatar && u.user_id) teamAvatars.set(u.user_id, teamAvatar);
-          });
-        }
-      } catch { /* fallback to user avatars */ }
-
-      return { rosters: rosters || [], users: users || [], teamAvatars };
-    },
-    enabled: !!league,
-  });
-
-  // ─── Power rankings — feeds MyTeamCard's rank + roster-value stats ───
-  const powerRankings = useMemo<MyTeamStanding[]>(() => {
-    if (!rostersData || !playerValues || !playersMap) return [];
-    return rostersData.rosters
-      .map((roster) => {
-        const playerIds: string[] = roster.players || [];
-        const positionGroups: Record<string, { value: number }[]> = {};
-        playerIds.forEach((pid: string) => {
-          const val = playerValues.get(pid) || 0;
-          const p = playersMap.get(pid);
-          if (p && p.position in POSITION_WEIGHT_TIERS) {
-            (positionGroups[p.position] ??= []).push({ value: val });
-          }
-        });
-        let totalValue = 0;
-        for (const pos of Object.keys(POSITION_WEIGHT_TIERS) as RosterPosition[]) {
-          totalValue += calcWeightedPositionValue(positionGroups[pos] || [], pos);
-        }
-        if (pickValues.length) {
-          const pickAssets = buildPicksForRoster(roster.roster_id, tradeRosters, pickValues, tradedPicks);
-          totalValue += pickAssets.reduce((sum, a) => sum + a.value, 0);
-        }
-        return { rosterId: roster.roster_id, totalValue, wins: roster.wins ?? 0, losses: roster.losses ?? 0 };
-      })
-      .sort((a, b) => b.totalValue - a.totalValue)
-      .map((team, idx) => ({ ...team, rank: idx + 1 }));
-  }, [rostersData, playerValues, playersMap, tradeRosters, pickValues, tradedPicks]);
 
   // ─── Global rankings (Top 10) for the logged-out home ───────────────
   const globalRankings = useMemo(() => {
@@ -182,7 +120,9 @@ export default function Home() {
     );
   }
 
-  // ─── Main Render: your team, then the league activity feed ──────────
+  // ─── Main Render: the league activity feed ──────────────────────────
+  // (The "Your team" identity card lives at the top of League → Standings —
+  // its record/rank stats are standings-flavored; Home leads with the feed.)
 
   return (
     <div className="min-h-dvh">
@@ -201,9 +141,6 @@ export default function Home() {
             </button>
           </div>
         )}
-
-        {/* Your team — pinned above the feed */}
-        <MyTeamCard standings={powerRankings} />
 
         {/* League activity feed */}
         <div>
