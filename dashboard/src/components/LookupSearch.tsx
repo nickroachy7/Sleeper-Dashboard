@@ -9,7 +9,6 @@ import { useLeagueDirectory } from '../hooks/detail';
 import { useActiveLeague } from '../lib/active-league';
 import { openAddLeague } from '../lib/add-league-modal';
 import { useLeagueChat } from '../hooks/useLeagueChat';
-import { useKeyboardInset } from '../hooks/useKeyboardInset';
 import { ChatMessageView } from './chat/ChatMessageView';
 import { PlayerRow } from './PlayerRow';
 import { TeamRow } from './TeamRow';
@@ -59,11 +58,6 @@ export function LookupSearch() {
   const chatInputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
-
-  // On mobile the panel docks its input above the keyboard; this is how far up
-  // the keyboard pushes it. Desktop keeps its centered modal, so only track it
-  // while open.
-  const keyboardInset = useKeyboardInset(open);
 
   const { data: players } = usePlayers();
   const { data: playerValues } = usePlayerValuesList();
@@ -201,11 +195,12 @@ export function LookupSearch() {
   return (
     <div
       // Mobile: a panel BELOW the persistent header (starts at the header's
-      // bottom edge), docked up to the keyboard so its input sits right above
-      // it — the header (with its X) stays visible and owns closing. Desktop:
-      // the classic centered command-palette modal with a dim backdrop.
-      className="fixed left-0 right-0 z-[75] top-[calc(104px+env(safe-area-inset-top))] sm:inset-0 sm:top-0 sm:z-[90] sm:bg-black/70 sm:backdrop-blur-sm sm:flex sm:items-start sm:justify-center sm:pt-[10vh] sm:px-4"
-      style={{ bottom: keyboardInset }}
+      // bottom edge) filling to the screen bottom — the header (with its X)
+      // stays visible and owns closing. The input sits at the top of the panel;
+      // the keyboard rises normally over the lower results (like iMessage/Safari
+      // search) rather than fighting to dock the input above it. Desktop: the
+      // classic centered command-palette modal with a dim backdrop.
+      className="fixed left-0 right-0 bottom-0 z-[75] top-[calc(104px+env(safe-area-inset-top))] sm:inset-0 sm:top-0 sm:z-[90] sm:bg-black/70 sm:backdrop-blur-sm sm:flex sm:items-start sm:justify-center sm:pt-[10vh] sm:px-4"
       onClick={() => closeLookup()}
     >
       <div
@@ -214,10 +209,10 @@ export function LookupSearch() {
       >
         {mode === 'search' ? (
           <>
-            {/* Search input — a rounded bubble (matching the chat composer). On
-                mobile it docks at the BOTTOM (order-last) so it sits just above
-                the keyboard; on desktop it leads the palette at the top. */}
-            <div className="order-last sm:order-none flex items-center gap-2 px-3 sm:px-4 py-3 border-t sm:border-t-0 sm:border-b border-[#22222b] shrink-0 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:pb-3">
+            {/* Search input — a rounded bubble (matching the chat composer),
+                leading the panel just under the header on mobile and at the top
+                of the modal on desktop. */}
+            <div className="flex items-center gap-2 px-3 sm:px-4 py-3 border-b border-[#22222b] shrink-0">
               <div className="flex-1 min-w-0 flex items-center gap-2.5 rounded-full bg-[#1b1b22] border border-[#2a2a34] focus-within:border-accent-500/50 pl-4 pr-2 transition-colors">
                 <Search className="h-[18px] w-[18px] text-[#75757f] shrink-0" />
                 <input
@@ -242,8 +237,9 @@ export function LookupSearch() {
               </div>
             </div>
 
-            {/* Results — scroll between the header and the docked input. */}
-            <div className="order-none flex-1 overflow-y-auto overscroll-contain py-2">
+            {/* Results — fill the space under the input; scrollable so the
+                keyboard can overlay the lower rows without hiding any. */}
+            <div className="flex-1 overflow-y-auto overscroll-contain py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
               {/* Recent conversations lead the empty state — the palette is the
                   assistant's home now. Capped at 3 most-recent. */}
               {!hasQuery && sessions.length > 0 && (
