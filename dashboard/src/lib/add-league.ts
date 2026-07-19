@@ -18,6 +18,9 @@ export interface FindResult {
   /** How the input matched — drives the results header. */
   matchedBy: 'league' | 'user';
   displayName: string;
+  /** Sleeper user_id when the input matched a user — lets downstream flows
+   *  auto-detect which roster is theirs in each league. */
+  sleeperUserId: string | null;
   season: string;
   leagues: DiscoveredLeague[];
 }
@@ -52,7 +55,7 @@ export async function findLeaguesForUsername(input: string, season?: string): Pr
     try {
       const league = await sleeperApi.getLeague(handle);
       if (league?.league_id) {
-        return { matchedBy: 'league', displayName: league.name, season: league.season, leagues: [toDiscovered(league)] };
+        return { matchedBy: 'league', displayName: league.name, sleeperUserId: null, season: league.season, leagues: [toDiscovered(league)] };
       }
     } catch { /* not a league — fall through to a user lookup */ }
   }
@@ -76,9 +79,55 @@ export async function findLeaguesForUsername(input: string, season?: string): Pr
   return {
     matchedBy: 'user',
     displayName: user.display_name || handle,
+    sleeperUserId: user.user_id,
     season: resolvedSeason,
     leagues: (raw || []).map(toDiscovered),
   };
+}
+
+/**
+ * Find which roster belongs to a Sleeper user in a league — the wizard's
+ * "confirm your team" step pre-selects this. Null when the user doesn't own
+ * a roster there (or the lookup fails); the UI falls back to a manual pick.
+ */
+export async function findMyRoster(leagueId: string, sleeperUserId: string): Promise<number | null> {
+  try {
+    const rosters = await sleeperApi.getRosters(leagueId);
+    return rosters.find((r) => r.owner_id === sleeperUserId)?.roster_id ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export interface LeagueTeamOption {
+  rosterId: number;
+  /** Team name (metadata) or the owner's display name. */
+  name: string;
+  avatar: string | null;
+}
+
+/**
+ * All teams in a league, labeled for the confirm-your-team picker. Pulls
+ * rosters + users straight from Sleeper so it works during the background
+ * ingest (our DB may not have the league yet).
+ */
+export async function listLeagueTeams(leagueId: string): Promise<LeagueTeamOption[]> {
+  const [rosters, users] = await Promise.all([
+    sleeperApi.getRosters(leagueId),
+    sleeperApi.getLeagueUsers(leagueId),
+  ]);
+  const byUserId = new Map(users.map((u) => [u.user_id, u]));
+  return rosters
+    .map((r) => {
+      const owner = byUserId.get(r.owner_id);
+      const meta = (owner as { metadata?: { team_name?: string; avatar?: string } } | undefined)?.metadata;
+      return {
+        rosterId: r.roster_id,
+        name: meta?.team_name || owner?.display_name || `Team ${r.roster_id}`,
+        avatar: meta?.avatar ?? (owner?.avatar ? `https://sleepercdn.com/avatars/thumbs/${owner.avatar}` : null),
+      };
+    })
+    .sort((a, b) => a.rosterId - b.rosterId);
 }
 
 export interface AddLeagueResult {

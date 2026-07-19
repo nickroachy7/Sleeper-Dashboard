@@ -1,0 +1,22 @@
+# Supabase project config (pushed with `supabase config push`).
+# NOTE: `config push` fills unspecified keys with CLI defaults, so every key
+# that matters is pinned here explicitly to match the project's settings.
+# Accounts are email+password with NO confirmation step (the
+# no-forced-verification plan) — see 20260718_user_accounts.sql.
+
+project_id = "yxtnocecnqutcvltptya"
+
+[auth]
+site_url = "http://localhost:3000"
+additional_redirect_urls = []
+
+[auth.email]
+enable_signup = true
+# The whole point: sign-up returns a live session, no confirmation email.
+enable_confirmations = false
+max_frequency = "1m0s"
+otp_length = 8
+
+[auth.mfa.totp]
+enroll_enabled = true
+verify_enabled = true

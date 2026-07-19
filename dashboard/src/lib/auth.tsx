@@ -1,0 +1,102 @@
+import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import type { Session, User } from '@supabase/supabase-js';
+import { supabase } from './supabase';
+import { clearGuestLeagueState } from './account-league-store';
+
+// ── Auth context ──────────────────────────────────────────────────
+// Optional accounts (the hybrid plan): guests use the app fully without one;
+// signing in only changes where the league list persists (localStorage vs the
+// user_leagues table). Email + password with "Confirm email" disabled in the
+// Supabase dashboard — accounts work immediately, no verification step.
+
+interface AuthValue {
+  /** Signed-in user, or null for guests. */
+  user: User | null;
+  /** The user's chosen display handle (from sign-up), or null. */
+  username: string | null;
+  /** True until the initial getSession() resolves — gate store swaps on this. */
+  loading: boolean;
+  signUp: (email: string, password: string, username: string) => Promise<void>;
+  signIn: (email: string, password: string) => Promise<void>;
+  signOut: () => Promise<void>;
+}
+
+const AuthContext = createContext<AuthValue | null>(null);
+
+/** Rewrite Supabase auth errors into plain language for the sign-in form. */
+function friendlyAuthError(message: string): string {
+  const m = message.toLowerCase();
+  if (m.includes('invalid login credentials')) return 'Wrong email or password.';
+  if (m.includes('already registered')) return 'That email already has an account — sign in instead.';
+  if (m.includes('at least 6 characters')) return 'Password must be at least 6 characters.';
+  if (m.includes('rate limit')) return 'Too many attempts — wait a moment and try again.';
+  return message;
+}
+
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [session, setSession] = useState<Session | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session);
+      setLoading(false);
+    });
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
+      setSession(s);
+      setLoading(false);
+    });
+    return () => sub.subscription.unsubscribe();
+  }, []);
+
+  const user = session?.user ?? null;
+
+  const value: AuthValue = {
+    user,
+    // Username lives in auth user_metadata — no extra table needed; it's a
+    // display handle, not an identity (login stays email-based).
+    username: typeof user?.user_metadata?.username === 'string' ? user.user_metadata.username : null,
+    loading,
+
+    async signUp(email, password, username) {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: { data: { username } },
+      });
+      if (error) throw new Error(friendlyAuthError(error.message));
+      // Supabase obfuscates existing emails: sign-up "succeeds" with a
+      // userless/identity-less response instead of erroring.
+      if (data.user && data.user.identities?.length === 0) {
+        throw new Error('That email already has an account — sign in instead.');
+      }
+      // No session ⇒ the project still has "Confirm email" enabled. The app
+      // is designed for confirmations OFF (Supabase dashboard → Auth →
+      // Sign In / Up); surface it rather than silently staying a guest.
+      if (!data.session) {
+        throw new Error('Account created, but email confirmation is required by the server. Check your inbox, then sign in.');
+      }
+    },
+
+    async signIn(email, password) {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw new Error(friendlyAuthError(error.message));
+    },
+
+    async signOut() {
+      // Guest state after sign-out should be empty, not the pre-sign-in
+      // leftovers — those were merged into the account. Clear before the
+      // auth event so the store swap doesn't resurrect them.
+      clearGuestLeagueState();
+      await supabase.auth.signOut();
+    },
+  };
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+}
+
+export function useAuth(): AuthValue {
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error('useAuth must be used within <AuthProvider>');
+  return ctx;
+}

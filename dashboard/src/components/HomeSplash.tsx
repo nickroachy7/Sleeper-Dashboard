@@ -1,6 +1,8 @@
 import { Link } from 'react-router-dom';
 import { Plus } from 'lucide-react';
 import { openAddLeague } from '../lib/add-league-modal';
+import { openAuth } from '../lib/auth-modal';
+import { useAuth } from '../lib/auth';
 
 // ─── Types ───────────────────────────────────────────────────────────
 
@@ -42,6 +44,7 @@ export function HomeSplash({
   addLeagueCta = false,
   heroImage,
 }: HomeSplashProps) {
+  const { user } = useAuth();
   return (
     <section className="relative overflow-hidden rounded-2xl border border-[#22222b] bg-gradient-to-br from-[#16161c] via-[#121218] to-[#0e0e13]">
       {/* Optional background image with a legibility scrim */}
@@ -96,15 +99,28 @@ export function HomeSplash({
               );
             })}
 
-            {/* Add-league CTA — the primary action for a logged-out visitor. */}
+            {/* Add-league CTA — the primary action for a fresh visitor. For
+                guests it opens the sign-up wizard (account → leagues → teams);
+                the guest path stays one click behind it. Signed-in users with
+                no leagues get the plain add-league modal. */}
             {addLeagueCta && (
-              <button
-                onClick={openAddLeague}
-                className="group mt-1 flex items-center justify-center gap-2 rounded-xl bg-accent-500 px-5 py-3.5 text-[15px] font-bold text-[#06110a] shadow-[0_0_20px_rgba(34,197,94,0.18)] transition-all hover:bg-accent-400"
-              >
-                <Plus className="h-[18px] w-[18px]" />
-                Add your league
-              </button>
+              <>
+                <button
+                  onClick={user ? openAddLeague : openAuth}
+                  className="group mt-1 flex items-center justify-center gap-2 rounded-xl bg-accent-500 px-5 py-3.5 text-[15px] font-bold text-[#06110a] shadow-[0_0_20px_rgba(34,197,94,0.18)] transition-all hover:bg-accent-400"
+                >
+                  <Plus className="h-[18px] w-[18px]" />
+                  {user ? 'Add your league' : 'Get started'}
+                </button>
+                {!user && (
+                  <button
+                    onClick={openAddLeague}
+                    className="text-[12px] text-[#75757f] hover:text-[#9c9ca7] transition-colors py-1"
+                  >
+                    Just browse with a league — no account
+                  </button>
+                )}
+              </>
             )}
           </div>
         </div>

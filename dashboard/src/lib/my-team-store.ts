@@ -1,8 +1,9 @@
 // ── My-team store ─────────────────────────────────────────────────
 // Persistence seam for "which roster is the visitor's own" — one choice per
-// root league. There's no account/auth yet, so this is localStorage-backed
-// (same pattern + swap story as league-store.ts). Keyed by rootLeagueId so
-// each league the visitor tracks remembers its own team independently.
+// root league. localStorage-backed in BOTH guest and account modes: for
+// signed-in users this map is the fast local replica, and the account league
+// store (account-league-store.ts) mirrors it into user_leagues.my_roster_id.
+// Keyed by rootLeagueId so each tracked league remembers its own team.
 //
 // Roster ids are stable across a dynasty's season chain, so a single
 // roster_id identifies the visitor's team in every season of that league.
@@ -63,6 +64,18 @@ export const myTeamStore = {
     if (rosterId == null) delete map[rootLeagueId];
     else map[rootLeagueId] = rosterId;
     writeMap(map);
+    refresh();
+  },
+
+  /** Replace the whole map (account sign-in pulls choices from user_leagues). */
+  replaceAll(map: Record<string, number>): void {
+    writeMap(map);
+    refresh();
+  },
+
+  /** Wipe all choices (sign-out — they were merged into the account). */
+  clearAll(): void {
+    localStorage.removeItem(KEY);
     refresh();
   },
 

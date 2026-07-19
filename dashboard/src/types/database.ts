@@ -1014,6 +1014,33 @@ export type Database = {
           },
         ]
       }
+      user_leagues: {
+        Row: {
+          added_at: string
+          my_roster_id: number | null
+          name: string
+          root_league_id: string
+          season: string
+          user_id: string
+        }
+        Insert: {
+          added_at?: string
+          my_roster_id?: number | null
+          name: string
+          root_league_id: string
+          season: string
+          user_id: string
+        }
+        Update: {
+          added_at?: string
+          my_roster_id?: number | null
+          name?: string
+          root_league_id?: string
+          season?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       users: {
         Row: {
           avatar: string | null

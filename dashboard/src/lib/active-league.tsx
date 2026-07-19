@@ -1,6 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useSyncExternalStore, type ReactNode } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { createLocalStorageLeagueStore, type LeagueStore, type TrackedLeague } from './league-store';
+import { createAccountLeagueStore } from './account-league-store';
+import { useAuth } from './auth';
 import { supabase } from './supabase';
 
 // ── Active-league context ─────────────────────────────────────────
@@ -10,8 +12,10 @@ import { supabase } from './supabase';
 // visitor — and the app shows the onboarding funnel rather than defaulting to
 // someone else's data.
 
-// Swap this for a Supabase-Auth-backed store when accounts land (hybrid plan).
-const store: LeagueStore = createLocalStorageLeagueStore();
+// Guests persist in localStorage; signed-in users in the user_leagues table
+// (the hybrid plan). One guest-store instance for the app's lifetime — it's
+// also the fallback while auth is still resolving.
+const guestStore: LeagueStore = createLocalStorageLeagueStore();
 
 interface ActiveLeagueValue {
   /** Leagues the visitor has added (empty until they add one). */
@@ -42,6 +46,26 @@ const ActiveLeagueContext = createContext<ActiveLeagueValue | null>(null);
 export function ActiveLeagueProvider({ children }: { children: ReactNode }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const urlLeagueId = searchParams.get('league');
+  const { user } = useAuth();
+  const userId = user?.id ?? null;
+
+  // Pick the store for the current auth state. The account store loads its
+  // rows (and folds in any guest leftovers) asynchronously after creation.
+  // Keyed on the user id, not the user object — token refreshes swap the
+  // object identity and must not rebuild the store.
+  const store = useMemo<LeagueStore>(
+    () => (userId ? createAccountLeagueStore(userId) : guestStore),
+    [userId]
+  );
+
+  // Dispose the previous account store when auth state swaps it out, so its
+  // my-team mirror subscription doesn't keep writing for a stale user.
+  const prevStore = useRef<LeagueStore | null>(null);
+  useEffect(() => {
+    const prev = prevStore.current;
+    if (prev && prev !== store) prev.dispose?.();
+    prevStore.current = store;
+  }, [store]);
 
   // Subscribe to the store so the whole tree re-renders on add/remove/switch.
   const leagues = useSyncExternalStore(store.subscribe, store.list, store.list);
@@ -54,10 +78,11 @@ export function ActiveLeagueProvider({ children }: { children: ReactNode }) {
   const activeLeagueId = urlLeagueId ?? storedActiveId ?? null;
 
   // Onboarding vs. dashboard: a visitor "has a league" if they've added one or
-  // are previewing via a shareable link. A preview is a `?league=` league they
-  // haven't added themselves.
+  // are previewing via a shareable link. A stored active id also counts: right
+  // after sign-in the account store is still loading its list, but the device
+  // pointer already names a league — show the dashboard, not an onboarding flash.
   const isPreview = !!urlLeagueId && !leagues.some((l) => l.rootLeagueId === urlLeagueId);
-  const hasLeague = leagues.length > 0 || !!urlLeagueId;
+  const hasLeague = leagues.length > 0 || !!urlLeagueId || !!storedActiveId;
 
   // Keep the tracked league's last_viewed_at fresh so the TTL cleanup only
   // prunes genuinely abandoned leagues. Fire once per active id per session;
@@ -80,7 +105,7 @@ export function ActiveLeagueProvider({ children }: { children: ReactNode }) {
         setSearchParams(next, { replace: true });
       }
     },
-    [searchParams, setSearchParams]
+    [store, searchParams, setSearchParams]
   );
 
   const value = useMemo<ActiveLeagueValue>(
@@ -93,7 +118,7 @@ export function ActiveLeagueProvider({ children }: { children: ReactNode }) {
       addLeague: store.add,
       removeLeague: store.remove,
     }),
-    [leagues, activeLeagueId, hasLeague, isPreview, setActiveLeague]
+    [leagues, activeLeagueId, hasLeague, isPreview, setActiveLeague, store]
   );
 
   return <ActiveLeagueContext.Provider value={value}>{children}</ActiveLeagueContext.Provider>;

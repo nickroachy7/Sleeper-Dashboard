@@ -25,6 +25,7 @@ import {
 import { PageHeader } from '../components/PageHeader';
 import { StatCard } from '../components/StatCard';
 import { PositionBadge } from '../components/PositionBadge';
+import { AccountSection } from '../components/AccountSection';
 import { MyLeaguesSection } from '../components/MyLeaguesSection';
 import { useLeague } from '../hooks/queries';
 
@@ -245,6 +246,8 @@ export default function Settings() {
     <div className="min-h-dvh">
       <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto">
         <PageHeader title="Settings" />
+
+        <AccountSection />
 
         <MyLeaguesSection />
 

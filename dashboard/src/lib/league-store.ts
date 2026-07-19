@@ -1,9 +1,10 @@
 // ── League store ──────────────────────────────────────────────────
 // Persistence seam for the set of leagues a visitor has added and which
-// one is active. Backed by localStorage today (no account required —
-// the "hybrid" launch plan). When Supabase Auth lands, implement the same
-// `LeagueStore` interface against a `user_leagues` table and swap the
-// instance in `active-league.tsx`; nothing else needs to change.
+// one is active. Two implementations behind one interface (the "hybrid"
+// plan): this localStorage store for guests, and the account-backed store
+// in account-league-store.ts for signed-in users. active-league.tsx picks
+// per auth state. The ACTIVE id stays in localStorage for both — it's a
+// per-device pointer, not account data.
 
 export interface TrackedLeague {
   /** Current-season (root) league_id — the head of the previous_league_id chain. */
@@ -25,10 +26,29 @@ export interface LeagueStore {
   remove(rootLeagueId: string): void;
   /** Subscribe to changes (also fires on cross-tab `storage` events). Returns an unsubscribe. */
   subscribe(listener: () => void): () => void;
+  /** Release internal subscriptions when the store is swapped out (account store only). */
+  dispose?(): void;
 }
 
 const LIST_KEY = 'sleeper_dash.leagues';
-const ACTIVE_KEY = 'sleeper_dash.activeLeagueId';
+/** Active league id — per-device state shared by BOTH store implementations. */
+export const ACTIVE_KEY = 'sleeper_dash.activeLeagueId';
+
+/** Guest league list straight from localStorage (used by the account-store merge). */
+export function readGuestLeagues(): TrackedLeague[] {
+  return readList();
+}
+
+// Live guest-store instances, so clearing guest state (sign-out, or the
+// post-merge cleanup) can refresh their caches — same-tab writes don't fire
+// `storage` events.
+const instanceRefreshers = new Set<() => void>();
+
+/** Wipe the guest league list (keeps the active-id device pointer). */
+export function clearGuestLeagues(): void {
+  localStorage.removeItem(LIST_KEY);
+  instanceRefreshers.forEach((r) => r());
+}
 
 function readList(): TrackedLeague[] {
   try {
@@ -69,6 +89,7 @@ export function createLocalStorageLeagueStore(): LeagueStore {
       else if (e.key === ACTIVE_KEY) emit();
     });
   }
+  instanceRefreshers.add(refreshList);
 
   return {
     list: () => cache,
