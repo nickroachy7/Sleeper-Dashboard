@@ -106,7 +106,10 @@ export default function Profile() {
   const { data: board, isLoading: boardLoading } = useQuery({
     queryKey: ['user-board', profile?.user_id],
     enabled: !!profile,
-    refetchInterval: 30_000, // votes land continuously; keep shared views fresh
+    // Votes land continuously; keep shared views fresh. But pause while the
+    // owner is editing — a background refetch resolving mid-edit would clobber
+    // the optimistic reorder and visually revert it for up to 30s.
+    refetchInterval: editing ? false : 30_000,
     queryFn: async (): Promise<BoardRow[]> => {
       const { data } = await supabase
         .from('user_player_ratings')
@@ -125,15 +128,26 @@ export default function Profile() {
     if (!playersMap || !communityValues) return [];
     const personal = new Map((board ?? []).map((r) => [r.player_id, r]));
 
-    const all = [...communityValues.entries()]
+    // Community values tie heavily (110 players share value 1 at the tail),
+    // and a tie run has no "between" — midpoints collapse and ▲▼/drag can't
+    // land a player at a specific spot inside it. Give every player a tiny
+    // deterministic sub-point offset by descending community value so no two
+    // blended values ever collide. It's fractions of a point on a 0–9999
+    // scale, below the rounding used for display, so nothing user-visible
+    // shifts — but every midpoint now exists and edits become exact.
+    const byCommunity = [...communityValues.entries()].sort((a, b) => b[1] - a[1]);
+    const deTie = new Map(byCommunity.map(([id], i) => [id, -i * 1e-4]));
+
+    const all = byCommunity
       .map(([playerId, communityValue]) => {
         const mine = personal.get(playerId);
         const deviation = mine ? (mine.rating - 1500) * ELO_SCALE : 0;
+        const base = communityValue + (deTie.get(playerId) ?? 0);
         return {
           player_id: playerId,
           player: playersMap.get(playerId),
-          communityValue,
-          blended: communityValue + deviation,
+          communityValue: base,
+          blended: base + deviation,
           moved: !!mine && mine.rating !== 1500,
           wins: mine?.wins ?? 0,
           losses: mine?.losses ?? 0,
@@ -194,15 +208,6 @@ export default function Profile() {
   const ratingForBlended = (targetBlended: number, communityValue: number) =>
     1500 + (targetBlended - communityValue) / ELO_SCALE;
 
-  // Swap with the neighbor above (dir −1) or below (dir +1): land 1 board
-  // point past its blended value.
-  const nudge = (rank: number, dir: -1 | 1) => {
-    const me = rows[rank - 1];
-    const neighbor = rows[rank - 1 + dir];
-    if (!me || !neighbor) return;
-    setRating(me.player_id, ratingForBlended(neighbor.blended - dir, me.communityValue));
-  };
-
   // Set an exact rank within the current position scope: midpoint between the
   // new neighbors' blended values (blended is global, so between two QBs is
   // between them on every view).
@@ -220,6 +225,17 @@ export default function Profile() {
       : null;
     if (targetBlended === null) return;
     setRating(playerId, ratingForBlended(targetBlended, me.communityValue));
+  };
+
+  // ▲/▼ is just a one-spot move: swap with the neighbor above (dir −1) or
+  // below (dir +1) by taking its rank. Delegating to setRank keeps the "land
+  // between the new neighbors" math in one place — and with de-tied values
+  // that midpoint always exists, so a nudge now lands the exact single swap
+  // instead of leaping past a whole tie run.
+  const nudge = (rank: number, dir: -1 | 1) => {
+    const me = rows[rank - 1];
+    if (!me) return;
+    setRank(me.player_id, rank + dir);
   };
 
   const commitRankDraft = () => {
