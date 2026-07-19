@@ -1,7 +1,7 @@
 import { NavLink, Outlet, useLocation, Link } from 'react-router-dom';
 import {
   LayoutDashboard,
-  Scale,
+  Gamepad2,
   Settings,
   TrendingUp,
   Trophy,
@@ -34,9 +34,9 @@ interface NavItem {
 // or ask"), reached from the search button in the header/top bar.
 const primaryNav: NavItem[] = [
   { to: '/', icon: LayoutDashboard, label: 'Feed' },
-  { to: '/league', icon: Trophy, label: 'League' },
+  { to: '/trade', icon: Gamepad2, label: 'Minis' },
   { to: '/players', icon: TrendingUp, label: 'Ranking' },
-  { to: '/trade', icon: Scale, label: 'Tools' },
+  { to: '/league', icon: Trophy, label: 'League' },
 ];
 
 // Secondary destinations — desktop sidebar footer + tail of the mobile strip.

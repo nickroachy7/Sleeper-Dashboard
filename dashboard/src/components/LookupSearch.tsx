@@ -19,7 +19,7 @@ const PAGES = [
   { label: 'League', to: '/league' },
   { label: 'Ranking', to: '/players' },
   { label: 'Records', to: '/players?tab=records' },
-  { label: 'Tools', to: '/trade' },
+  { label: 'Minis', to: '/trade' },
   { label: 'Rank \'Em', to: '/trade?tab=rank' },
   { label: 'Settings', to: '/settings' },
   { label: 'Feedback', to: '/feedback' },

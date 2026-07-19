@@ -6,7 +6,7 @@ import { ProfileMenu } from './ProfileMenu';
 const TITLES: Record<string, string> = {
   '/': 'Feed',
   '/league': 'League',
-  '/trade': 'Tools',
+  '/trade': 'Minis',
   '/players': 'Ranking',
   '/settings': 'Settings',
   '/feedback': 'Feedback',
