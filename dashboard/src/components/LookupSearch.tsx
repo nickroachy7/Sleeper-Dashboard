@@ -231,6 +231,30 @@ export function LookupSearch() {
 
             {/* Results */}
             <div className="flex-1 overflow-y-auto overscroll-contain py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+              {/* Recent conversations lead the empty state — the palette is the
+                  assistant's home now. Capped at 3 most-recent. */}
+              {!hasQuery && sessions.length > 0 && (
+                <Section label="Recent chats">
+                  {sessions.slice(0, 3).map((s) => (
+                    <div key={s.id} className="group flex items-center gap-2 rounded-xl hover:bg-[#1b1b22] transition-colors">
+                      <button
+                        onClick={() => { setMode('chat'); openSession(s); }}
+                        className="flex items-center gap-3 flex-1 min-w-0 px-3 py-2 text-left"
+                      >
+                        <span className="w-8 h-8 rounded-lg bg-[#1b1b22] group-hover:bg-[#22222b] flex items-center justify-center shrink-0"><Sparkles className="h-4 w-4 text-[#75757f]" /></span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-[13.5px] text-white truncate">{s.title}</span>
+                          <span className="block text-[11px] text-[#60606a]">{relTime(s.updatedAt)}</span>
+                        </span>
+                      </button>
+                      <button onClick={() => removeSession(s.id)} aria-label="Delete chat" className="opacity-0 group-hover:opacity-100 text-[#60606a] hover:text-red-400 px-2 shrink-0 transition-opacity">
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ))}
+                </Section>
+              )}
+
               {pageResults.length > 0 && (
                 <Section label="Go to">
                   {pageResults.map((r) => (
@@ -285,30 +309,6 @@ export function LookupSearch() {
                 <div className="px-2 pt-1" onPointerEnter={() => setActiveIdx(flat.findIndex((r) => r.kind === 'ask'))}>
                   <AskRow query={query} active={flat[activeIdx]?.kind === 'ask'} emphasized={noMatches} onClick={() => ask(query)} />
                 </div>
-              )}
-
-              {/* Recent conversations — the palette is the assistant's home now,
-                  so surface saved threads when there's nothing being typed. */}
-              {!hasQuery && sessions.length > 0 && (
-                <Section label="Recent chats">
-                  {sessions.slice(0, 5).map((s) => (
-                    <div key={s.id} className="group flex items-center gap-2 rounded-xl hover:bg-[#1b1b22] transition-colors">
-                      <button
-                        onClick={() => { setMode('chat'); openSession(s); }}
-                        className="flex items-center gap-3 flex-1 min-w-0 px-3 py-2 text-left"
-                      >
-                        <span className="w-8 h-8 rounded-lg bg-[#1b1b22] group-hover:bg-[#22222b] flex items-center justify-center shrink-0"><Sparkles className="h-4 w-4 text-[#75757f]" /></span>
-                        <span className="min-w-0 flex-1">
-                          <span className="block text-[13.5px] text-white truncate">{s.title}</span>
-                          <span className="block text-[11px] text-[#60606a]">{relTime(s.updatedAt)}</span>
-                        </span>
-                      </button>
-                      <button onClick={() => removeSession(s.id)} aria-label="Delete chat" className="opacity-0 group-hover:opacity-100 text-[#60606a] hover:text-red-400 px-2 shrink-0 transition-opacity">
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  ))}
-                </Section>
               )}
 
               {!hasQuery && sessions.length === 0 && (
