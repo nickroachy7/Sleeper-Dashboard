@@ -9,10 +9,11 @@ import { useLeagueDirectory } from '../hooks/detail';
 import { useActiveLeague } from '../lib/active-league';
 import { openAddLeague } from '../lib/add-league-modal';
 import { useLeagueChat } from '../hooks/useLeagueChat';
+import { useKeyboardInset } from '../hooks/useKeyboardInset';
 import { ChatMessageView } from './chat/ChatMessageView';
 import { PlayerRow } from './PlayerRow';
 import { TeamRow } from './TeamRow';
-import { OPEN_LOOKUP_EVENT, type OpenLookupDetail } from '../lib/lookup';
+import { closeLookup, useLookupState } from '../lib/lookup';
 
 const PAGES = [
   { label: 'Feed', to: '/' },
@@ -49,7 +50,7 @@ function relTime(ms: number): string {
  * a separate /chat page — the palette is the assistant.
  */
 export function LookupSearch() {
-  const [open, setOpen] = useState(false);
+  const { open, seed, nonce } = useLookupState();
   const [mode, setMode] = useState<'search' | 'chat'>('search');
   const [query, setQuery] = useState('');
   const [draft, setDraft] = useState('');
@@ -58,6 +59,11 @@ export function LookupSearch() {
   const chatInputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+
+  // On mobile the panel docks its input above the keyboard; this is how far up
+  // the keyboard pushes it. Desktop keeps its centered modal, so only track it
+  // while open.
+  const keyboardInset = useKeyboardInset(open);
 
   const { data: players } = usePlayers();
   const { data: playerValues } = usePlayerValuesList();
@@ -70,30 +76,31 @@ export function LookupSearch() {
     send, startNewChat, openSession, removeSession, reset,
   } = chat;
 
-  // Open/close hotkeys + external open event (which may carry a seed question).
+  // ⌘K toggles; "/" opens search mode; Esc closes. (The header button and the
+  // desktop top bar drive the shared store directly.)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement)?.tagName;
       const typing = tag === 'INPUT' || tag === 'TEXTAREA' || (e.target as HTMLElement)?.isContentEditable;
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); setOpen((v) => !v); }
-      else if (e.key === '/' && !typing) { e.preventDefault(); setMode('search'); setOpen(true); }
-      else if (e.key === 'Escape') { setOpen(false); }
-    };
-    const onOpen = (e: Event) => {
-      const seed = (e as CustomEvent<OpenLookupDetail>).detail?.seed?.trim();
-      if (seed) { setMode('chat'); startNewChat(seed); }
-      else { setMode('search'); setQuery(''); }
-      setOpen(true);
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); import('../lib/lookup').then((m) => m.toggleLookup()); }
+      else if (e.key === '/' && !typing) { e.preventDefault(); import('../lib/lookup').then((m) => m.openLookup()); }
+      else if (e.key === 'Escape') { closeLookup(); }
     };
     window.addEventListener('keydown', onKey);
-    window.addEventListener(OPEN_LOOKUP_EVENT, onOpen);
-    return () => {
-      window.removeEventListener('keydown', onKey);
-      window.removeEventListener(OPEN_LOOKUP_EVENT, onOpen);
-    };
-    // startNewChat is stable enough for this listener's lifetime.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    return () => window.removeEventListener('keydown', onKey);
   }, []);
+
+  // React to each open request from the store. A seed opens chat mode and asks;
+  // a plain open resets to search. Keyed on nonce so re-opening (even while
+  // already open) with a new seed still fires.
+  useEffect(() => {
+    if (!open) return;
+    const s = seed?.trim();
+    if (s) { setMode('chat'); startNewChat(s); }
+    else { setMode('search'); setQuery(''); }
+    // startNewChat is stable enough for this effect's purpose.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, nonce]);
 
   // Focus the right input whenever the surface changes.
   useEffect(() => {
@@ -181,8 +188,8 @@ export function LookupSearch() {
   const go = (r: Result | undefined) => {
     if (!r) return;
     if (r.kind === 'ask') return ask(query);
-    if (r.kind === 'league') { setActiveLeague(r.rootLeagueId); setOpen(false); navigate('/'); return; }
-    setOpen(false);
+    if (r.kind === 'league') { setActiveLeague(r.rootLeagueId); closeLookup(); navigate('/'); return; }
+    closeLookup();
     navigate(r.to);
   };
 
@@ -193,18 +200,24 @@ export function LookupSearch() {
 
   return (
     <div
-      className="fixed inset-0 z-[90] bg-black/70 sm:backdrop-blur-sm flex items-stretch sm:items-start justify-center sm:pt-[10vh] sm:px-4"
-      onClick={() => setOpen(false)}
+      // Mobile: a panel BELOW the persistent header (starts at the header's
+      // bottom edge), docked up to the keyboard so its input sits right above
+      // it — the header (with its X) stays visible and owns closing. Desktop:
+      // the classic centered command-palette modal with a dim backdrop.
+      className="fixed left-0 right-0 z-[75] top-[calc(104px+env(safe-area-inset-top))] sm:inset-0 sm:top-0 sm:z-[90] sm:bg-black/70 sm:backdrop-blur-sm sm:flex sm:items-start sm:justify-center sm:pt-[10vh] sm:px-4"
+      style={{ bottom: keyboardInset }}
+      onClick={() => closeLookup()}
     >
       <div
-        className="flex flex-col w-full h-full sm:h-auto sm:max-h-[80vh] sm:max-w-xl bg-[#141419] sm:border sm:border-[#2a2a34] sm:rounded-2xl overflow-hidden sm:shadow-2xl sm:ring-1 sm:ring-black/40 pt-[env(safe-area-inset-top)] sm:pt-0 animate-palette-in"
+        className="flex flex-col w-full h-full sm:h-auto sm:max-h-[80vh] sm:max-w-xl bg-[#141419] sm:border sm:border-[#2a2a34] sm:rounded-2xl overflow-hidden sm:shadow-2xl sm:ring-1 sm:ring-black/40 animate-palette-in"
         onClick={(e) => e.stopPropagation()}
       >
         {mode === 'search' ? (
           <>
-            {/* Search input — shaped like the chat bubble (rounded pill, same
-                surface + accent focus) so search and chat read as one family. */}
-            <div className="flex items-center gap-2 px-3 sm:px-4 py-3 border-b border-[#22222b] shrink-0">
+            {/* Search input — a rounded bubble (matching the chat composer). On
+                mobile it docks at the BOTTOM (order-last) so it sits just above
+                the keyboard; on desktop it leads the palette at the top. */}
+            <div className="order-last sm:order-none flex items-center gap-2 px-3 sm:px-4 py-3 border-t sm:border-t-0 sm:border-b border-[#22222b] shrink-0 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:pb-3">
               <div className="flex-1 min-w-0 flex items-center gap-2.5 rounded-full bg-[#1b1b22] border border-[#2a2a34] focus-within:border-accent-500/50 pl-4 pr-2 transition-colors">
                 <Search className="h-[18px] w-[18px] text-[#75757f] shrink-0" />
                 <input
@@ -227,11 +240,10 @@ export function LookupSearch() {
                   </button>
                 )}
               </div>
-              <button onClick={() => setOpen(false)} className="sm:hidden text-[15px] font-semibold text-accent-400 shrink-0">Cancel</button>
             </div>
 
-            {/* Results */}
-            <div className="flex-1 overflow-y-auto overscroll-contain py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+            {/* Results — scroll between the header and the docked input. */}
+            <div className="order-none flex-1 overflow-y-auto overscroll-contain py-2">
               {/* Recent conversations lead the empty state — the palette is the
                   assistant's home now. Capped at 3 most-recent. */}
               {!hasQuery && sessions.length > 0 && (
@@ -271,7 +283,7 @@ export function LookupSearch() {
                 <Section label="Players">
                   {playerResults.map((r) => (
                     <div key={r.id} onPointerEnter={() => setActiveIdx(idxOf(r))}>
-                      <PlayerRow playerId={r.playerId} name={r.name} position={r.position} team={r.team} value={r.value} size="sm" onClick={() => setOpen(false)} className={`rounded-xl ${activeClass(r)}`} />
+                      <PlayerRow playerId={r.playerId} name={r.name} position={r.position} team={r.team} value={r.value} size="sm" onClick={() => closeLookup()} className={`rounded-xl ${activeClass(r)}`} />
                     </div>
                   ))}
                 </Section>
@@ -281,7 +293,7 @@ export function LookupSearch() {
                 <Section label={query ? 'Teams' : 'League Teams'}>
                   {teams.map((r) => (
                     <div key={r.id} onPointerEnter={() => setActiveIdx(idxOf(r))}>
-                      <TeamRow rosterId={r.rosterId} name={r.name} subtitle={r.owner} avatarId={r.avatarId} size="sm" onClick={() => setOpen(false)} className={`rounded-xl ${activeClass(r)}`} />
+                      <TeamRow rosterId={r.rosterId} name={r.name} subtitle={r.owner} avatarId={r.avatarId} size="sm" onClick={() => closeLookup()} className={`rounded-xl ${activeClass(r)}`} />
                     </div>
                   ))}
                 </Section>
@@ -299,7 +311,7 @@ export function LookupSearch() {
                       {r.rootLeagueId === activeLeagueId && <span className="text-[10px] text-accent-500 font-semibold">Active</span>}
                     </button>
                   ))}
-                  <button onClick={() => { setOpen(false); openAddLeague(); }} className="flex items-center gap-3 px-3 py-2 w-full text-left text-[#9c9ca7] hover:text-white rounded-xl transition-colors hover:bg-[#1b1b22]">
+                  <button onClick={() => { closeLookup(); openAddLeague(); }} className="flex items-center gap-3 px-3 py-2 w-full text-left text-[#9c9ca7] hover:text-white rounded-xl transition-colors hover:bg-[#1b1b22]">
                     <span className="w-9 h-9 rounded-full bg-[#1b1b22] flex items-center justify-center shrink-0"><Plus className="h-4 w-4 text-[#75757f]" /></span>
                     <span className="text-[13.5px]">Add a league</span>
                   </button>
@@ -346,7 +358,10 @@ export function LookupSearch() {
                   <Plus className="h-3.5 w-3.5" /> New
                 </button>
               )}
-              <button onClick={() => setOpen(false)} className="sm:hidden text-[15px] font-semibold text-accent-400 shrink-0 ml-1">Done</button>
+              {/* Desktop close (mobile closes via the header's X). */}
+              <button onClick={() => closeLookup()} className="hidden sm:flex shrink-0 -mr-1 p-1 text-[#75757f] hover:text-white transition-colors" aria-label="Close">
+                <X className="h-[18px] w-[18px]" />
+              </button>
             </div>
 
             {/* ── Thread ── */}

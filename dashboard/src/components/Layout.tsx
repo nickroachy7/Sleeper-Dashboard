@@ -6,6 +6,7 @@ import {
   TrendingUp,
   Trophy,
   Search,
+  X,
   MessageSquarePlus,
 } from 'lucide-react';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
@@ -14,7 +15,7 @@ import { TopBar } from './TopBar';
 import { ProfileMenu } from './ProfileMenu';
 import { AddLeagueModal } from './AddLeagueModal';
 import { SessionContributeModal } from './SessionContributeModal';
-import { openLookup } from '../lib/lookup';
+import { toggleLookup, useLookupState } from '../lib/lookup';
 
 // ── Nav Configuration ───────────────────────────────────────────────
 
@@ -49,6 +50,7 @@ const secondaryNav: NavItem[] = [
 export default function Layout() {
   const location = useLocation();
   useRealtimeSync();
+  const { open: searchOpen } = useLookupState();
 
   const isNavItemActive = (to: string, match?: string[]) => {
     if (match?.some((p) => location.pathname.startsWith(p))) return true;
@@ -101,12 +103,15 @@ export default function Layout() {
             The profile sheet carries identity, league switching, and account
             actions (the old compact league switcher's job). */}
         <div className="relative flex items-center justify-between h-14 px-3">
+          {/* Search stays in the header while open — the icon flips to an X
+              that quits search, so the header never disappears behind it. */}
           <button
-            onClick={() => openLookup()}
-            aria-label="Search or ask"
+            onClick={() => toggleLookup()}
+            aria-label={searchOpen ? 'Close search' : 'Search or ask'}
+            aria-expanded={searchOpen}
             className="shrink-0 w-9 h-9 rounded-lg flex items-center justify-center text-[#9c9ca7] hover:text-white hover:bg-[#1b1b22] active:bg-[#22222b] transition-colors"
           >
-            <Search className="h-[20px] w-[20px]" />
+            {searchOpen ? <X className="h-[20px] w-[20px]" /> : <Search className="h-[20px] w-[20px]" />}
           </button>
           <Link
             to="/"
