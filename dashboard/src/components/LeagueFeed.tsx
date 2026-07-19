@@ -1,11 +1,9 @@
-import { useQuery } from '@tanstack/react-query';
 import { useMemo, useCallback, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Clock, Users, Sparkles, Swords, Check } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { Clock, Users, Sparkles, Swords, Check, Trophy } from 'lucide-react';
 import { usePlayerMap } from '../hooks/useLeagueData';
-import { usePlayerValuesList, usePickValues, useLeagueIds } from '../hooks/queries';
-import { useLeaguePickResolutions, useLeagueDirectory } from '../hooks/detail';
+import { usePlayerValuesList, usePickValues } from '../hooks/queries';
+import { useMultiLeagueFeed, type MultiLeagueFeedData } from '../hooks/useMultiLeagueFeed';
 import { useVoteMatchups } from '../hooks/useVoteMatchups';
 import { recordPairwiseVote } from '../lib/community-events';
 import { TradeCard as SharedTradeCard, type TradeSide } from './TradeCard';
@@ -20,13 +18,15 @@ import {
   getPlayerImageUrl,
   type TxDraftPick,
 } from '../lib/trade-shared';
-import type { Player, Fairness, TradeAsset, TransactionRow } from '../types/domain';
+import type { Player, Fairness, TradeAsset } from '../types/domain';
 
 // ── Feed item model ───────────────────────────────────────────────
-// The home feed is a reverse-chron stream of typed items. Today it's league
-// transactions; the union is deliberately open so future item kinds — value-
-// vote CTAs, trending trades, discussions — slot in as new `kind`s the renderer
-// switches on, without reshaping the feed. `sortKey` (ms) orders everything.
+// The feed is a reverse-chron stream of typed items. It's league-NEUTRAL:
+// activity is aggregated across ALL of the user's leagues, so every activity
+// item carries its own `leagueId`/`leagueName` for a per-item league badge.
+// The union stays deliberately open so future item kinds — trending trades,
+// discussions — slot in as new `kind`s the renderer switches on. `sortKey`
+// (ms) orders everything.
 
 interface TradeTeam { rosterId: number; teamName: string; ownerName: string; }
 
@@ -35,6 +35,8 @@ export interface FeedTradeItem {
   id: string;
   sortKey: number;
   date: string;
+  leagueId: string;
+  leagueName: string;
   sides: TradeSide[];
   fairness?: Fairness;
 }
@@ -43,6 +45,8 @@ export interface FeedMoveItem {
   id: string;
   sortKey: number;
   date: string;
+  leagueId: string;
+  leagueName: string;
   moveType: string; // 'waiver' | 'free_agent' | 'commissioner' | …
   team: TradeTeam | null;
   adds: string[];
@@ -56,42 +60,30 @@ export interface FeedVoteItem {
 }
 export type FeedItem = FeedTradeItem | FeedMoveItem | FeedVoteItem;
 
-const FEED_LIMIT = 40;
+const FEED_LIMIT = 50;
 // A vote CTA every ~N activity items — the "core rhythm" — and if activity is
 // sparse (e.g. offseason) we top up with extra CTAs so the feed never feels
 // dead. Both are tunable knobs for the future live-signal-driven version.
 const CTA_EVERY = 4;
 const MIN_CTAS = 3;
+// Only badge a trade/move with its league when the user follows more than one —
+// in a single-league feed the league name is just noise.
+function showLeagueBadges(items: (FeedTradeItem | FeedMoveItem)[]): boolean {
+  const distinct = new Set(items.map((i) => i.leagueName));
+  return distinct.size > 1;
+}
 
 /**
- * The league activity feed for the home page — a social-style reverse-chron
- * stream of trades and roster moves. This is the "what's happening in my league
- * right now" surface; League → Transactions remains the filterable archive.
+ * The activity feed for the Feed page — a social-style reverse-chron stream of
+ * trades and roster moves across ALL the user's leagues. This is the "what's
+ * happening in my leagues right now" surface; League → Transactions remains the
+ * per-league filterable archive.
  */
 export function LeagueFeed() {
   const { data: players } = usePlayerMap();
   const { data: playerValues } = usePlayerValuesList();
   const { data: pickValuesData } = usePickValues();
-  const { data: pickResolutions } = useLeaguePickResolutions();
-  const { data: directory } = useLeagueDirectory();
-  const { data: leagueIds } = useLeagueIds();
-  const chain = leagueIds?.chain ?? null;
-
-  const { data: txData, isLoading } = useQuery({
-    queryKey: ['league-feed', chain?.join(',') ?? 'none'],
-    enabled: !!leagueIds,
-    queryFn: async () => {
-      // Newest transactions of every type across the dynasty chain. An empty
-      // chain (no league) matches nothing rather than leaking global data.
-      const { data } = await supabase
-        .from('transactions')
-        .select('*')
-        .in('league_id', chain ?? [])
-        .order('created', { ascending: false, nullsFirst: false })
-        .limit(FEED_LIMIT);
-      return (data ?? []) as TransactionRow[];
-    },
-  });
+  const { data: feedData, isLoading } = useMultiLeagueFeed();
 
   const getPlayer = useCallback(
     (pid: string) => (players instanceof Map ? players.get(pid) : undefined),
@@ -102,28 +94,29 @@ export function LeagueFeed() {
     [playerValues]
   );
 
-  const resolvePick = useCallback((pick: TxDraftPick, leagueId?: string) => {
-    const resolution = pickResolutions?.resolve(pick.season, pick.round, pick.roster_id);
+  const resolvePickDisplay = useCallback((pick: TxDraftPick, leagueId: string) => {
+    const resolution = feedData?.resolvePick(pick, leagueId);
     return formatResolvedPick(pick, resolution, {
       pickValues: pickValuesData || [],
-      origTeamName: directory?.teamName(pick.roster_id, leagueId),
+      origTeamName: feedData?.teamName(pick.roster_id, leagueId),
       playerValue: (pid) => getPlayerValue(pid) || undefined,
       playerName: (pid) => (players instanceof Map ? players.get(pid)?.full_name : undefined),
     });
-  }, [pickResolutions, pickValuesData, directory, getPlayerValue, players]);
+  }, [feedData, pickValuesData, getPlayerValue, players]);
 
   const activity = useMemo<(FeedTradeItem | FeedMoveItem)[]>(() => {
-    if (!txData || !directory) return [];
-    const teamName = (rid: number) => directory.teamName(rid);
+    if (!feedData) return [];
+    const { transactions, teamName, leagueName } = feedData;
     const items: (FeedTradeItem | FeedMoveItem)[] = [];
 
-    for (const tx of txData) {
+    for (const tx of transactions) {
+      const lid = tx.league_id;
       const ts = tx.created || tx.status_updated || (tx.created_at ? new Date(tx.created_at).getTime() : 0);
       const date = new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
       const rosterIds = tx.roster_ids ?? [];
 
       if (tx.type === 'trade') {
-        const teams: TradeTeam[] = rosterIds.map((rid) => ({ rosterId: rid, teamName: teamName(rid), ownerName: '' }));
+        const teams: TradeTeam[] = rosterIds.map((rid) => ({ rosterId: rid, teamName: teamName(rid, lid), ownerName: '' }));
         if (teams.length < 2) continue;
 
         // Group each side's received players + picks (same shape the archive uses).
@@ -140,7 +133,7 @@ export function LeagueFeed() {
               return { id: `player-${pid}`, type: 'player' as const, name: p?.full_name || pid, value: getPlayerValue(pid), position: p?.position || '?', team: p?.team || null };
             }),
             ...a.picks.map((pk) => {
-              const r = resolvePick(pk, tx.league_id);
+              const r = resolvePickDisplay(pk, lid);
               return { id: `pick-${pk.season}-${pk.round}-${pk.roster_id}`, type: 'pick' as const, name: r.name, value: r.value };
             }),
           ];
@@ -160,7 +153,7 @@ export function LeagueFeed() {
               return { id: pid, name: p?.full_name || pid, position: p?.position || '?', team: p?.team || null, value: getPlayerValue(pid) };
             }),
             picks: a.picks.map((pk) => {
-              const r = resolvePick(pk, tx.league_id);
+              const r = resolvePickDisplay(pk, lid);
               return { season: pk.season, round: pk.round, name: r.name, subtitle: r.subtitle, playerId: r.playerId, value: r.value ?? lookupPickValue(pickValuesData || [], pk.season, pk.round) };
             }),
             totalValue: sideAssets[idx].reduce((s, x) => s + x.value, 0),
@@ -168,23 +161,23 @@ export function LeagueFeed() {
           };
         });
 
-        items.push({ kind: 'trade', id: tx.transaction_id, sortKey: ts, date, sides, fairness: analysis?.fairness });
+        items.push({ kind: 'trade', id: tx.transaction_id, sortKey: ts, date, leagueId: lid, leagueName: leagueName(lid), sides, fairness: analysis?.fairness });
       } else {
         const adds = Object.keys(playerMoves(tx.adds));
         const drops = Object.keys(playerMoves(tx.drops));
         if (!adds.length && !drops.length) continue;
         const rid = rosterIds[0];
         items.push({
-          kind: 'move', id: tx.transaction_id, sortKey: ts, date,
+          kind: 'move', id: tx.transaction_id, sortKey: ts, date, leagueId: lid, leagueName: leagueName(lid),
           moveType: tx.type,
-          team: rid != null ? { rosterId: rid, teamName: teamName(rid), ownerName: '' } : null,
+          team: rid != null ? { rosterId: rid, teamName: teamName(rid, lid), ownerName: '' } : null,
           adds, drops,
         });
       }
     }
 
-    return items.sort((a, b) => b.sortKey - a.sortKey);
-  }, [txData, directory, getPlayer, getPlayerValue, resolvePick, pickValuesData]);
+    return items.sort((a, b) => b.sortKey - a.sortKey).slice(0, FEED_LIMIT);
+  }, [feedData, getPlayer, getPlayerValue, resolvePickDisplay, pickValuesData]);
 
   // How many vote CTAs to weave in: one per CTA_EVERY activity items, but at
   // least MIN_CTAS so a quiet/offseason feed still has something live. Seed the
@@ -192,6 +185,7 @@ export function LeagueFeed() {
   // as the feed changes.
   const ctaCount = Math.max(MIN_CTAS, Math.floor(activity.length / CTA_EVERY));
   const matchups = useVoteMatchups(ctaCount, activity.length);
+  const badges = showLeagueBadges(activity);
 
   // Interleave: after every CTA_EVERY activity items, drop in the next CTA. Any
   // leftover CTAs (when activity is sparse) are appended so none are lost.
@@ -227,14 +221,14 @@ export function LeagueFeed() {
           <Sparkles className="h-5 w-5 text-accent-500" />
         </div>
         <p className="text-[14px] font-semibold text-white">No activity yet</p>
-        <p className="text-[12px] text-[#75757f] mt-1">Trades and roster moves in your league will show up here.</p>
+        <p className="text-[12px] text-[#75757f] mt-1">Trades and roster moves in your leagues will show up here.</p>
       </div>
     );
   }
 
   return (
     <div className="space-y-3">
-      {feed.map((item) => <FeedItemView key={`${item.kind}-${item.id}`} item={item} getPlayer={getPlayer} getPlayerValue={getPlayerValue} directory={directory} />)}
+      {feed.map((item) => <FeedItemView key={`${item.kind}-${item.id}`} item={item} showBadge={badges} getPlayer={getPlayer} getPlayerValue={getPlayerValue} teamAvatar={feedData?.teamAvatar} />)}
     </div>
   );
 }
@@ -242,17 +236,29 @@ export function LeagueFeed() {
 // ── Item renderer ─────────────────────────────────────────────────
 // One switch over the feed-item union — the extension point for future kinds.
 
-function FeedItemView({ item, getPlayer, getPlayerValue, directory }: {
+function LeagueBadge({ name }: { name: string }) {
+  return (
+    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-accent-500/10 text-accent-400 text-[9px] font-bold tracking-[0.5px] uppercase max-w-[45vw] truncate">
+      <Trophy className="h-2.5 w-2.5 shrink-0" /> {name}
+    </span>
+  );
+}
+
+function FeedItemView({ item, showBadge, getPlayer, getPlayerValue, teamAvatar }: {
   item: FeedItem;
+  showBadge: boolean;
   getPlayer: (pid: string) => { full_name: string; position: string; team: string | null } | undefined;
   getPlayerValue: (pid: string) => number;
-  directory: ReturnType<typeof useLeagueDirectory>['data'];
+  teamAvatar: MultiLeagueFeedData['teamAvatar'] | undefined;
 }) {
   if (item.kind === 'trade') {
     return (
-      <Link to={`/trades/${item.id}`} className="block">
-        <SharedTradeCard sides={item.sides} date={item.date} fairness={item.fairness} />
-      </Link>
+      <div>
+        {showBadge && <div className="px-1.5 pb-1.5"><LeagueBadge name={item.leagueName} /></div>}
+        <Link to={`/trades/${item.id}`} className="block">
+          <SharedTradeCard sides={item.sides} date={item.date} fairness={item.fairness} />
+        </Link>
+      </div>
     );
   }
 
@@ -261,7 +267,7 @@ function FeedItemView({ item, getPlayer, getPlayerValue, directory }: {
   }
 
   const label = item.moveType === 'free_agent' ? 'FREE AGENT' : item.moveType === 'waiver' ? 'WAIVER' : item.moveType.toUpperCase();
-  const avatar = item.team ? directory?.teamAvatar(item.team.rosterId) ?? null : null;
+  const avatar = item.team && teamAvatar ? teamAvatar(item.team.rosterId, item.leagueId) : null;
   const total = item.adds.length + item.drops.length;
 
   return (
@@ -269,6 +275,7 @@ function FeedItemView({ item, getPlayer, getPlayerValue, directory }: {
       <div className="flex items-center gap-2 px-1.5 pb-2 text-[11px] text-[#75757f]">
         <span className="px-1.5 py-0.5 bg-[#1b1b22] text-[#9c9ca7] text-[9px] font-bold tracking-[1px] rounded">{label}</span>
         <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{item.date}</span>
+        {showBadge && <span className="ml-auto"><LeagueBadge name={item.leagueName} /></span>}
       </div>
       <div className="bg-[#141419] rounded-2xl overflow-hidden border border-[#22222b] card-hover">
         <div className="flex items-center gap-2.5 px-4 py-2.5 bg-[#1b1b22]">

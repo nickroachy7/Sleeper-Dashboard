@@ -923,11 +923,15 @@ export function useLeaguePickResolutions() {
 }
 
 /**
- * The pick-resolution engine, shared by {@link useLeaguePickResolutions} and
- * {@link useTradeDetail}. `pickFilter` lets a caller resolve only the picks of a
- * single trade (detail page) instead of the whole league.
+ * The pick-resolution engine, shared by {@link useLeaguePickResolutions},
+ * {@link useTradeDetail}, and the cross-league feed. `pickFilter` lets a caller
+ * resolve only a subset of picks (a single trade, or just the picks in the
+ * feed's recent transactions) instead of the whole league. Exported so the
+ * multi-league feed can resolve each dynasty chain independently — resolutions
+ * are keyed `season-round-roster_id` with no league qualifier, so chains MUST
+ * be resolved separately or picks from different leagues collide.
  */
-async function resolveAllPicks(
+export async function resolveAllPicks(
   chain: string[],
   pickFilter?: { season: string; round: number; roster_id: number }[]
 ): Promise<Map<string, PickResolution>> {
