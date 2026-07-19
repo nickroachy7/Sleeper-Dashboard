@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { NavLink, Outlet, useLocation, Link } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -7,7 +6,6 @@ import {
   TrendingUp,
   Trophy,
   Search,
-  MessageSquare,
   MessageSquarePlus,
 } from 'lucide-react';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
@@ -31,13 +29,14 @@ interface NavItem {
   match?: string[];
 }
 
-// Primary destinations — desktop sidebar + mobile top tab strip.
+// Primary destinations — desktop sidebar + mobile top tab strip. The
+// assistant no longer has a tab: it lives inside the search palette ("search
+// or ask"), reached from the search button in the header/top bar.
 const primaryNav: NavItem[] = [
   { to: '/', icon: LayoutDashboard, label: 'Home' },
   { to: '/league', icon: Trophy, label: 'League' },
   { to: '/players', icon: TrendingUp, label: 'Players', match: ['/value-vote'] },
   { to: '/trade', icon: Scale, label: 'Tools' },
-  { to: '/chat', icon: MessageSquare, label: 'Chat' },
 ];
 
 // Secondary destinations — desktop sidebar footer + tail of the mobile strip.
@@ -51,15 +50,6 @@ const secondaryNav: NavItem[] = [
 export default function Layout() {
   const location = useLocation();
   useRealtimeSync();
-
-  // Inside an individual chat conversation we go fully immersive on mobile: the
-  // entire app header is hidden so the thread is the whole screen (the chat's
-  // own back/title/New bar is the only top chrome — back returns to the list,
-  // where the header + tabs reappear). The sessions list keeps the full header.
-  // Chat reports its view up through the Outlet context below.
-  const isChat = location.pathname === '/chat' || location.pathname.startsWith('/chat/');
-  const [inConversation, setInConversation] = useState(false);
-  const chatImmersive = isChat && inConversation;
 
   const isNavItemActive = (to: string, match?: string[]) => {
     if (match?.some((p) => location.pathname.startsWith(p))) return true;
@@ -106,15 +96,14 @@ export default function Layout() {
   return (
     <div className="min-h-dvh">
       {/* ── Mobile Header: logo + league switcher + search, then a persistent
-          tab strip. Hidden entirely inside a chat conversation — the chat's own
-          bar becomes the only chrome (fully immersive). ── */}
-      <header className={`lg:hidden fixed top-0 left-0 right-0 z-[80] bg-[#0d0d11]/90 backdrop-blur-xl border-b border-[#2a2a34] pt-[env(safe-area-inset-top)] ${chatImmersive ? 'hidden' : ''}`}>
+          tab strip. ── */}
+      <header className="lg:hidden fixed top-0 left-0 right-0 z-[80] bg-[#0d0d11]/90 backdrop-blur-xl border-b border-[#2a2a34] pt-[env(safe-area-inset-top)]">
         {/* Row 1 — search (left) · logo (center → dashboard) · profile (right).
             The profile sheet carries identity, league switching, and account
             actions (the old compact league switcher's job). */}
         <div className="relative flex items-center justify-between h-14 px-3">
           <button
-            onClick={openLookup}
+            onClick={() => openLookup()}
             aria-label="Search or ask"
             className="shrink-0 w-9 h-9 rounded-lg flex items-center justify-center text-[#9c9ca7] hover:text-white hover:bg-[#1b1b22] active:bg-[#22222b] transition-colors"
           >
@@ -186,17 +175,9 @@ export default function Layout() {
 
       {/* ── Main Content ── */}
       <div className="sidebar-layout-main">
-        {/* Desktop top bar is redundant on /chat (sidebar already marks it
-            active); hide it across the whole chat route for a full-height pane. */}
-        {!isChat && <TopBar />}
-        <main
-          className={
-            chatImmersive
-              ? 'min-h-dvh pt-[env(safe-area-inset-top)] lg:pt-0'
-              : 'min-h-dvh pt-[calc(104px+env(safe-area-inset-top))] lg:pt-0'
-          }
-        >
-          <Outlet context={{ setInConversation }} />
+        <TopBar />
+        <main className="min-h-dvh pt-[calc(104px+env(safe-area-inset-top))] lg:pt-0">
+          <Outlet />
         </main>
         <LookupSearch />
       </div>

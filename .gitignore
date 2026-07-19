@@ -31,6 +31,9 @@ Thumbs.db
 # TypeScript cache
 *.tsbuildinfo
 
+# Vite dep pre-bundle cache
+.vite/
+
 # Supabase
 supabase/.temp/
 

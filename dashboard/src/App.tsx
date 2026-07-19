@@ -11,7 +11,6 @@ import PlayerDetail from './pages/PlayerDetail';
 import TeamDetail from './pages/TeamDetail';
 import TradeDetail from './pages/TradeDetail';
 import Feedback from './pages/Feedback';
-import Chat from './pages/Chat';
 import Welcome from './pages/Welcome';
 import Profile from './pages/Profile';
 import { AuthModal } from './components/AuthModal';
@@ -38,12 +37,14 @@ function App() {
         <Route path="trades/:transactionId" element={<TradeDetail />} />
         <Route path="settings" element={<Settings />} />
         <Route path="feedback" element={<Feedback />} />
-        <Route path="chat" element={<Chat />} />
         {/* Public share target — friends land here from a link, so it keeps
             the app chrome (nav = the funnel into the rest of the product). */}
         <Route path="u/:username" element={<Profile />} />
 
         {/* Redirects for old routes */}
+        {/* Chat folded into the search palette; the tab is gone, so send old
+            /chat bookmarks home (the search button reaches the assistant). */}
+        <Route path="chat" element={<Navigate to="/" replace />} />
         <Route path="ktc-values" element={<Navigate to="/players" replace />} />
         <Route path="trade-evaluator" element={<Navigate to="/trade" replace />} />
         <Route path="trade-finder" element={<Navigate to="/trade" replace />} />

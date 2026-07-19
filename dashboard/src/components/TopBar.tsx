@@ -9,7 +9,6 @@ const TITLES: Record<string, string> = {
   '/trade': 'Tools',
   '/players': 'Players',
   '/value-vote': 'Players',
-  '/chat': 'Chat',
   '/settings': 'Settings',
   '/feedback': 'Feedback',
 };
@@ -38,7 +37,7 @@ export function TopBar() {
 
       <div className="flex items-center gap-3">
         <button
-          onClick={openLookup}
+          onClick={() => openLookup()}
           aria-label="Search or ask the assistant"
           className="group flex items-center gap-2.5 h-9 w-72 px-3 rounded-lg bg-[#141419] border border-[#26262f] text-[#75757f] hover:border-[#363641] hover:text-[#9c9ca7] transition-colors"
         >
