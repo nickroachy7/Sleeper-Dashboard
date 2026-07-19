@@ -432,16 +432,17 @@ export default function Profile() {
                         >
                           <ChevronDown className="h-4 w-4" />
                         </button>
-                        {r.moved && (
-                          <button
-                            onClick={() => setRating(r.player_id, 1500)}
-                            className="p-1.5 rounded-md border border-[#2a2a34] text-[#75757f] hover:text-white hover:bg-[#1b1b22] transition-colors"
-                            aria-label="Reset to community rank"
-                            title="Reset to community rank"
-                          >
-                            <RotateCcw className="h-3.5 w-3.5" />
-                          </button>
-                        )}
+                        {/* Always rendered so ▲▼ stay column-aligned; invisible
+                            (not hidden) reserves the slot on untouched rows. */}
+                        <button
+                          onClick={() => setRating(r.player_id, 1500)}
+                          className={`p-1.5 rounded-md border border-[#2a2a34] text-[#75757f] hover:text-white hover:bg-[#1b1b22] transition-colors ${r.moved ? '' : 'invisible'}`}
+                          aria-label="Reset to community rank"
+                          title="Reset to community rank"
+                          tabIndex={r.moved ? 0 : -1}
+                        >
+                          <RotateCcw className="h-3.5 w-3.5" />
+                        </button>
                       </span>
                     ) : undefined
                   }
