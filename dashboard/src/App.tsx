@@ -46,8 +46,10 @@ function App() {
             /chat bookmarks home (the search button reaches the assistant). */}
         <Route path="chat" element={<Navigate to="/" replace />} />
         <Route path="ktc-values" element={<Navigate to="/players" replace />} />
-        <Route path="trade-evaluator" element={<Navigate to="/trade" replace />} />
-        <Route path="trade-finder" element={<Navigate to="/trade" replace />} />
+        {/* Old deep links land on their specific mini (the /trade root is now
+            the Minis landing grid, not the evaluator). */}
+        <Route path="trade-evaluator" element={<Navigate to="/trade?tab=evaluate" replace />} />
+        <Route path="trade-finder" element={<Navigate to="/trade?tab=find" replace />} />
         <Route path="trade-history" element={<Navigate to="/league?tab=transactions" replace />} />
         <Route path="transactions" element={<Navigate to="/league?tab=transactions" replace />} />
         <Route path="drafts" element={<Navigate to="/league?tab=drafts" replace />} />
@@ -57,7 +59,7 @@ function App() {
         <Route path="rosters" element={<Navigate to="/" replace />} />
         <Route path="matchups" element={<Navigate to="/league?tab=scoreboard" replace />} />
         <Route path="tools" element={<Navigate to="/trade" replace />} />
-        <Route path="minigames" element={<Navigate to="/" replace />} />
+        <Route path="minigames" element={<Navigate to="/trade" replace />} />
       </Route>
     </Routes>
     </>

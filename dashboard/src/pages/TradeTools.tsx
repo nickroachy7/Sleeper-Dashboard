@@ -1,22 +1,46 @@
 import { useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import { Scale, Target, Swords } from 'lucide-react';
+import { Scale, Target, Swords, ChevronLeft, ChevronRight, Gamepad2, Wrench } from 'lucide-react';
+import type { ComponentType } from 'react';
 import { TradeEvaluator } from './TradeEvaluator';
 import { TradeFinder } from './TradeFinder';
 import { RankEmPanel } from './RankEm';
-import { TabBar } from '../components/TabBar';
 import { NoLeagueState } from '../components/NoLeagueState';
 import { useActiveLeague } from '../lib/active-league';
 import { useUrlState } from '../hooks/useUrlState';
 import type { TradeAsset } from '../lib/trade-shared';
 
-const tabDefs = [
-  { id: 'evaluate' as const, label: 'Evaluate', icon: Scale, subtitle: 'Build a trade and see who wins' },
-  { id: 'find' as const, label: 'Find', icon: Target, subtitle: 'Discover fair trades across the league' },
-  { id: 'rank' as const, label: "Rank 'Em", icon: Swords, subtitle: 'Who’d you rather keep? Every pick trains the community values' },
+// ── Minis catalog ─────────────────────────────────────────────────
+// The Minis page is a landing grid of small games + tools. Each entry opens
+// its own view via ?tab=<id>; with no tab, the grid is shown. New games/tools
+// slot in here as catalog entries — the grid and the router both read this
+// list, so nothing else needs touching to add one.
+type MiniKind = 'game' | 'tool';
+interface Mini {
+  id: string;
+  label: string;
+  icon: ComponentType<{ className?: string }>;
+  blurb: string;   // one-line card description
+  subtitle: string; // header hint shown inside the mini
+  kind: MiniKind;
+}
+
+const MINIS: Mini[] = [
+  { id: 'rank', label: "Rank 'Em", icon: Swords, kind: 'game',
+    blurb: 'Who’d you rather keep? Quick taps that train the community values.',
+    subtitle: 'Who’d you rather keep? Every pick trains the community values' },
+  { id: 'evaluate', label: 'Evaluate', icon: Scale, kind: 'tool',
+    blurb: 'Build a trade and see who wins.',
+    subtitle: 'Build a trade and see who wins' },
+  { id: 'find', label: 'Find', icon: Target, kind: 'tool',
+    blurb: 'Discover fair trades across your league.',
+    subtitle: 'Discover fair trades across the league' },
 ];
 
-type TabId = typeof tabDefs[number]['id'];
+const SECTIONS: { kind: MiniKind; label: string; icon: ComponentType<{ className?: string }> }[] = [
+  { kind: 'game', label: 'Games', icon: Gamepad2 },
+  { kind: 'tool', label: 'Tools', icon: Wrench },
+];
 
 interface InitialTradeState {
   sides: { rosterId: number; assets: TradeAsset[] }[];
@@ -26,7 +50,9 @@ export default function TradeTools() {
   const location = useLocation();
   const { get, setMany } = useUrlState();
   const { hasLeague } = useActiveLeague();
-  const activeTab = get('tab', 'evaluate') as TabId;
+  // No tab → the landing grid. A tab id → that mini's own view.
+  const activeId = get('tab');
+  const active = MINIS.find((m) => m.id === activeId) ?? null;
 
   // Router state handoff: Trade Finder's "Open in Evaluator" button navigates
   // to /trade with { initialTrade: { sides: [...] } } in location.state. We
@@ -42,37 +68,89 @@ export default function TradeTools() {
     setLastProcessedTrade(incomingTrade);
     setEvaluatorKey((k) => k + 1);
     setInitialSides(incomingTrade.sides);
-    // A handoff always lands on the Evaluator; ensure the tab reflects that.
-    if (activeTab !== 'evaluate') setMany({ tab: null });
+    // A handoff always lands on the Evaluator — jump straight to that mini.
+    if (activeId !== 'evaluate') setMany({ tab: 'evaluate' });
   }
 
   return (
     <div className="min-h-dvh">
       <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto">
-        {/* Tabs lead (the nav already names the page); the active tool's
-            one-line hint sits just beneath them. */}
-        <TabBar
-          tabs={tabDefs}
-          active={activeTab}
-          onChange={(id) => setMany({ tab: id === 'evaluate' ? null : id })}
-        />
-        <p className="text-[12px] text-[#75757f] mt-2 mb-4">
-          {tabDefs.find(t => t.id === activeTab)?.subtitle}
-        </p>
+        {active ? (
+          <>
+            {/* Back to the Minis grid + the active mini's one-line hint. */}
+            <div className="flex items-center justify-between gap-3 mb-4">
+              <button
+                onClick={() => setMany({ tab: null })}
+                className="inline-flex items-center gap-1.5 text-[13px] font-medium text-[#9c9ca7] hover:text-white transition-colors -ml-1"
+              >
+                <ChevronLeft className="h-4 w-4" /> Minis
+              </button>
+              <span className="flex items-center gap-1.5 text-[13px] font-semibold text-white">
+                <active.icon className="h-4 w-4 text-accent-400" /> {active.label}
+              </span>
+            </div>
+            <p className="text-[12px] text-[#75757f] -mt-2 mb-4">{active.subtitle}</p>
 
-        {activeTab === 'evaluate' ? (
-          // The Evaluator works without a league (global value calculator).
-          <TradeEvaluator key={evaluatorKey} initialSides={initialSides} />
-        ) : activeTab === 'rank' ? (
-          // Rank 'Em is a community-value contribution tool — no league needed.
-          <RankEmPanel />
-        ) : hasLeague ? (
-          <TradeFinder />
+            {active.id === 'evaluate' ? (
+              // The Evaluator works without a league (global value calculator).
+              <TradeEvaluator key={evaluatorKey} initialSides={initialSides} />
+            ) : active.id === 'rank' ? (
+              // Rank 'Em is a community-value contribution game — no league needed.
+              <RankEmPanel />
+            ) : hasLeague ? (
+              <TradeFinder />
+            ) : (
+              <NoLeagueState heading="Add your league to find trades"
+                sub="Trade Finder scans your league's rosters for fair deals. The Evaluator works without a league." compact />
+            )}
+          </>
         ) : (
-          <NoLeagueState heading="Add your league to find trades"
-            sub="Trade Finder scans your league's rosters for fair deals. The Evaluator (above) works without a league." compact />
+          <MinisGrid onOpen={(id) => setMany({ tab: id })} />
         )}
       </div>
+    </div>
+  );
+}
+
+// ── Landing grid ──────────────────────────────────────────────────
+function MinisGrid({ onOpen }: { onOpen: (id: string) => void }) {
+  return (
+    <div className="space-y-6">
+      <div>
+        <p className="text-[11px] font-bold text-accent-500 tracking-[0.2em] uppercase mb-1">Minis</p>
+        <h1 className="font-display text-xl font-bold text-white tracking-tight">Games &amp; tools</h1>
+        <p className="text-[13px] text-[#75757f] mt-1">Quick games that sharpen the community values, and tools for working trades.</p>
+      </div>
+
+      {SECTIONS.map(({ kind, label, icon: SectionIcon }) => {
+        const items = MINIS.filter((m) => m.kind === kind);
+        if (!items.length) return null;
+        return (
+          <section key={kind}>
+            <p className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.14em] text-[#75757f] mb-2.5">
+              <SectionIcon className="h-3.5 w-3.5" /> {label}
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {items.map((m) => (
+                <button
+                  key={m.id}
+                  onClick={() => onOpen(m.id)}
+                  className="group flex items-center gap-3.5 text-left rounded-2xl border border-[#22222b] bg-[#141419] p-4 hover:border-accent-500/40 hover:bg-[#17171d] transition-colors"
+                >
+                  <span className="w-11 h-11 rounded-xl bg-accent-500/10 flex items-center justify-center shrink-0 group-hover:bg-accent-500/15 transition-colors">
+                    <m.icon className="h-5 w-5 text-accent-400" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[14px] font-semibold text-white">{m.label}</span>
+                    <span className="block text-[12px] text-[#75757f] leading-snug mt-0.5">{m.blurb}</span>
+                  </span>
+                  <ChevronRight className="h-4 w-4 text-[#4c4c56] group-hover:text-accent-400 shrink-0 transition-colors" />
+                </button>
+              ))}
+            </div>
+          </section>
+        );
+      })}
     </div>
   );
 }
