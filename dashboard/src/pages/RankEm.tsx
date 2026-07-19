@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, Sparkles, UserRound } from 'lucide-react';
+import { Sparkles, UserRound } from 'lucide-react';
 import { PositionBadge } from '../components/PositionBadge';
 import { usePlayers, usePlayerValuesList } from '../hooks/queries';
 import { getPlayerImageUrl } from '../lib/trade-shared';
@@ -21,13 +21,15 @@ const SEED_POOL = 30;     // draw early matchups from the top N by value
 /**
  * Pairwise value voting — "who'd you rather keep?". Each tap records one
  * value_event; the community engine turns a stream of these into live values.
+ * Lives as the "Rank 'Em" tab on the Tools page (it's a contribution tool —
+ * works with or without a league), rendered without its own page chrome.
  *
  * Matchups are drawn from players of nearby value so the comparison is
  * meaningful (a genuine coin-flip teaches the model more than a blowout).
  * Signed-in users with a young board (< SEED_TARGET votes) get pairs drawn
  * from the top stars until their personal board has substance.
  */
-export default function ValueVote() {
+export function RankEmPanel() {
   const { data: players } = usePlayers();
   const { data: valueMap } = usePlayerValuesList();
   const { user, username } = useAuth();
@@ -101,17 +103,7 @@ export default function ValueVote() {
   };
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto">
-      <Link to="/players" className="inline-flex items-center gap-1.5 text-[13px] text-[#75757f] hover:text-white transition-colors mb-4">
-        <ArrowLeft className="h-4 w-4" /> Back to Values
-      </Link>
-
-      <h1 className="font-display text-xl sm:text-2xl font-bold text-white tracking-tight">Rank 'Em</h1>
-      <p className="text-[13px] text-muted mt-1 mb-4">
-        Who'd you rather keep? Every pick trains the community values
-        {user ? ' — and builds your personal board.' : '.'}
-      </p>
-
+    <div>
       {/* Personal-board hook. While seeding, it's a progress meter — rank the
           stars first so the first share already looks like a rankings list. */}
       {user && username ? (

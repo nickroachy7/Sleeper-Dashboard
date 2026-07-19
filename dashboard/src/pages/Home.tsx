@@ -14,7 +14,7 @@ import { useGlobalMovers } from '../hooks/useGlobalMovers';
 const GLOBAL_ACTIONS = [
   { to: '/trade', label: 'Tools' },
   { to: '/players', label: 'Ranking' },
-  { to: '/value-vote', label: "Rank 'Em" },
+  { to: '/trade?tab=rank', label: "Rank 'Em" },
 ] as const;
 
 // ─── Component ───────────────────────────────────────────────────────

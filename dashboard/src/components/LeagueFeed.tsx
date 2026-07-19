@@ -361,7 +361,7 @@ function VoteFeedCard({ a, b }: { a: Player; b: Player }) {
         {picked ? (
           <span className="flex items-center gap-1 text-[11px] text-[#75757f]"><Check className="h-3.5 w-3.5 text-accent-500" /> Thanks — that trains the values</span>
         ) : (
-          <Link to="/value-vote" className="text-[11px] text-[#75757f] hover:text-accent-400 transition-colors">More →</Link>
+          <Link to="/trade?tab=rank" className="text-[11px] text-[#75757f] hover:text-accent-400 transition-colors">More →</Link>
         )}
       </div>
       <div className="flex items-stretch gap-2.5">

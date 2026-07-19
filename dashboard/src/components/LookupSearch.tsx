@@ -20,7 +20,7 @@ const PAGES = [
   { label: 'Ranking', to: '/players' },
   { label: 'Records', to: '/players?tab=records' },
   { label: 'Tools', to: '/trade' },
-  { label: 'Rank \'Em', to: '/value-vote' },
+  { label: 'Rank \'Em', to: '/trade?tab=rank' },
   { label: 'Settings', to: '/settings' },
   { label: 'Feedback', to: '/feedback' },
 ];

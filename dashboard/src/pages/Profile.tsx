@@ -492,7 +492,7 @@ export default function Profile() {
         {/* Owner nudge: an untouched board is just the community's — make it yours */}
         {isMe && (
           <Link
-            to="/value-vote"
+            to="/trade?tab=rank"
             className="flex items-center justify-center gap-2 h-11 rounded-xl border border-accent-500/25 bg-accent-500/[0.06] text-[14px] font-semibold text-accent-400 hover:bg-accent-500/[0.1] transition-colors"
           >
             <Swords className="h-4 w-4" />

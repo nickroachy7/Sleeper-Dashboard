@@ -34,7 +34,7 @@ interface NavItem {
 const primaryNav: NavItem[] = [
   { to: '/', icon: LayoutDashboard, label: 'Feed' },
   { to: '/league', icon: Trophy, label: 'League' },
-  { to: '/players', icon: TrendingUp, label: 'Ranking', match: ['/value-vote'] },
+  { to: '/players', icon: TrendingUp, label: 'Ranking' },
   { to: '/trade', icon: Scale, label: 'Tools' },
 ];
 

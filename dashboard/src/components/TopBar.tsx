@@ -8,7 +8,6 @@ const TITLES: Record<string, string> = {
   '/league': 'League',
   '/trade': 'Tools',
   '/players': 'Ranking',
-  '/value-vote': 'Ranking',
   '/settings': 'Settings',
   '/feedback': 'Feedback',
 };

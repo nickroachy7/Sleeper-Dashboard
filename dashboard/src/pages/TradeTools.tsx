@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import { Scale, Target } from 'lucide-react';
+import { Scale, Target, Swords } from 'lucide-react';
 import { TradeEvaluator } from './TradeEvaluator';
 import { TradeFinder } from './TradeFinder';
+import { RankEmPanel } from './RankEm';
 import { TabBar } from '../components/TabBar';
 import { NoLeagueState } from '../components/NoLeagueState';
 import { useActiveLeague } from '../lib/active-league';
@@ -12,6 +13,7 @@ import type { TradeAsset } from '../lib/trade-shared';
 const tabDefs = [
   { id: 'evaluate' as const, label: 'Evaluate', icon: Scale, subtitle: 'Build a trade and see who wins' },
   { id: 'find' as const, label: 'Find', icon: Target, subtitle: 'Discover fair trades across the league' },
+  { id: 'rank' as const, label: "Rank 'Em", icon: Swords, subtitle: 'Who’d you rather keep? Every pick trains the community values' },
 ];
 
 type TabId = typeof tabDefs[number]['id'];
@@ -61,6 +63,9 @@ export default function TradeTools() {
         {activeTab === 'evaluate' ? (
           // The Evaluator works without a league (global value calculator).
           <TradeEvaluator key={evaluatorKey} initialSides={initialSides} />
+        ) : activeTab === 'rank' ? (
+          // Rank 'Em is a community-value contribution tool — no league needed.
+          <RankEmPanel />
         ) : hasLeague ? (
           <TradeFinder />
         ) : (

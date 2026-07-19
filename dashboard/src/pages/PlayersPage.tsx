@@ -1,7 +1,6 @@
 import { useMemo, Fragment } from 'react';
-import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { TrendingUp, Layers, Swords, Trophy } from 'lucide-react';
+import { TrendingUp, Layers, Trophy } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useUrlState } from '../hooks/useUrlState';
 import { TabBar } from '../components/TabBar';
@@ -363,26 +362,13 @@ export function PlayersPage() {
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto">
-      {/* Tabs lead the page (the nav already names it "Ranking"); the rank-players
-          action sits alongside so it isn't lost with the removed header. It's a
-          player-ranking CTA, so it's hidden on the league-scoped Records tab. */}
-      <div className="flex items-center gap-2">
-        <div className="min-w-0 flex-1">
-          <TabBar
-            tabs={PLAYERS_TABS}
-            active={activeTab}
-            onChange={(id) => setMany({ tab: id === 'players' ? null : id, page: null, pos: null })}
-          />
-        </div>
-        {activeTab !== 'records' && (
-          <Link
-            to="/value-vote"
-            className="shrink-0 inline-flex items-center gap-1.5 h-9 px-3 rounded-lg bg-accent-500/10 border border-accent-500/25 text-[13px] font-semibold text-accent-400 hover:bg-accent-500/15 transition-colors"
-          >
-            <Swords className="h-4 w-4" /> <span className="hidden sm:inline">Help rank players</span>
-          </Link>
-        )}
-      </div>
+      {/* Tabs lead the page (the nav already names it "Ranking"). The
+          "Rank 'Em" contribution flow moved to Tools → Rank 'Em. */}
+      <TabBar
+        tabs={PLAYERS_TABS}
+        active={activeTab}
+        onChange={(id) => setMany({ tab: id === 'players' ? null : id, page: null, pos: null })}
+      />
       {/* Biggest movers — a glance at what's rising/falling, above the rankings.
           Players tab only (movers are players, not picks). */}
       {activeTab === 'players' && (

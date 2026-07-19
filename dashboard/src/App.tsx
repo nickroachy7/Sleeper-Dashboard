@@ -5,7 +5,6 @@ import Home from './pages/Home';
 import League from './pages/League';
 import Settings from './pages/Settings';
 import { PlayersPage } from './pages/PlayersPage';
-import ValueVote from './pages/ValueVote';
 import TradeTools from './pages/TradeTools';
 import PlayerDetail from './pages/PlayerDetail';
 import TeamDetail from './pages/TeamDetail';
@@ -31,7 +30,6 @@ function App() {
         <Route path="league" element={<League />} />
         <Route path="trade" element={<TradeTools />} />
         <Route path="players" element={<PlayersPage />} />
-        <Route path="value-vote" element={<ValueVote />} />
         <Route path="players/:playerId" element={<PlayerDetail />} />
         <Route path="teams/:rosterId" element={<TeamDetail />} />
         <Route path="trades/:transactionId" element={<TradeDetail />} />
@@ -42,6 +40,8 @@ function App() {
         <Route path="u/:username" element={<Profile />} />
 
         {/* Redirects for old routes */}
+        {/* Rank 'Em moved into Tools as a tab — keep the old links working. */}
+        <Route path="value-vote" element={<Navigate to="/trade?tab=rank" replace />} />
         {/* Chat folded into the search palette; the tab is gone, so send old
             /chat bookmarks home (the search button reaches the assistant). */}
         <Route path="chat" element={<Navigate to="/" replace />} />
