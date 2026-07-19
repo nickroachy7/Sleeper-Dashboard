@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import type { Session, User } from '@supabase/supabase-js';
 import { supabase } from './supabase';
 import { clearGuestLeagueState } from './account-league-store';
@@ -40,13 +40,26 @@ function friendlyAuthError(message: string): string {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  // Tracks the previous auth state so we can detect a sign-out edge (any cause)
+  // and clear account-derived league state exactly on that transition.
+  const wasSignedIn = useRef(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
+      wasSignedIn.current = !!data.session;
       setSession(data.session);
       setLoading(false);
     });
     const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
+      // Clear account-derived league state on ANY signed-in → signed-out
+      // transition — not just the explicit Sign out button. Token expiry, a
+      // failed refresh, or signing out in another tab all land here, and a
+      // signed-out browser must look like a fresh visitor rather than keep a
+      // stale pointer to a league it can no longer load. Guests who were never
+      // signed in are untouched (wasSignedIn stays false), so their own
+      // localStorage leagues survive.
+      if (wasSignedIn.current && !s) clearGuestLeagueState();
+      wasSignedIn.current = !!s;
       setSession(s);
       setLoading(false);
     });
@@ -126,9 +139,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
 
     async signOut() {
-      // Guest state after sign-out should be empty, not the pre-sign-in
-      // leftovers — those were merged into the account. Clear before the
-      // auth event so the store swap doesn't resurrect them.
+      // Clear synchronously here so there's no frame where the store swaps to
+      // the guest store while the stale active-id pointer still lingers. The
+      // onAuthStateChange handler also clears on the transition (covering
+      // expiry / other-tab sign-out); doing both is idempotent.
       clearGuestLeagueState();
       await supabase.auth.signOut();
     },

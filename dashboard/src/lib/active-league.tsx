@@ -75,14 +75,20 @@ export function ActiveLeagueProvider({ children }: { children: ReactNode }) {
   // links) but is NOT persisted — only an explicit switch/add writes to storage.
   // Unresolvable ids fall back to the DB default downstream (see useLeagueIds),
   // so an invalid shared link degrades gracefully instead of poisoning storage.
-  const activeLeagueId = urlLeagueId ?? storedActiveId ?? null;
+  // The stored active id is a per-device pointer. Trust it while SIGNED IN (the
+  // account list may still be loading — showing the dashboard beats an
+  // onboarding flash). For a SIGNED-OUT visitor, only honor it if it names one
+  // of their own guest leagues; otherwise it's a stale pointer to an account
+  // league they can no longer see (session expired, signed out in another tab),
+  // and it must not keep the app in a "you have a league" state.
+  const storedActiveValid =
+    !!storedActiveId && (!!userId || leagues.some((l) => l.rootLeagueId === storedActiveId));
+  const activeLeagueId = urlLeagueId ?? (storedActiveValid ? storedActiveId : null);
 
-  // Onboarding vs. dashboard: a visitor "has a league" if they've added one or
-  // are previewing via a shareable link. A stored active id also counts: right
-  // after sign-in the account store is still loading its list, but the device
-  // pointer already names a league — show the dashboard, not an onboarding flash.
+  // Onboarding vs. dashboard: a visitor "has a league" if they've added one,
+  // are previewing via a shareable link, or hold a valid active pointer.
   const isPreview = !!urlLeagueId && !leagues.some((l) => l.rootLeagueId === urlLeagueId);
-  const hasLeague = leagues.length > 0 || !!urlLeagueId || !!storedActiveId;
+  const hasLeague = leagues.length > 0 || !!urlLeagueId || storedActiveValid;
 
   // Keep the tracked league's last_viewed_at fresh so the TTL cleanup only
   // prunes genuinely abandoned leagues. Fire once per active id per session;
