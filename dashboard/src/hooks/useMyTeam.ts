@@ -18,6 +18,16 @@ export interface MyTeam {
  * choice exists, and a setter. `needsPick` is true when a league is loaded but
  * the visitor hasn't picked their team yet — the cue to prompt them.
  */
+/**
+ * The whole rootLeagueId → rosterId map plus a per-league setter — for
+ * surfaces that manage teams across ALL tracked leagues (Settings → My
+ * Leagues), not just the active one.
+ */
+export function useMyTeamMap() {
+  const map = useSyncExternalStore(myTeamStore.subscribe, myTeamStore.getAll, myTeamStore.getAll);
+  return { map, set: myTeamStore.set };
+}
+
 export function useMyTeam() {
   const { activeLeagueId } = useActiveLeague();
   const { data: directory } = useLeagueDirectory();

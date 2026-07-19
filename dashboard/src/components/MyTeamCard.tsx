@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { Users, ChevronRight, Pencil, X } from 'lucide-react';
+import { Users, ChevronRight } from 'lucide-react';
 import { useMyTeam } from '../hooks/useMyTeam';
 import { useLeagueDirectory } from '../hooks/detail';
 import { useLeagueMatchups } from '../hooks/league';
@@ -31,14 +31,16 @@ export interface MyTeamStanding {
 
 /** One-time (per league) prompt + persistent card for the visitor's own team.
  *  When no team is chosen it's a picker; once chosen it's a compact identity
- *  card leading the Dashboard with a record / power-rank / next-matchup strip,
- *  and a pencil to re-pick. `standings` comes from Home's power rankings. */
+ *  card leading the Dashboard with a record / power-rank / next-matchup strip.
+ *  Deliberately NO edit affordance here — "my team" is set-once (the wizard
+ *  auto-detects it); corrections live in Settings → My Leagues so a stray tap
+ *  can't re-personalize the whole dashboard. `standings` comes from Home's
+ *  power rankings. */
 export function MyTeamCard({ standings = [] }: { standings?: MyTeamStanding[] }) {
   const { team, setMyTeam, hasChoice } = useMyTeam();
   const { data: directory } = useLeagueDirectory();
   const { data: matchups } = useLeagueMatchups();
   const { data: nfl } = useNflState();
-  const [picking, setPicking] = useState(false);
 
   const rosters = useMemo<RosterRow[]>(() => {
     if (!directory) return [];
@@ -59,24 +61,13 @@ export function MyTeamCard({ standings = [] }: { standings?: MyTeamStanding[] })
 
   if (!directory || rosters.length === 0) return null;
 
-  // ── Picker (no choice yet, or re-picking) ──
-  if (!hasChoice || picking) {
+  // ── Picker (no choice yet) ──
+  if (!hasChoice) {
     return (
       <section className="rounded-2xl border border-accent-500/25 bg-accent-500/[0.06] overflow-hidden">
-        <div className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3.5 border-b border-[#1b1b22]">
-          <div className="min-w-0">
-            <p className="text-[11px] font-bold text-accent-500 tracking-[0.18em] uppercase">Your team</p>
-            <p className="text-[13px] text-[#c4c4cd] mt-0.5">Pick your team to personalize your dashboard.</p>
-          </div>
-          {picking && (
-            <button
-              onClick={() => setPicking(false)}
-              aria-label="Cancel"
-              className="shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-[#75757f] hover:text-white hover:bg-[#1b1b22] transition-colors"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          )}
+        <div className="px-4 sm:px-5 py-3.5 border-b border-[#1b1b22]">
+          <p className="text-[11px] font-bold text-accent-500 tracking-[0.18em] uppercase">Your team</p>
+          <p className="text-[13px] text-[#c4c4cd] mt-0.5">Pick your team to personalize your dashboard.</p>
         </div>
         <div className="max-h-[52vh] overflow-y-auto p-1.5">
           {rosters.map((r) => (
@@ -88,7 +79,7 @@ export function MyTeamCard({ standings = [] }: { standings?: MyTeamStanding[] })
               meta={`${r.wins}-${r.losses}${r.ties ? `-${r.ties}` : ''}`}
               avatarId={r.avatar}
               to={null}
-              onClick={() => { setMyTeam(r.rosterId); setPicking(false); }}
+              onClick={() => setMyTeam(r.rosterId)}
               size="sm"
               className="rounded-xl"
             />
@@ -153,13 +144,6 @@ export function MyTeamCard({ standings = [] }: { standings?: MyTeamStanding[] })
             <ChevronRight className="h-4 w-4 text-[#4c4c56] group-hover:text-accent-400 shrink-0 transition-colors" />
           </Link>
         </div>
-        <button
-          onClick={() => setPicking(true)}
-          aria-label="Change team"
-          className="shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-[#75757f] hover:text-white hover:bg-[#1b1b22] transition-colors"
-        >
-          <Pencil className="h-4 w-4" />
-        </button>
       </div>
 
       {/* Stat strip */}
