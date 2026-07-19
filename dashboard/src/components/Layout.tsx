@@ -11,7 +11,6 @@ import {
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
 import { LookupSearch } from './LookupSearch';
 import { TopBar } from './TopBar';
-import { LeagueSwitcher } from './LeagueSwitcher';
 import { ProfileMenu } from './ProfileMenu';
 import { AddLeagueModal } from './AddLeagueModal';
 import { SessionContributeModal } from './SessionContributeModal';
@@ -33,7 +32,7 @@ interface NavItem {
 // assistant no longer has a tab: it lives inside the search palette ("search
 // or ask"), reached from the search button in the header/top bar.
 const primaryNav: NavItem[] = [
-  { to: '/', icon: LayoutDashboard, label: 'Home' },
+  { to: '/', icon: LayoutDashboard, label: 'Feed' },
   { to: '/league', icon: Trophy, label: 'League' },
   { to: '/players', icon: TrendingUp, label: 'Players', match: ['/value-vote'] },
   { to: '/trade', icon: Scale, label: 'Tools' },
@@ -149,15 +148,9 @@ export default function Layout() {
           <img src="/yapsports-logo.webp" alt="Sleeper Dashboard" className="h-9 w-auto" />
         </div>
 
-        {/* League Identity + Switcher */}
-        <div className="px-3 pb-3 shrink-0">
-          <div className="px-2 py-3 rounded-xl bg-white/[0.03] border border-[#1f1f27]">
-            <LeagueSwitcher />
-          </div>
-        </div>
-
-        {/* Navigation */}
-        <nav className="flex-1 px-3 overflow-y-auto">
+        {/* Navigation — the app chrome is league-neutral now; league identity
+            and switching live on the League page, not here. */}
+        <nav className="flex-1 px-3 overflow-y-auto pt-2">
           <p className="px-3 pt-1 pb-2 text-[10px] font-bold uppercase tracking-[0.16em] text-[#5a5a64]">Menu</p>
           <div className="space-y-0.5">
             {primaryNav.map((item) => renderSidebarItem(item))}

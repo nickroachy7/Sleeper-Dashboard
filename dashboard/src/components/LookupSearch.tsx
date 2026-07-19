@@ -15,7 +15,7 @@ import { TeamRow } from './TeamRow';
 import { OPEN_LOOKUP_EVENT, type OpenLookupDetail } from '../lib/lookup';
 
 const PAGES = [
-  { label: 'Home', to: '/' },
+  { label: 'Feed', to: '/' },
   { label: 'League', to: '/league' },
   { label: 'Players', to: '/players' },
   { label: 'Tools', to: '/trade' },

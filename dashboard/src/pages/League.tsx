@@ -5,6 +5,7 @@ import { TabBar } from '../components/TabBar';
 import { SectionCard } from '../components/SectionCard';
 import { MyTeamPicker } from '../components/MyTeamCard';
 import { NoLeagueState } from '../components/NoLeagueState';
+import { LeagueSwitcher } from '../components/LeagueSwitcher';
 import { TransactionsPanel } from './Transactions';
 import { DraftsPanel } from './Drafts';
 import { useLeagueDirectory } from '../hooks/detail';
@@ -348,8 +349,14 @@ export default function League() {
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto space-y-4">
-      {/* ── Section tabs (the nav already names the page; league/season context
-          lives in the Standings card's season pills) ── */}
+      {/* ── League identity + switcher. This is the ONE place to switch leagues
+          — the app chrome is league-neutral, so everything league-specific
+          (including "which league am I viewing") lives on this page. ── */}
+      <div className="rounded-2xl border border-[#1f1f27] bg-white/[0.03] px-3 py-3 sm:px-4">
+        <LeagueSwitcher />
+      </div>
+
+      {/* ── Section tabs ── */}
       <TabBar
         tabs={LEAGUE_TABS}
         active={activeTab}

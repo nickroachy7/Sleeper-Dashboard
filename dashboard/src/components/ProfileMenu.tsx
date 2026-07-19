@@ -1,18 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Check, LogOut, MessageSquarePlus, Plus, Settings, UserRound } from 'lucide-react';
+import { LogOut, MessageSquarePlus, Plus, Settings, UserRound } from 'lucide-react';
 import { useAuth } from '../lib/auth';
-import { useActiveLeague } from '../lib/active-league';
 import { openAddLeague } from '../lib/add-league-modal';
 import { openAuth } from '../lib/auth-modal';
 
 // ── Profile menu ──────────────────────────────────────────────────
 // The app's top-right identity: the user's profile picture (their Sleeper
-// avatar, captured during onboarding) opening a quick sheet — who they are,
-// their leagues (tap to switch), and account actions. Guests get the same
+// avatar, captured during onboarding) opening a quick sheet — who they are
+// and account actions. League switching is NOT here anymore: it lives on the
+// League page, so the app chrome stays league-neutral. Guests get the same
 // trigger with a silhouette; their sheet leads with the sign-up pitch.
-// Replaces the old compact LeagueSwitcher in the mobile header and adds the
-// same affordance to the desktop top bar.
 
 /** Round avatar trigger: image → username initial → guest silhouette. */
 function AvatarFace({ size = 'md' }: { size?: 'sm' | 'md' }) {
@@ -36,7 +34,6 @@ function AvatarFace({ size = 'md' }: { size?: 'sm' | 'md' }) {
 export function ProfileMenu({ compact = false }: { compact?: boolean }) {
   const navigate = useNavigate();
   const { user, username, signOut } = useAuth();
-  const { leagues, activeLeagueId, setActiveLeague } = useActiveLeague();
   const [open, setOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -120,38 +117,12 @@ export function ProfileMenu({ compact = false }: { compact?: boolean }) {
             </div>
           )}
 
-          {/* Leagues — the switcher now lives here */}
-          {leagues.length > 0 && (
-            <div className="max-h-[38vh] overflow-y-auto py-1 border-b border-[#22222b]">
-              <p className="px-3 pt-1.5 pb-1 text-[10px] font-bold uppercase tracking-[0.16em] text-[#5a5a64]">
-                My leagues
-              </p>
-              {leagues.map((l) => {
-                const isActive = l.rootLeagueId === activeLeagueId;
-                return (
-                  <button
-                    key={l.rootLeagueId}
-                    role="menuitem"
-                    onClick={() => go(() => setActiveLeague(l.rootLeagueId))}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-[#1b1b22] transition-colors"
-                  >
-                    <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${isActive ? 'bg-accent-500' : 'bg-[#3a3a44]'}`} />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[13px] font-medium text-white truncate">{l.name}</p>
-                      <p className="text-[11px] text-[#75757f]">{l.season} Season</p>
-                    </div>
-                    {isActive && <Check className="h-4 w-4 text-accent-400 shrink-0" />}
-                  </button>
-                );
-              })}
-            </div>
-          )}
-
-          {/* Actions */}
+          {/* Actions. League switching lives on the League page now, but a
+              quick "add a league" here keeps the common action one tap away. */}
           <button
             role="menuitem"
             onClick={() => go(openAddLeague)}
-            className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-[13px] text-accent-400 hover:bg-[#1b1b22] transition-colors font-medium"
+            className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-[13px] text-accent-400 hover:bg-[#1b1b22] transition-colors font-medium border-t border-[#22222b]"
           >
             <Plus className="h-4 w-4" /> Add a league
           </button>
