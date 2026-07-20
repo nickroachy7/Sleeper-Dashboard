@@ -45,12 +45,23 @@ export interface TradeAnalysisResult {
   explanation: string;
 }
 
-// ── Value Thresholds ─────────────────────────────────────────────
-
-const ELITE_THRESHOLD = 7000;
-const STAR_THRESHOLD = 4500;
-const STARTER_THRESHOLD = 2500;
-const DEPTH_THRESHOLD = 1000;
+// ── Value Thresholds (rank-anchored) ─────────────────────────────
+// These are RANK tiers expressed as value cutoffs on the community curve
+// (two-segment; see compute-community-values). Because value is monotonic in
+// rank, a value cutoff cleanly stands in for a rank tier without threading
+// rank through every TradeAsset. Cutoffs are the curve's value at that rank —
+// re-derive them if the curve constants change (kHead/knee/tailPow):
+//   ELITE   = top ~6   (value ≥ 8957)   — the true difference-makers
+//   STAR    = top ~16  (value ≥ 7189)
+//   STARTER = top ~36  (value ≥ 4630)
+//   DEPTH   = top ~90  (value ≥ 2562)
+// (Old thresholds 7000/4500/2500/1000 were tuned to the previous FLAT curve,
+// where 7000 meant ~top-50; on the steepened curve that drifted to ~top-13,
+// miscalibrating every band — hence this recalibration.)
+const ELITE_THRESHOLD = 8957;
+const STAR_THRESHOLD = 7189;
+const STARTER_THRESHOLD = 4630;
+const DEPTH_THRESHOLD = 2562;
 
 type AssetTier = 'elite' | 'star' | 'starter' | 'depth' | 'flier';
 

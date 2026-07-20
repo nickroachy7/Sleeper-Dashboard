@@ -494,7 +494,7 @@ export function TradeEvaluator({ initialSides }: TradeEvaluatorProps = {}) {
                       </div>
                       {hasAdj && (
                         <div className="flex items-center justify-between text-emerald-400/80">
-                          <span>+ Value Adjustment</span>
+                          <span>+ Star premium</span>
                           <span className="tabular-nums">+{sideResult.valueAdjustment.toLocaleString()}</span>
                         </div>
                       )}
@@ -507,10 +507,11 @@ export function TradeEvaluator({ initialSides }: TradeEvaluatorProps = {}) {
                 })}
 
                 {tradeAnalysis.rawDifference !== tradeAnalysis.adjustedDifference && (
-                  <div className="flex items-center gap-1.5 pt-1">
-                    <Info className="h-3 w-3 text-ghost shrink-0" />
+                  <div className="flex items-start gap-1.5 pt-1">
+                    <Info className="h-3 w-3 text-ghost shrink-0 mt-0.5" />
                     <span className="text-[10px] text-faint">
-                      Raw gap: {tradeAnalysis.rawDifference.toLocaleString()} → Adjusted gap: {tradeAnalysis.adjustedDifference.toLocaleString()}
+                      Raw gap {tradeAnalysis.rawDifference.toLocaleString()} → adjusted {tradeAnalysis.adjustedDifference.toLocaleString()}.
+                      Elite players carry a premium — one star is worth more than the sum of the pieces it takes to get them.
                     </span>
                   </div>
                 )}
