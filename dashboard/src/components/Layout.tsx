@@ -8,6 +8,7 @@ import {
   Search,
   X,
   MessageSquarePlus,
+  UserRound,
 } from 'lucide-react';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
 import { LookupSearch } from './LookupSearch';
@@ -16,6 +17,7 @@ import { ProfileMenu } from './ProfileMenu';
 import { AddLeagueModal } from './AddLeagueModal';
 import { SessionContributeModal } from './SessionContributeModal';
 import { toggleLookup, useLookupState } from '../lib/lookup';
+import { useAuth } from '../lib/auth';
 
 // ── Nav Configuration ───────────────────────────────────────────────
 
@@ -32,12 +34,29 @@ interface NavItem {
 // Primary destinations — desktop sidebar + mobile top tab strip. The
 // assistant no longer has a tab: it lives inside the search palette ("search
 // or ask"), reached from the search button in the header/top bar.
-const primaryNav: NavItem[] = [
+//
+// Profile is appended per-render (see buildPrimaryNav) because its target is
+// auth-dependent: signed-in users with a handle go to their public rankings
+// board (/u/<username>), everyone else to the sign-up pitch — a profile IS a
+// rankings board, which needs an account. It stays highlighted on any /u/ route.
+const primaryNavBase: NavItem[] = [
   { to: '/', icon: LayoutDashboard, label: 'Feed' },
   { to: '/trade', icon: Gamepad2, label: 'Minis' },
   { to: '/players', icon: TrendingUp, label: 'Ranking' },
   { to: '/league', icon: Trophy, label: 'League' },
 ];
+
+function buildPrimaryNav(username: string | null): NavItem[] {
+  return [
+    ...primaryNavBase,
+    {
+      to: username ? `/u/${username}` : '/welcome',
+      icon: UserRound,
+      label: 'Profile',
+      match: ['/u/'],
+    },
+  ];
+}
 
 // Secondary destinations — desktop sidebar footer + tail of the mobile strip.
 const secondaryNav: NavItem[] = [
@@ -51,6 +70,8 @@ export default function Layout() {
   const location = useLocation();
   useRealtimeSync();
   const { open: searchOpen } = useLookupState();
+  const { username } = useAuth();
+  const primaryNav = buildPrimaryNav(username);
 
   const isNavItemActive = (to: string, match?: string[]) => {
     if (match?.some((p) => location.pathname.startsWith(p))) return true;
