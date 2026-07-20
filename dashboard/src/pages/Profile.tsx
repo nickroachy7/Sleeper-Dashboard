@@ -46,6 +46,10 @@ interface BoardRow {
   rating: number;
   wins: number;
   losses: number;
+  /** Community value frozen when this row was seeded — the board's anchor.
+   *  Blending against this (not the live community value) is what keeps the
+   *  board the user's own: others' votes move the live value, never this. */
+  baseline_value: number | null;
 }
 
 // Sortable shell around a board row: whole row is draggable in edit mode,
@@ -115,70 +119,68 @@ export default function Profile() {
   const { data: board, isLoading: boardLoading } = useQuery({
     queryKey: ['user-board', profile?.user_id],
     enabled: !!profile,
-    // Votes land continuously; keep shared views fresh. But pause while the
-    // owner is editing — a background refetch resolving mid-edit would clobber
-    // the optimistic reorder and visually revert it for up to 30s.
-    refetchInterval: editing ? false : 30_000,
+    // The board is fully materialized and self-contained now — it only changes
+    // when THIS user votes or edits, never from community recompute — so it no
+    // longer needs to poll for other people's activity. Refetch on mount/focus
+    // (React Query defaults) picks up the user's own votes from other surfaces.
     queryFn: async (): Promise<BoardRow[]> => {
       const { data } = await supabase
         .from('user_player_ratings')
-        .select('player_id, rating, wins, losses')
+        .select('player_id, rating, wins, losses, baseline_value')
         .eq('user_id', profile!.user_id)
         .order('rating', { ascending: false })
-        .limit(2000);
+        .limit(4000);
       return (data ?? []) as BoardRow[];
     },
   });
 
-  // Blend: community baseline + the user's Elo deviation. Every valued player
-  // appears (complete board from day one); voted players shift and carry a
-  // rank delta vs the pure community order.
+  // The board is the user's own, materialized rows — one per player, each
+  // anchored to the community value FROZEN when the row was seeded
+  // (baseline_value). Blend = baseline + the user's Elo deviation. Nothing here
+  // reads the live community value, so others' votes never move this board;
+  // only the user's own votes/edits (which change `rating`) do.
+  //
+  // baseline_value already carries a tiny descending de-tie offset from seed
+  // time, so every midpoint is distinct and ▲▼/drag/set-exact-rank always land.
   const rows = useMemo(() => {
-    if (!playersMap || !communityValues) return [];
-    const personal = new Map((board ?? []).map((r) => [r.player_id, r]));
+    if (!playersMap || !board) return [];
 
-    // Community values tie heavily (110 players share value 1 at the tail),
-    // and a tie run has no "between" — midpoints collapse and ▲▼/drag can't
-    // land a player at a specific spot inside it. Give every player a tiny
-    // deterministic sub-point offset by descending community value so no two
-    // blended values ever collide. It's fractions of a point on a 0–9999
-    // scale, below the rounding used for display, so nothing user-visible
-    // shifts — but every midpoint now exists and edits become exact.
-    const byCommunity = [...communityValues.entries()].sort((a, b) => b[1] - a[1]);
-    const deTie = new Map(byCommunity.map(([id], i) => [id, -i * 1e-4]));
-
-    const all = byCommunity
-      .map(([playerId, communityValue]) => {
-        const mine = personal.get(playerId);
-        const deviation = mine ? (mine.rating - 1500) * ELO_SCALE : 0;
-        const base = communityValue + (deTie.get(playerId) ?? 0);
+    const all = board
+      .map((r) => {
+        // Defensive fallback: a row should always have a baseline (backfill +
+        // both write paths set it), but never anchor to 0 if one is missing —
+        // fall back to the live value so the player doesn't sink to the bottom.
+        const anchor = r.baseline_value ?? communityValues?.get(r.player_id) ?? 0;
+        const deviation = (r.rating - 1500) * ELO_SCALE;
         return {
-          player_id: playerId,
-          player: playersMap.get(playerId),
-          communityValue: base,
-          blended: base + deviation,
-          moved: !!mine && mine.rating !== 1500,
-          wins: mine?.wins ?? 0,
-          losses: mine?.losses ?? 0,
+          player_id: r.player_id,
+          player: playersMap.get(r.player_id),
+          communityValue: anchor,
+          blended: anchor + deviation,
+          moved: r.rating !== 1500,
+          wins: r.wins,
+          losses: r.losses,
         };
       })
       .filter((r) => !!r.player);
 
-    // Rank deltas compare like-for-like within the SAME position filter. IDP
-    // players are dropped entirely unless the viewer opted in, so a shared
-    // board reads as offense-only for the offense-only majority.
+    // Rank deltas compare like-for-like within the SAME position filter, and
+    // measure movement vs the board's OWN frozen starting order (baseline) —
+    // i.e. "where you've moved this player from where you started", a stable
+    // reference, not a moving community target. IDP players are dropped unless
+    // the viewer opted in, so a shared board reads offense-only for most.
     const scoped = all.filter((r) =>
       (showIdp || !isIdp(r.player!.position)) && matchesPositionFilter(r.player!.position, pos)
     );
-    const communityOrder = [...scoped].sort((a, b) => b.communityValue - a.communityValue);
-    const communityRank = new Map(communityOrder.map((r, i) => [r.player_id, i + 1]));
+    const baselineOrder = [...scoped].sort((a, b) => b.communityValue - a.communityValue);
+    const baselineRank = new Map(baselineOrder.map((r, i) => [r.player_id, i + 1]));
 
     return scoped
       .sort((a, b) => b.blended - a.blended)
       .map((r, i) => ({
         ...r,
         rank: i + 1,
-        delta: (communityRank.get(r.player_id) ?? i + 1) - (i + 1), // + = above crowd
+        delta: (baselineRank.get(r.player_id) ?? i + 1) - (i + 1), // + = above start
       }));
   }, [board, playersMap, communityValues, pos, showIdp]);
 
@@ -205,8 +207,12 @@ export default function Profile() {
     queryClient.setQueryData<BoardRow[]>(['user-board', profile.user_id], (old) => {
       const next = old ? [...old] : [];
       const i = next.findIndex((r) => r.player_id === playerId);
+      // Boards are fully materialized, so the row virtually always exists and
+      // we only patch `rating` (its frozen baseline_value is preserved). The
+      // push path is a safety net for a not-yet-seeded player; anchor it to the
+      // live community value so it lands sensibly until the server row loads.
       if (i >= 0) next[i] = { ...next[i], rating };
-      else next.push({ player_id: playerId, rating, wins: 0, losses: 0 });
+      else next.push({ player_id: playerId, rating, wins: 0, losses: 0, baseline_value: communityValues?.get(playerId) ?? null });
       return next;
     });
     const { error } = await supabase

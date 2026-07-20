@@ -1064,6 +1064,7 @@ export type Database = {
       }
       user_player_ratings: {
         Row: {
+          baseline_value: number | null
           losses: number
           player_id: string
           rating: number
@@ -1072,6 +1073,7 @@ export type Database = {
           wins: number
         }
         Insert: {
+          baseline_value?: number | null
           losses?: number
           player_id: string
           rating?: number
@@ -1080,6 +1082,7 @@ export type Database = {
           wins?: number
         }
         Update: {
+          baseline_value?: number | null
           losses?: number
           player_id?: string
           rating?: number
