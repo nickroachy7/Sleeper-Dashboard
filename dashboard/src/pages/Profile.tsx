@@ -375,20 +375,21 @@ export default function Profile() {
 
         {/* ── Board ── */}
         <section className="rounded-2xl border border-line bg-surface overflow-hidden">
-          <div className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3.5 border-b border-line-subtle">
-            <div>
-              <p className="text-[11px] font-bold text-accent-500 tracking-[0.18em] uppercase">The board</p>
-              <p className="text-[11px] text-faint mt-0.5">
-                {editing
-                  ? 'Tap ▲▼ to nudge, or tap a rank number to type a new spot.'
-                  : `Community rankings, reshaped by ${isMe ? 'your' : `${profile.username}'s`} votes — ▲▼ marks the disagreements.`}
-              </p>
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
+          <div className="px-4 sm:px-5 py-3.5 border-b border-line-subtle space-y-3">
+            {/* Title + intro on their own full-width line so the copy can breathe. */}
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-[11px] font-bold text-accent-500 tracking-[0.18em] uppercase">The board</p>
+                <p className="text-[11px] text-faint mt-0.5 leading-snug">
+                  {editing
+                    ? 'Tap ▲▼ to nudge, or tap a rank number to type a new spot.'
+                    : `Community rankings, reshaped by ${isMe ? 'your' : `${profile.username}'s`} votes — ▲▼ marks the disagreements.`}
+                </p>
+              </div>
               {isMe && (
                 <button
                   onClick={() => { setEditing((e) => !e); setRankDraft(null); }}
-                  className={`flex items-center gap-1.5 h-8 px-3 rounded-lg text-[12px] font-semibold transition-colors ${
+                  className={`shrink-0 inline-flex items-center gap-1.5 h-8 px-3 rounded-lg text-[12px] font-semibold whitespace-nowrap transition-colors ${
                     editing
                       ? 'bg-accent-500 text-[#06110a] hover:bg-accent-400'
                       : 'border border-line-strong text-ink-soft hover:bg-elevated'
@@ -398,15 +399,16 @@ export default function Profile() {
                   {editing ? 'Done' : 'Adjust ranks'}
                 </button>
               )}
-              <FilterPills
-                options={[
-                  ...POSITIONS.map((p) => ({ value: p as string, label: p === 'ALL' ? 'All' : p })),
-                  ...(showIdp ? IDP_FILTER_GROUPS.map(({ value, label }) => ({ value, label })) : []),
-                ]}
-                selected={pos}
-                onChange={(v) => setPos(v)}
-              />
             </div>
+            {/* Position filter gets its own scrollable line. */}
+            <FilterPills
+              options={[
+                ...POSITIONS.map((p) => ({ value: p as string, label: p === 'ALL' ? 'All' : p })),
+                ...(showIdp ? IDP_FILTER_GROUPS.map(({ value, label }) => ({ value, label })) : []),
+              ]}
+              selected={pos}
+              onChange={(v) => setPos(v)}
+            />
           </div>
 
           {boardLoading || rows.length === 0 ? (
