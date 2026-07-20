@@ -8,9 +8,9 @@ import { getPlayerImageUrl } from '../lib/trade-shared';
 import { recordPairwiseVote } from '../lib/community-events';
 import { useAuth } from '../lib/auth';
 import { supabase } from '../lib/supabase';
+import { useShowIdp } from '../lib/idp-store';
+import { isVisiblePosition } from '../lib/positions';
 import type { Player } from '../types/domain';
-
-const VOTABLE = new Set(['QB', 'RB', 'WR', 'TE']);
 
 // Starter mode: boards begin as a copy of the community rankings; votes create
 // the deviations that make them personal. Early votes draw from the top stars
@@ -33,6 +33,7 @@ export function RankEmPanel() {
   const { data: players } = usePlayers();
   const { data: valueMap } = usePlayerValuesList();
   const { user, username } = useAuth();
+  const showIdp = useShowIdp();
   const navigate = useNavigate();
   const [pair, setPair] = useState<[Player, Player] | null>(null);
   const [votes, setVotes] = useState(0);
@@ -56,13 +57,15 @@ export function RankEmPanel() {
   const totalVotes = (boardVotes ?? 0) + votes;
   const seeding = !!user && boardVotes != null && totalVotes < SEED_TARGET;
 
-  // Value-ranked pool of skill players we actually have a value for.
+  // Value-ranked pool of players we actually have a value for. IDP players are
+  // only in the pool — and thus only votable — for users who opted into them,
+  // so IDP values are shaped by people who run IDP leagues.
   const pool = useMemo(() => {
     if (!players || !valueMap) return [];
     return players
-      .filter((p) => VOTABLE.has(p.position) && valueMap.has(p.player_id))
+      .filter((p) => isVisiblePosition(p.position, showIdp) && valueMap.has(p.player_id))
       .sort((a, b) => (valueMap.get(b.player_id) ?? 0) - (valueMap.get(a.player_id) ?? 0));
-  }, [players, valueMap]);
+  }, [players, valueMap, showIdp]);
 
   // Pick a player, then an opponent within a nearby value window. In starter
   // mode both come from the star pool (still value-adjacent — real debates).

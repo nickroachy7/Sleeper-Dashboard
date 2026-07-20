@@ -27,6 +27,7 @@ import { StatCard } from '../components/StatCard';
 import { PositionBadge } from '../components/PositionBadge';
 import { AccountSection } from '../components/AccountSection';
 import { MyLeaguesSection } from '../components/MyLeaguesSection';
+import { PreferencesSection } from '../components/PreferencesSection';
 import { useLeague } from '../hooks/queries';
 
 // ─── Sync Types ─────────────────────────────────────────────────────
@@ -250,6 +251,8 @@ export default function Settings() {
         <AccountSection />
 
         <MyLeaguesSection />
+
+        <PreferencesSection />
 
         {league ? (
           <>

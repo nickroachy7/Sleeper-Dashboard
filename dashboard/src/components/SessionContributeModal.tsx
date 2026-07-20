@@ -5,13 +5,14 @@ import { usePlayers, usePlayerValuesList } from '../hooks/queries';
 import { getPlayerImageUrl } from '../lib/trade-shared';
 import { PositionBadge } from './PositionBadge';
 import { recordPairwiseVote, recordCalculatorVote } from '../lib/community-events';
+import { useShowIdp } from '../lib/idp-store';
+import { isVisiblePosition } from '../lib/positions';
 import type { Player } from '../types/domain';
 
 // Once per browser session (cleared when the tab/browser closes), we ask two
 // quick questions whose answers feed straight into the community value engine
 // (value_events → Glicko). The user can skip at any time.
 const SESSION_KEY = 'sleeper_dash.contributed';
-const VOTABLE = new Set(['QB', 'RB', 'WR', 'TE']);
 
 interface Trade { a: Player[]; b: Player[] }
 
@@ -57,6 +58,7 @@ function makeTrade(pool: Player[], valueMap: Map<string, number>): Trade | null 
 export function SessionContributeModal() {
   const { data: players } = usePlayers();
   const { data: valueMap } = usePlayerValuesList();
+  const showIdp = useShowIdp();
 
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<0 | 1 | 2>(0); // 0 = who'd you rather, 1 = trade, 2 = thanks
@@ -67,9 +69,9 @@ export function SessionContributeModal() {
   const pool = useMemo(() => {
     if (!players || !valueMap) return [] as Player[];
     return players
-      .filter((p) => VOTABLE.has(p.position) && valueMap.has(p.player_id))
+      .filter((p) => isVisiblePosition(p.position, showIdp) && valueMap.has(p.player_id))
       .sort((a, b) => (valueMap.get(b.player_id) ?? 0) - (valueMap.get(a.player_id) ?? 0));
-  }, [players, valueMap]);
+  }, [players, valueMap, showIdp]);
 
   // Build the two matchups once the value pool is ready.
   useEffect(() => {

@@ -15,6 +15,8 @@ import { usePlayerValuesList } from '../hooks/queries';
 import { PlayerRow } from '../components/PlayerRow';
 import { FilterPills } from '../components/FilterBar';
 import { Pagination } from '../components/Pagination';
+import { useShowIdp } from '../lib/idp-store';
+import { isIdp, matchesPositionFilter, IDP_FILTER_GROUPS } from '../lib/positions';
 
 // ── Public profile: /u/<username> ─────────────────────────────────
 // The shareable face of an account: a COMPLETE player-rankings board from day
@@ -78,7 +80,8 @@ export default function Profile() {
   const queryClient = useQueryClient();
   const { data: playersMap } = usePlayerMap();
   const { data: communityValues } = usePlayerValuesList();
-  const [pos, setPos] = useState<(typeof POSITIONS)[number]>('ALL');
+  const showIdp = useShowIdp();
+  const [pos, setPos] = useState<string>('ALL');
   const [copied, setCopied] = useState(false);
   const [page, setPage] = useState(1);
   const [editing, setEditing] = useState(false);
@@ -89,6 +92,12 @@ export default function Profile() {
     setPage(1);
     setRankDraft(null);
   }, [pos]);
+
+  // If the viewer turns IDP off while an IDP position filter is active, the
+  // board would otherwise strand on an empty view — snap back to "All".
+  useEffect(() => {
+    if (!showIdp && IDP_FILTER_GROUPS.some((g) => g.value === pos)) setPos('ALL');
+  }, [showIdp, pos]);
 
   const { data: profile, isLoading: profileLoading } = useQuery({
     queryKey: ['profile', username.toLowerCase()],
@@ -155,8 +164,12 @@ export default function Profile() {
       })
       .filter((r) => !!r.player);
 
-    // Rank deltas compare like-for-like within the SAME position filter.
-    const scoped = all.filter((r) => pos === 'ALL' || r.player!.position === pos);
+    // Rank deltas compare like-for-like within the SAME position filter. IDP
+    // players are dropped entirely unless the viewer opted in, so a shared
+    // board reads as offense-only for the offense-only majority.
+    const scoped = all.filter((r) =>
+      (showIdp || !isIdp(r.player!.position)) && matchesPositionFilter(r.player!.position, pos)
+    );
     const communityOrder = [...scoped].sort((a, b) => b.communityValue - a.communityValue);
     const communityRank = new Map(communityOrder.map((r, i) => [r.player_id, i + 1]));
 
@@ -167,7 +180,7 @@ export default function Profile() {
         rank: i + 1,
         delta: (communityRank.get(r.player_id) ?? i + 1) - (i + 1), // + = above crowd
       }));
-  }, [board, playersMap, communityValues, pos]);
+  }, [board, playersMap, communityValues, pos, showIdp]);
 
   const totalVotes = useMemo(
     () => (board ?? []).reduce((sum, r) => sum + r.wins + r.losses, 0) / 2,
@@ -362,9 +375,12 @@ export default function Profile() {
                 </button>
               )}
               <FilterPills
-                options={POSITIONS.map((p) => ({ value: p, label: p === 'ALL' ? 'All' : p }))}
+                options={[
+                  ...POSITIONS.map((p) => ({ value: p as string, label: p === 'ALL' ? 'All' : p })),
+                  ...(showIdp ? IDP_FILTER_GROUPS.map(({ value, label }) => ({ value, label })) : []),
+                ]}
                 selected={pos}
-                onChange={(v) => setPos(v as (typeof POSITIONS)[number])}
+                onChange={(v) => setPos(v)}
               />
             </div>
           </div>

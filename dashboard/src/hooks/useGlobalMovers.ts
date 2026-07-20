@@ -2,6 +2,8 @@ import { useMemo } from 'react';
 import { usePlayerMap } from './useLeagueData';
 import { usePlayerValuesList } from './queries';
 import { useValueMovers } from './detail';
+import { useShowIdp } from '../lib/idp-store';
+import { isVisiblePosition } from '../lib/positions';
 import type { Mover } from '../components/BiggestMovers';
 
 /**
@@ -15,6 +17,7 @@ export function useGlobalMovers(daysAgo = 30): { risers: Mover[]; fallers: Mover
   const { data: playersMap } = usePlayerMap();
   const { data: playerValues } = usePlayerValuesList();
   const { data: moverValues } = useValueMovers(daysAgo);
+  const showIdp = useShowIdp();
 
   const loading = !moverValues || !playersMap || !playerValues;
 
@@ -28,6 +31,8 @@ export function useGlobalMovers(daysAgo = 30): { risers: Mover[]; fallers: Mover
       if (Math.abs(delta) < 100) continue; // ignore day-to-day noise
       const p = playersMap.get(pid);
       if (!p) continue;
+      // IDP players only surface as movers for opted-in viewers.
+      if (!isVisiblePosition(p.position, showIdp)) continue;
       list.push({
         playerId: pid, name: p.full_name, position: p.position, team: p.team,
         value: playerValues.get(pid) || curBase, delta, pct: (delta / past) * 100, ownerTeam: '',
@@ -37,7 +42,7 @@ export function useGlobalMovers(daysAgo = 30): { risers: Mover[]; fallers: Mover
       risers: [...list].sort((a, b) => b.delta - a.delta).slice(0, 5),
       fallers: [...list].sort((a, b) => a.delta - b.delta).slice(0, 5),
     };
-  }, [moverValues, playersMap, playerValues]);
+  }, [moverValues, playersMap, playerValues, showIdp]);
 
   return { risers, fallers, loading };
 }

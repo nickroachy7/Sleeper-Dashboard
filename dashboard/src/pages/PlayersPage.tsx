@@ -10,9 +10,12 @@ import { FilterBar, SearchInput, FilterPills, SortSelect } from '../components/F
 import { PlayerRow } from '../components/PlayerRow';
 import { RecordsPanel } from '../components/RecordsPanel';
 import { LeaguePicker } from '../components/LeaguePicker';
+import { IdpToggle } from '../components/IdpToggle';
 import { useValueMovers } from '../hooks/detail';
 import { useLeagueRoster } from '../hooks/useLeagueRoster';
 import { useActiveLeague } from '../lib/active-league';
+import { useShowIdp } from '../lib/idp-store';
+import { isIdp, matchesPositionFilter, IDP_FILTER_GROUPS } from '../lib/positions';
 
 // ── Player Values Types ──────────────────────────────────────────
 
@@ -128,8 +131,13 @@ const tierAccents: Record<number, string> = {
 
 function ValuesTab({ kind, leagueFilterId }: { kind: 'player' | 'pick'; leagueFilterId?: string | null }) {
   const { get, setMany } = useUrlState();
+  const showIdp = useShowIdp();
   const searchQuery = get('q');
-  const positionFilter = get('pos', 'ALL');
+  // A stale IDP position pill (e.g. pos=LB) shouldn't strand the list on an
+  // empty view once IDP is toggled back off — fall back to "All" in that case.
+  const rawPositionFilter = get('pos', 'ALL');
+  const positionFilter =
+    !showIdp && IDP_FILTER_GROUPS.some((g) => g.value === rawPositionFilter) ? 'ALL' : rawPositionFilter;
   const sortField = get('sf', 'rank') as SortField;
   const sortDirection = get('sd', 'asc') as SortDirection;
   const currentPage = Number(get('page', '1')) || 1;
@@ -173,6 +181,10 @@ function ValuesTab({ kind, leagueFilterId }: { kind: 'player' | 'pick'; leagueFi
     if (kind === 'player' && playerValues) {
       for (const pv of playerValues) {
         if (!pv.player) continue;
+        // Default-off IDP: drop defensive players from the board entirely when
+        // the preference is off, so ranks/tiers/counts match the offense-only
+        // view users expect. When on, they interleave on their own value curve.
+        if (!showIdp && isIdp(pv.player.position)) continue;
         combined.push({
           id: pv.id, playerId: pv.player_id, type: 'player',
           name: pv.player.full_name, position: pv.player.position,
@@ -197,7 +209,7 @@ function ValuesTab({ kind, leagueFilterId }: { kind: 'player' | 'pick'; leagueFi
       }
     }
     return combined;
-  }, [kind, playerValues, pickValues, deltaById]);
+  }, [kind, playerValues, pickValues, deltaById, showIdp]);
 
   // Each player's true GLOBAL rank — their position in the full list ordered
   // exactly as the default "All" view (by stored rank, nulls last). Computed
@@ -227,7 +239,7 @@ function ValuesTab({ kind, leagueFilterId }: { kind: 'player' | 'pick'; leagueFi
       );
     }
     if (kind === 'player' && positionFilter !== 'ALL') {
-      filtered = filtered.filter(item => item.position === positionFilter);
+      filtered = filtered.filter(item => matchesPositionFilter(item.position, positionFilter));
     }
     // Rising/Falling: keep only players that meaningfully moved the right way,
     // then order by size of the move. These modes have a fixed direction, so
@@ -312,11 +324,14 @@ function ValuesTab({ kind, leagueFilterId }: { kind: 'player' | 'pick'; leagueFi
             { value: 'RB', label: 'RB' },
             { value: 'WR', label: 'WR' },
             { value: 'TE', label: 'TE' },
+            // IDP position pills only appear once the viewer opts in.
+            ...(showIdp ? IDP_FILTER_GROUPS.map(({ value, label }) => ({ value, label })) : []),
           ]}
           selected={positionFilter}
           onChange={handlePositionFilterChange}
         />
         )}
+        {kind === 'player' && <IdpToggle />}
         <SortSelect
           value={isMoverSort ? sortField : `${sortField}-${sortDirection}`}
           onChange={(val) => {

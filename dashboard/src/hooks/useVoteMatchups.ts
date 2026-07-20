@@ -1,8 +1,8 @@
 import { useMemo } from 'react';
 import { usePlayers, usePlayerValuesList } from './queries';
+import { useShowIdp } from '../lib/idp-store';
+import { isVisiblePosition } from '../lib/positions';
 import type { Player } from '../types/domain';
-
-const VOTABLE = new Set(['QB', 'RB', 'WR', 'TE']);
 
 export interface VoteMatchup {
   id: string;
@@ -21,11 +21,12 @@ export interface VoteMatchup {
 export function useVoteMatchups(count: number, seed = 0): VoteMatchup[] {
   const { data: players } = usePlayers();
   const { data: valueMap } = usePlayerValuesList();
+  const showIdp = useShowIdp();
 
   return useMemo(() => {
     if (!players || !valueMap || count <= 0) return [];
     const pool = players
-      .filter((p) => VOTABLE.has(p.position) && valueMap.has(p.player_id))
+      .filter((p) => isVisiblePosition(p.position, showIdp) && valueMap.has(p.player_id))
       .sort((a, b) => (valueMap.get(b.player_id) ?? 0) - (valueMap.get(a.player_id) ?? 0));
     if (pool.length < 2) return [];
 
@@ -53,5 +54,5 @@ export function useVoteMatchups(count: number, seed = 0): VoteMatchup[] {
       out.push({ id: `${a.player_id}-${b.player_id}`, a, b });
     }
     return out;
-  }, [players, valueMap, count, seed]);
+  }, [players, valueMap, count, seed, showIdp]);
 }

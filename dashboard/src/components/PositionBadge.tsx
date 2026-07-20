@@ -9,6 +9,22 @@ const positionStyles: Record<string, string> = {
   FLEX: 'bg-purple-500/90 text-white',
   SUPER_FLEX: 'bg-pink-500/90 text-white',
   BN: 'bg-zinc-500/90 text-white',
+  // IDP families — one hue per slot group (DL / LB / DB) so defensive players
+  // read distinctly from offense once a user opts them in.
+  DL: 'bg-orange-600/90 text-white',
+  DE: 'bg-orange-600/90 text-white',
+  DT: 'bg-orange-600/90 text-white',
+  NT: 'bg-orange-600/90 text-white',
+  EDGE: 'bg-orange-600/90 text-white',
+  LB: 'bg-lime-600/90 text-white',
+  ILB: 'bg-lime-600/90 text-white',
+  OLB: 'bg-lime-600/90 text-white',
+  MLB: 'bg-lime-600/90 text-white',
+  DB: 'bg-sky-600/90 text-white',
+  CB: 'bg-sky-600/90 text-white',
+  S: 'bg-sky-600/90 text-white',
+  SS: 'bg-sky-600/90 text-white',
+  FS: 'bg-sky-600/90 text-white',
 };
 
 interface PositionBadgeProps {
