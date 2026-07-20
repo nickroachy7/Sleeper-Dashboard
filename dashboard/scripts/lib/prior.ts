@@ -32,9 +32,27 @@ export interface PriorConfig {
   superflex: boolean;            // superflex boosts QB scarcity
 }
 
-// Fixed denominator for the rank→value curve — roughly the active board size.
-// Must match the engine's CURVE_REF so seeded history and live values agree.
-export const VALUE_CURVE_REF = 1050;
+// ── Rank → value curve ───────────────────────────────────────────────────────
+// MUST stay byte-identical to the engine's copy in
+// supabase/functions/compute-community-values/index.ts (see the long comment
+// there for the design). Two-segment: steep exponential head so elites tower,
+// gentler power tail so deep players stay spread. rankIdx is 0-BASED.
+const CURVE_TOP = 9999;
+const CURVE_KNEE = 60;
+const CURVE_FLOOR = 200;
+const CURVE_TOTAL = 1000;
+const CURVE_K_HEAD = 22;
+const CURVE_TAIL_POW = 2.2;
+export function valueForRank(rankIdx: number): number {
+  const kneeVal = CURVE_TOP * Math.exp((-CURVE_K_HEAD * (CURVE_KNEE - 1)) / CURVE_TOTAL);
+  if (rankIdx < CURVE_KNEE) {
+    return Math.max(1, Math.round(CURVE_TOP * Math.exp((-CURVE_K_HEAD * rankIdx) / CURVE_TOTAL)));
+  }
+  // Clamp to [0,1] so boards larger than CURVE_TOTAL floor out cleanly rather
+  // than producing NaN (pow of a negative base to a fractional exponent).
+  const t = Math.min(1, (rankIdx - CURVE_KNEE) / (CURVE_TOTAL - CURVE_KNEE));
+  return Math.max(1, Math.round(CURVE_FLOOR + (kneeVal - CURVE_FLOOR) * Math.pow(1 - t, CURVE_TAIL_POW)));
+}
 
 const POS = ['QB', 'RB', 'WR', 'TE'] as const;
 type Pos = (typeof POS)[number];
@@ -180,13 +198,11 @@ export function computePrior(inputs: PriorInput[], cfg: PriorConfig): PriorResul
   });
   scored.sort((a, b) => b.score - a.score);
 
-  // Map rank → value with an exponential decay that mimics a dynasty board:
-  // a steep top end, a long shallow tail. Top asset ≈ 9999. The reference is a
-  // FIXED constant (not the pool size) so a player's value depends only on their
-  // rank — not on how many others happen to be in the board that week/season.
-  // Keeps pre/post-draft and cross-season boards on one scale (see VALUE_CURVE_REF).
+  // Map rank → value with the shared two-segment dynasty curve (steep head so
+  // elites tower, gentle tail so depth stays spread). A player's value depends
+  // only on their rank (0-based i), not the pool size, so pre/post-draft and
+  // cross-season boards sit on one scale.
   return scored.map((s, i) => {
-    const value = Math.round(9999 * Math.exp(-3.1 * (i / VALUE_CURVE_REF)));
-    return { player_id: s.id, value: Math.max(1, value), rank: i + 1 };
+    return { player_id: s.id, value: valueForRank(i), rank: i + 1 };
   });
 }

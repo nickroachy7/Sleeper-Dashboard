@@ -65,12 +65,34 @@ function assetsOf(side: Json): string[] {
   return out;
 }
 
-// Fixed denominator for the rank→value curve — must match the seed's
-// VALUE_CURVE_REF so seeded history and live values sit on one scale.
-const CURVE_REF = 1050;
-/** Rank → value curve (players); picks are interpolated onto it. */
+// ── Rank → value curve (players; picks interpolate onto it) ──────────────────
+// Two-segment "dynasty board" shape, tuned so VALUE GAPS encode trade fairness:
+//   • Steep exponential HEAD (top ~KNEE ranks): elites genuinely tower, so
+//     consolidating two starters into one star reads as a fair trade rather
+//     than a fleece of the star side.
+//   • Gentler power-decay TAIL (knee → floor): deep/rosterable players stay
+//     spread out and distinguishable instead of all bunching at the floor.
+// A single exponential can't do both (steep enough for the top crushes the
+// tail), which is why the curve is piecewise.
+//
+// rankIdx is 0-BASED (0 = #1 overall). MUST stay byte-identical to the seed's
+// copy in dashboard/scripts/lib/prior.ts so seeded history and live values sit
+// on one scale.
+const CURVE_TOP = 9999;   // value of the #1 asset
+const CURVE_KNEE = 60;    // head/tail boundary (0-based: ranks 1..60 are "head")
+const CURVE_FLOOR = 200;  // asymptotic value the tail approaches at the bottom
+const CURVE_TOTAL = 1000; // reference board size (fixed, not pool-dependent)
+const CURVE_K_HEAD = 22;  // head steepness
+const CURVE_TAIL_POW = 2.2; // tail curvature (higher = flatter near the knee)
 function valueForRank(rankIdx: number): number {
-  return Math.max(1, Math.round(9999 * Math.exp(-3.1 * (rankIdx / CURVE_REF))));
+  const kneeVal = CURVE_TOP * Math.exp((-CURVE_K_HEAD * (CURVE_KNEE - 1)) / CURVE_TOTAL);
+  if (rankIdx < CURVE_KNEE) {
+    return Math.max(1, Math.round(CURVE_TOP * Math.exp((-CURVE_K_HEAD * rankIdx) / CURVE_TOTAL)));
+  }
+  // Clamp to [0,1] so boards larger than CURVE_TOTAL floor out cleanly rather
+  // than producing NaN (pow of a negative base to a fractional exponent).
+  const t = Math.min(1, (rankIdx - CURVE_KNEE) / (CURVE_TOTAL - CURVE_KNEE));
+  return Math.max(1, Math.round(CURVE_FLOOR + (kneeVal - CURVE_FLOOR) * Math.pow(1 - t, CURVE_TAIL_POW)));
 }
 
 const ordinal = (r: number) => (r === 1 ? "1st" : r === 2 ? "2nd" : r === 3 ? "3rd" : `${r}th`);
