@@ -22,6 +22,14 @@ import { myTeamStore } from './my-team-store';
 // local myTeamStore map (server wins on load; local edits push up), so the
 // pick follows the account across devices too.
 
+// Guards the my-team mirror during a sign-out wipe. clearGuestLeagueState()
+// clears myTeamStore synchronously while an account store may still be mounted
+// and subscribed; without this the mirror would read the wiped map as "the user
+// removed all their teams" and push my_roster_id = null to the server, erasing
+// the saved picks. myTeamStore notifies synchronously, so setting this around
+// the clear makes the in-flight mirror callback skip.
+let suppressMyTeamMirror = false;
+
 export function createAccountLeagueStore(userId: string): LeagueStore {
   const listeners = new Set<() => void>();
 
@@ -111,6 +119,9 @@ export function createAccountLeagueStore(userId: string): LeagueStore {
 
   // ── Mirror local my-team edits into user_leagues.my_roster_id ──
   const unsubscribeMyTeam = myTeamStore.subscribe(() => {
+    // Don't mirror the sign-out wipe — clearing the local map is not the user
+    // removing their teams; the saved picks must survive logout.
+    if (suppressMyTeamMirror) return;
     const local = myTeamStore.getAll();
     for (const { rootLeagueId } of cache) {
       const localPick = local[rootLeagueId] ?? null;
@@ -189,11 +200,21 @@ export function createAccountLeagueStore(userId: string): LeagueStore {
 
 /**
  * Reset all guest-visible league state on sign-out. The leagues and team
- * picks were merged into the account; a signed-out browser should look like
- * a fresh visitor, not retain a copy of account data.
+ * picks are saved server-side under the account; a signed-out browser should
+ * look like a fresh visitor, not retain a copy of account data.
+ *
+ * The my-team mirror is suppressed across the wipe: a still-mounted account
+ * store would otherwise read the cleared map as "teams removed" and push
+ * my_roster_id = null to the server, destroying the saved picks. myTeamStore
+ * notifies synchronously, so the flag reliably brackets the clear.
  */
 export function clearGuestLeagueState(): void {
-  clearGuestLeagues();
-  myTeamStore.clearAll();
-  localStorage.removeItem(ACTIVE_KEY);
+  suppressMyTeamMirror = true;
+  try {
+    clearGuestLeagues();
+    myTeamStore.clearAll();
+    localStorage.removeItem(ACTIVE_KEY);
+  } finally {
+    suppressMyTeamMirror = false;
+  }
 }
