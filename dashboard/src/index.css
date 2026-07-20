@@ -34,6 +34,31 @@
   --color-rank-gold: #ffd700;
   --color-rank-silver: #c0c0c0;
   --color-rank-bronze: #cd7f32;
+
+  /* ── Canonical UI palette ─────────────────────────────────────────────
+     One source of truth for the shared control/primitive library. These
+     generate utilities (bg-surface, border-line, text-muted, …) so headers,
+     search, pills, toggles, pickers, and meta text all read from one scale
+     instead of the ad-hoc hex values that had drifted across pages. Values
+     mirror the :root ramp below; keep the two in sync. */
+
+  /* Surfaces (dark → light) */
+  --color-base: #0d0d11;        /* app background */
+  --color-surface: #141419;     /* cards, controls */
+  --color-elevated: #1b1b22;    /* hover / raised */
+  --color-overlay: #22222b;     /* popovers, chips */
+
+  /* Lines */
+  --color-line: #22222b;        /* default control/card border */
+  --color-line-subtle: #1f1f27; /* faint dividers */
+  --color-line-strong: #363641; /* hover / emphasis border */
+
+  /* Text scale (bright → faint) */
+  --color-ink: #ffffff;         /* primary text */
+  --color-ink-soft: #d6d6de;    /* secondary text */
+  --color-muted: #9c9ca7;       /* labels, tertiary */
+  --color-faint: #75757f;       /* subtitles, captions */
+  --color-ghost: #60606a;       /* timestamps, least-important meta */
 }
 
 * {

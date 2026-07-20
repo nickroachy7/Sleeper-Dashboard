@@ -298,7 +298,7 @@ export function TransactionsPanel() {
       <div>
         <div className="space-y-4 mt-2">
           {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="bg-[#141419] rounded-xl p-5">
+            <div key={i} className="bg-surface rounded-xl p-5">
               <div className="flex items-center gap-2 mb-4">
                 <div className="skeleton w-16 h-5" />
                 <div className="skeleton w-20 h-4" />
@@ -326,8 +326,8 @@ export function TransactionsPanel() {
     return (
       <div>
         <div className="flex flex-col items-center justify-center py-16 text-center">
-          <div className="w-14 h-14 bg-[#1b1b22] rounded-2xl flex items-center justify-center mb-4">
-            <ArrowRightLeft className="h-7 w-7 text-[#75757f]" />
+          <div className="w-14 h-14 bg-elevated rounded-2xl flex items-center justify-center mb-4">
+            <ArrowRightLeft className="h-7 w-7 text-faint" />
           </div>
           <h3 className="text-lg font-bold text-white mb-2">No Transactions</h3>
           <p className="text-sm text-[#80808c] max-w-sm mb-6">
@@ -444,8 +444,8 @@ export function TransactionsPanel() {
       <div>
         {/* Meta sits ABOVE the card for separation — type + date only, no trailing value */}
         <div className="flex items-center px-1.5 pb-2">
-          <div className="flex items-center gap-2 text-[11px] text-[#75757f]">
-            <span className="px-1.5 py-0.5 bg-[#1b1b22] text-[#9c9ca7] text-[9px] font-bold tracking-[1px] rounded">
+          <div className="flex items-center gap-2 text-[11px] text-faint">
+            <span className="px-1.5 py-0.5 bg-elevated text-muted text-[9px] font-bold tracking-[1px] rounded">
               {typeLabel}
             </span>
             <span className="flex items-center gap-1">
@@ -456,20 +456,20 @@ export function TransactionsPanel() {
         </div>
 
         {/* Team + Assets */}
-        <div className="bg-[#141419] rounded-2xl overflow-hidden animate-smooth border border-[#22222b] card-hover">
-          <div className="flex items-center gap-2.5 px-4 py-2.5 bg-[#1b1b22]">
+        <div className="bg-surface rounded-2xl overflow-hidden animate-smooth border border-line card-hover">
+          <div className="flex items-center gap-2.5 px-4 py-2.5 bg-elevated">
             {(() => {
               const avatar = team ? teamAvatarUrl(team.rosterId) : null;
               return avatar ? (
-                <img src={avatar} alt="" className="w-7 h-7 rounded-full bg-[#22222b] shrink-0 ring-1 ring-inset ring-white/10 object-cover" onError={(e) => { (e.target as HTMLImageElement).style.visibility = 'hidden'; }} />
+                <img src={avatar} alt="" className="w-7 h-7 rounded-full bg-overlay shrink-0 ring-1 ring-inset ring-white/10 object-cover" onError={(e) => { (e.target as HTMLImageElement).style.visibility = 'hidden'; }} />
               ) : (
-                <div className="w-7 h-7 rounded-full bg-[#22222b] shrink-0 ring-1 ring-inset ring-white/10 flex items-center justify-center">
-                  <Users className="h-3.5 w-3.5 text-[#60606a]" />
+                <div className="w-7 h-7 rounded-full bg-overlay shrink-0 ring-1 ring-inset ring-white/10 flex items-center justify-center">
+                  <Users className="h-3.5 w-3.5 text-ghost" />
                 </div>
               );
             })()}
             <span className="font-display text-sm font-bold text-white truncate">{team?.teamName || 'Unknown'}</span>
-            <span className="text-[10px] text-[#60606a]">
+            <span className="text-[10px] text-ghost">
               {adds.length + drops.length} move{adds.length + drops.length !== 1 ? 's' : ''}
             </span>
           </div>
@@ -517,30 +517,36 @@ export function TransactionsPanel() {
 
   return (
     <div>
-      <FilterBar sticky>
-        <FilterPills
-          options={[
-            { value: 'all', label: 'All' },
-            { value: 'trade', label: 'Trades' },
-            { value: 'waiver', label: 'Waivers' },
-            { value: 'free_agent', label: 'Free Agent' },
-            { value: 'commissioner', label: 'Commissioner' },
-          ]}
-          selected={typeFilter}
-          onChange={handleFilterChange}
-        />
-        <SortSelect
-          value={sortBy}
-          onChange={handleSortChange}
-          options={[
-            { value: 'recent', label: 'Most Recent' },
-            { value: 'value-high', label: 'Highest Value' },
-            { value: 'value-low', label: 'Lowest Value' },
-            { value: 'most-lopsided', label: 'Most Lopsided' },
-            { value: 'most-even', label: 'Most Even' },
-          ]}
-        />
-      </FilterBar>
+      <FilterBar
+        sticky
+        filters={
+          <FilterPills
+            options={[
+              { value: 'all', label: 'All' },
+              { value: 'trade', label: 'Trades' },
+              { value: 'waiver', label: 'Waivers' },
+              { value: 'free_agent', label: 'Free Agent' },
+              { value: 'commissioner', label: 'Commissioner' },
+            ]}
+            selected={typeFilter}
+            onChange={handleFilterChange}
+          />
+        }
+        sort={
+          <SortSelect
+            compact
+            value={sortBy}
+            onChange={handleSortChange}
+            options={[
+              { value: 'recent', label: 'Most Recent' },
+              { value: 'value-high', label: 'Highest Value' },
+              { value: 'value-low', label: 'Lowest Value' },
+              { value: 'most-lopsided', label: 'Most Lopsided' },
+              { value: 'most-even', label: 'Most Even' },
+            ]}
+          />
+        }
+      />
 
       <div className="space-y-3">
         {paginatedTransactions.map((tx, i) => {
@@ -553,7 +559,7 @@ export function TransactionsPanel() {
               {showDateHeader && (
                 <div className="sticky top-[calc(56px+env(safe-area-inset-top))] lg:top-12 z-[5] py-2 -mx-1 px-1">
                   <div className="flex items-center gap-3">
-                    <span className="text-[10px] font-bold text-[#75757f] tracking-[2px] uppercase whitespace-nowrap">
+                    <span className="text-[10px] font-bold text-faint tracking-[2px] uppercase whitespace-nowrap">
                       {dateGroup}
                     </span>
                     <div className="flex-1 h-px bg-[#2a2a34]" />
@@ -570,7 +576,7 @@ export function TransactionsPanel() {
         })}
         {paginatedTransactions.length === 0 && (
           <div className="text-center py-12">
-            <p className="text-sm text-[#75757f]">No transactions found for this filter.</p>
+            <p className="text-sm text-faint">No transactions found for this filter.</p>
           </div>
         )}
       </div>

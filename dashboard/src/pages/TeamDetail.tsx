@@ -9,6 +9,7 @@ import { PlayerRow } from '../components/PlayerRow';
 import { StatTile } from '../components/StatTile';
 import { SectionCard } from '../components/SectionCard';
 import { TabBar } from '../components/TabBar';
+import { Segmented } from '../components/ui';
 import { useLeagueDirectory, useSeasonRanks, useTeamAnalytics, useTeamTrades, useTeamMoves, useLineupEfficiency, useHeadToHead, useTeamLineup } from '../hooks/detail';
 import { useLeagueMatchups, pairGames } from '../hooks/league';
 import { usePlayerMap } from '../hooks/useLeagueData';
@@ -332,7 +333,7 @@ export default function TeamDetail() {
   if (!currentRoster) {
     return (
       <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto text-center py-16">
-        <p className="text-sm text-[#9c9ca7]">Team not found.</p>
+        <p className="text-sm text-muted">Team not found.</p>
         <Link to="/" className="text-xs text-accent-400 mt-2 inline-block">Back to Home</Link>
       </div>
     );
@@ -368,20 +369,20 @@ export default function TeamDetail() {
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto space-y-4">
       {/* ── Header ── */}
-      <section className="relative overflow-hidden rounded-2xl border border-[#22222b] bg-gradient-to-br from-[#16161c] via-[#141419] to-[#111116]">
+      <section className="relative overflow-hidden rounded-2xl border border-line bg-gradient-to-br from-[#16161c] via-[#141419] to-[#111116]">
         <div className="pointer-events-none absolute -top-20 -right-12 h-48 w-48 rounded-full bg-accent-500/10 blur-3xl" />
         <div className="relative p-4 sm:p-6">
           <div className="flex items-start gap-4">
-            <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full overflow-hidden bg-[#22222b] shrink-0 ring-1 ring-inset ring-white/10 flex items-center justify-center">
+            <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full overflow-hidden bg-overlay shrink-0 ring-1 ring-inset ring-white/10 flex items-center justify-center">
               {directory.teamAvatar(rosterId) ? (
                 <img src={directory.teamAvatar(rosterId)!} alt="" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.visibility = 'hidden'; }} />
               ) : (
-                <Users className="h-6 w-6 text-[#60606a]" />
+                <Users className="h-6 w-6 text-ghost" />
               )}
             </div>
             <div className="min-w-0 flex-1">
               <h1 className="font-display text-xl sm:text-3xl font-bold text-white tracking-tight truncate">{teamName}</h1>
-              <p className="text-[12px] text-[#9c9ca7] mt-1">
+              <p className="text-[12px] text-muted mt-1">
                 {owner?.display_name || owner?.username || 'Unknown owner'} · {playedSeasons.length} season{playedSeasons.length !== 1 ? 's' : ''} played
               </p>
             </div>
@@ -399,7 +400,7 @@ export default function TeamDetail() {
             <StatTile
               label="Trade net (today)"
               hint="Everything received minus everything given across all trades, priced at TODAY's community value. Shows how traded assets aged — not whether trades were fair when made."
-              valueClassName={tradeNet > 0 ? 'text-accent-500' : tradeNet < 0 ? 'text-red-400' : 'text-[#75757f]'}
+              valueClassName={tradeNet > 0 ? 'text-accent-500' : tradeNet < 0 ? 'text-red-400' : 'text-faint'}
             >
               {tradeNet > 0 ? '+' : ''}{tradeNet.toLocaleString()}
             </StatTile>
@@ -413,9 +414,9 @@ export default function TeamDetail() {
       {/* ═══ OVERVIEW: value trajectory + season history ═══ */}
       {activeTab === 'overview' && (<>
       {/* ── Roster value by season (vs league average) ── */}
-      <section className="bg-[#141419] rounded-2xl p-4 sm:p-5 border border-[#22222b]">
+      <section className="bg-surface rounded-2xl p-4 sm:p-5 border border-line">
         <p className="text-[11px] font-bold text-accent-500 tracking-[0.18em] uppercase mb-0.5">Power &amp; Finish by Season</p>
-        <p className="text-[10px] text-[#75757f] mb-3">
+        <p className="text-[10px] text-faint mb-3">
           Where this team ranked in roster talent (green) vs where it actually finished (purple), each season.
           Rising = climbing the league; a finish worse than power means underachieving, better means overachieving.
         </p>
@@ -438,7 +439,7 @@ export default function TeamDetail() {
             <div className="flex flex-wrap items-baseline gap-x-5 gap-y-1 mb-3">
               <div>
                 <span className="font-display text-2xl font-bold text-accent-400 tabular-nums">{ord(currentPower.rank)}</span>
-                <span className="ml-2 text-[12px] text-[#75757f]">in roster talent now, of {currentPower.teams}</span>
+                <span className="ml-2 text-[12px] text-faint">in roster talent now, of {currentPower.teams}</span>
               </div>
               {first && moved !== 0 && (
                 <span className={`text-[11px] font-semibold ${moved > 0 ? 'text-accent-400' : 'text-red-400'}`}>
@@ -452,7 +453,7 @@ export default function TeamDetail() {
         {(seasonRanks?.length ?? 0) > 0 ? (
           <SeasonRankChart data={seasonRanks || []} height={240} />
         ) : (
-          <p className="text-[12px] text-[#60606a] py-8 text-center">
+          <p className="text-[12px] text-ghost py-8 text-center">
             No completed seasons yet{nfl?.isOffseason ? ` — the ${nfl.season} season hasn't started` : ''}.
           </p>
         )}
@@ -469,25 +470,23 @@ export default function TeamDetail() {
           sub={`${scheduleSeasons.find((s) => s.leagueId === scheduleLeagueId)?.season ?? ''} season · week by week`}
           right={
             scheduleSeasons.length > 1 ? (
-              <div className="flex gap-1">
-                {scheduleSeasons.map((s) => (
-                  <button
-                    key={s.leagueId}
-                    onClick={() => set('sseason', s.leagueId === (directory?.currentLeagueId ?? null) ? null : s.season)}
-                    className={`px-2.5 py-1 rounded-md text-[11px] font-semibold tabular-nums transition-colors ${
-                      s.leagueId === scheduleLeagueId ? 'bg-accent-500 text-white' : 'text-[#75757f] hover:text-white bg-[#1b1b22]'
-                    }`}
-                  >
-                    {s.season}
-                  </button>
-                ))}
-              </div>
+              <Segmented
+                size="sm"
+                layout="inline"
+                value={scheduleLeagueId ?? ''}
+                onChange={(leagueId) =>
+                  set('sseason', leagueId === (directory?.currentLeagueId ?? null)
+                    ? null
+                    : scheduleSeasons.find((s) => s.leagueId === leagueId)?.season ?? null)
+                }
+                options={scheduleSeasons.map((s) => ({ value: s.leagueId, label: s.season }))}
+              />
             ) : undefined
           }
           flush
         >
           {schedule.length === 0 ? (
-            <p className="text-[12px] text-[#60606a] px-4 sm:px-5 pb-5">
+            <p className="text-[12px] text-ghost px-4 sm:px-5 pb-5">
               No games played this season yet.
             </p>
           ) : (
@@ -498,15 +497,15 @@ export default function TeamDetail() {
                   to={`/teams/${g.opp.rosterId}`}
                   className="flex items-center gap-3 px-4 sm:px-5 py-2.5 hover:bg-[#17171d] transition-colors group"
                 >
-                  <span className="w-10 shrink-0 text-[11px] font-bold text-[#60606a] tabular-nums uppercase">Wk {g.week}</span>
+                  <span className="w-10 shrink-0 text-[11px] font-bold text-ghost tabular-nums uppercase">Wk {g.week}</span>
                   <span
                     className={`w-5 shrink-0 text-center text-[11px] font-bold ${
-                      g.tied ? 'text-[#75757f]' : g.won ? 'text-accent-400' : 'text-red-400'
+                      g.tied ? 'text-faint' : g.won ? 'text-accent-400' : 'text-red-400'
                     }`}
                   >
                     {g.tied ? 'T' : g.won ? 'W' : 'L'}
                   </span>
-                  <span className="w-7 h-7 rounded-full overflow-hidden bg-[#22222b] shrink-0 ring-1 ring-inset ring-white/10 flex items-center justify-center">
+                  <span className="w-7 h-7 rounded-full overflow-hidden bg-overlay shrink-0 ring-1 ring-inset ring-white/10 flex items-center justify-center">
                     {directory.teamAvatar(g.opp.rosterId, scheduleLeagueId ?? undefined) ? (
                       <img
                         src={directory.teamAvatar(g.opp.rosterId, scheduleLeagueId ?? undefined)!}
@@ -515,16 +514,16 @@ export default function TeamDetail() {
                         onError={(e) => { (e.target as HTMLImageElement).style.visibility = 'hidden'; }}
                       />
                     ) : (
-                      <Users className="h-3.5 w-3.5 text-[#60606a]" />
+                      <Users className="h-3.5 w-3.5 text-ghost" />
                     )}
                   </span>
                   <span className="flex-1 min-w-0 text-[13px] text-white truncate group-hover:text-accent-400 transition-colors">
                     {directory.teamName(g.opp.rosterId, scheduleLeagueId ?? undefined)}
                   </span>
                   <span className="shrink-0 font-display text-[13px] font-bold tabular-nums">
-                    <span className={g.won ? 'text-white' : 'text-[#75757f]'}>{g.me.points.toFixed(1)}</span>
+                    <span className={g.won ? 'text-white' : 'text-faint'}>{g.me.points.toFixed(1)}</span>
                     <span className="text-[#4c4c56] mx-1">–</span>
-                    <span className={!g.won && !g.tied ? 'text-white' : 'text-[#75757f]'}>{g.opp.points.toFixed(1)}</span>
+                    <span className={!g.won && !g.tied ? 'text-white' : 'text-faint'}>{g.opp.points.toFixed(1)}</span>
                   </span>
                   <ChevronRight className="h-4 w-4 text-[#4c4c56] group-hover:text-accent-400 shrink-0 transition-colors" />
                 </Link>
@@ -542,7 +541,7 @@ export default function TeamDetail() {
               const strong = r.label === 'Strong';
               const thin = r.label === 'Thin';
               const color = thin ? '#f59e0b' : strong ? CHART_POS : '#3a3a44';
-              const tag = thin ? 'text-amber-400' : strong ? 'text-accent-400' : 'text-[#75757f]';
+              const tag = thin ? 'text-amber-400' : strong ? 'text-accent-400' : 'text-faint';
               return (
                 <div key={r.pos}>
                   <div className="flex items-baseline justify-between mb-1">
@@ -550,11 +549,11 @@ export default function TeamDetail() {
                       {r.pos}
                       <span className={`text-[10px] font-bold uppercase tracking-wide ${tag}`}>{r.label}</span>
                     </span>
-                    <span className="text-[11px] tabular-nums text-[#9c9ca7]">
-                      {fmtVal(r.value)} <span className="text-[#60606a]">· avg {fmtVal(r.avg)}</span>
+                    <span className="text-[11px] tabular-nums text-muted">
+                      {fmtVal(r.value)} <span className="text-ghost">· avg {fmtVal(r.avg)}</span>
                     </span>
                   </div>
-                  <div className="relative h-2.5 rounded-full bg-[#1b1b22] overflow-hidden">
+                  <div className="relative h-2.5 rounded-full bg-elevated overflow-hidden">
                     <div className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${(r.value / construction.max) * 100}%`, backgroundColor: color, opacity: 0.9 }} />
                     <div className="absolute inset-y-0 w-px bg-white/40" style={{ left: `${(r.avg / construction.max) * 100}%` }} title={`league avg ${fmtVal(r.avg)}`} />
                   </div>
@@ -563,10 +562,10 @@ export default function TeamDetail() {
             })}
           </div>
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-4 text-[11px]">
-            <span className="text-[#9c9ca7]">Deepest: <span className="text-accent-400 font-semibold">{construction.strongest.pos}</span></span>
-            <span className="text-[#9c9ca7]">Thinnest: <span className="text-amber-400 font-semibold">{construction.weakest.pos}</span></span>
+            <span className="text-muted">Deepest: <span className="text-accent-400 font-semibold">{construction.strongest.pos}</span></span>
+            <span className="text-muted">Thinnest: <span className="text-amber-400 font-semibold">{construction.weakest.pos}</span></span>
             {benchValue != null && (
-              <span className="text-[#9c9ca7]">Bench depth: <span className="text-white font-semibold tabular-nums">{fmtVal(benchValue)}</span></span>
+              <span className="text-muted">Bench depth: <span className="text-white font-semibold tabular-nums">{fmtVal(benchValue)}</span></span>
             )}
             <Link to={`/trade?tab=find&team=${rosterId}`} className="ml-auto inline-flex items-center gap-1 text-accent-400 hover:text-accent-300 font-semibold">
               <Target className="h-3.5 w-3.5" /> Find trades
@@ -580,7 +579,7 @@ export default function TeamDetail() {
         <SectionCard
           label="Draft Capital"
           sub="Future rookie picks this team controls"
-          right={<span className="text-[11px] tabular-nums text-[#9c9ca7]">{fmtVal(draftCapital.total)} <span className="text-[#60606a]">total</span></span>}
+          right={<span className="text-[11px] tabular-nums text-muted">{fmtVal(draftCapital.total)} <span className="text-ghost">total</span></span>}
           flush
         >
           <div>
@@ -594,33 +593,33 @@ export default function TeamDetail() {
       {/* ═══ TRANSACTIONS: trade +/- + all moves ═══ */}
       {activeTab === 'transactions' && (<>
       {/* ── Cumulative trade +/- ── */}
-      <section className="bg-[#141419] rounded-2xl p-4 sm:p-5 border border-[#22222b]">
+      <section className="bg-surface rounded-2xl p-4 sm:p-5 border border-line">
         <p className="text-[11px] font-bold text-accent-500 tracking-[0.18em] uppercase mb-0.5">Trade Plus/Minus</p>
-        <p className="text-[10px] text-[#75757f] mb-3">
+        <p className="text-[10px] text-faint mb-3">
           Running value gained or lost across {ledger.length} trades, priced at today's community value (consumed past picks count as 0)
         </p>
         <ValueChart data={cumulativeTradeSeries} height={200} diverging step />
 
         {/* Ledger — each row opens the trade's value page */}
         {ledger.length > 0 && (
-          <div className="mt-4 -mx-4 sm:-mx-5 border-t border-[#1b1b22]">
+          <div className="mt-4 -mx-4 sm:-mx-5 border-t border-line-subtle">
             {[...ledger].reverse().map((e) => (
               <Link
                 key={e.txId}
                 to={`/trades/${e.txId}`}
-                className="group flex items-center gap-3 px-4 sm:px-5 py-2.5 border-b border-[#1b1b22] last:border-b-0 hover:bg-[#1b1b22] active:bg-[#22222b] transition-colors"
+                className="group flex items-center gap-3 px-4 sm:px-5 py-2.5 border-b border-line-subtle last:border-b-0 hover:bg-elevated active:bg-overlay transition-colors"
               >
-                <ArrowRightLeft className="h-3.5 w-3.5 text-[#60606a] shrink-0" />
+                <ArrowRightLeft className="h-3.5 w-3.5 text-ghost shrink-0" />
                 <div className="min-w-0 flex-1">
                   <p className="text-[12px] text-white truncate">
-                    <span className="text-[#75757f]">with</span>{' '}
+                    <span className="text-faint">with</span>{' '}
                     {e.partners.map((p, i) => (
                       <span key={p} className="font-medium group-hover:text-accent-400 transition-colors">
                         {i > 0 && ', '}{directory.teamName(p)}
                       </span>
                     ))}
                   </p>
-                  <p className="text-[10px] text-[#75757f] truncate">
+                  <p className="text-[10px] text-faint truncate">
                     Got {[...e.playersIn.map((p) => playersMap?.get(p)?.full_name || p), ...e.picksIn].join(', ') || 'nothing'}
                     <span className="text-[#4c4c56]"> · gave </span>
                     {[...e.playersOut.map((p) => playersMap?.get(p)?.full_name || p), ...e.picksOut].join(', ') || 'nothing'}
@@ -630,7 +629,7 @@ export default function TeamDetail() {
                   <p className="font-display text-[13px] font-bold tabular-nums" style={{ color: e.net > 0 ? CHART_POS : e.net < 0 ? CHART_NEG : '#75757f' }}>
                     {e.net > 0 ? '+' : ''}{e.net.toLocaleString()}
                   </p>
-                  <p className="text-[9px] text-[#60606a] tabular-nums">
+                  <p className="text-[9px] text-ghost tabular-nums">
                     {e.timestamp ? new Date(e.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' }) : e.season}
                   </p>
                 </div>
@@ -642,20 +641,20 @@ export default function TeamDetail() {
       </section>
 
       {/* ── Waivers / free-agent moves ── */}
-      <section className="bg-[#141419] rounded-2xl p-4 sm:p-5 border border-[#22222b]">
+      <section className="bg-surface rounded-2xl p-4 sm:p-5 border border-line">
         <p className="text-[11px] font-bold text-accent-500 tracking-[0.18em] uppercase mb-0.5">Waivers &amp; Free Agents</p>
-        <p className="text-[10px] text-[#75757f] mb-3">Non-trade adds and drops, newest first</p>
+        <p className="text-[10px] text-faint mb-3">Non-trade adds and drops, newest first</p>
         {(moves?.length ?? 0) === 0 ? (
-          <p className="text-[12px] text-[#60606a] py-4 text-center">No waiver or free-agent moves.</p>
+          <p className="text-[12px] text-ghost py-4 text-center">No waiver or free-agent moves.</p>
         ) : (
-          <div className="-mx-4 sm:-mx-5 border-t border-[#1b1b22]">
+          <div className="-mx-4 sm:-mx-5 border-t border-line-subtle">
             {(moves || []).map((tx) => {
               const adds = Object.keys(playerMoves(tx.adds)).filter((p) => playerMoves(tx.adds)[p] === rosterId);
               const drops = Object.keys(playerMoves(tx.drops)).filter((p) => playerMoves(tx.drops)[p] === rosterId);
               const label = tx.type === 'free_agent' ? 'FA' : tx.type === 'waiver' ? 'Waiver' : tx.type;
               return (
-                <div key={tx.transaction_id} className="flex items-center gap-3 px-4 sm:px-5 py-2.5 border-b border-[#1b1b22] last:border-b-0">
-                  <span className="text-[9px] font-bold tracking-[1px] uppercase text-[#9c9ca7] bg-[#1b1b22] rounded px-1.5 py-0.5 shrink-0">{label}</span>
+                <div key={tx.transaction_id} className="flex items-center gap-3 px-4 sm:px-5 py-2.5 border-b border-line-subtle last:border-b-0">
+                  <span className="text-[9px] font-bold tracking-[1px] uppercase text-muted bg-elevated rounded px-1.5 py-0.5 shrink-0">{label}</span>
                   <div className="min-w-0 flex-1 text-[12px]">
                     {adds.length > 0 && (
                       <p className="truncate"><span className="text-accent-400 font-bold">+ </span>
@@ -663,10 +662,10 @@ export default function TeamDetail() {
                     )}
                     {drops.length > 0 && (
                       <p className="truncate"><span className="text-red-400 font-bold">− </span>
-                        <span className="text-[#9c9ca7]">{drops.map((p) => playersMap?.get(p)?.full_name || p).join(', ')}</span></p>
+                        <span className="text-muted">{drops.map((p) => playersMap?.get(p)?.full_name || p).join(', ')}</span></p>
                     )}
                   </div>
-                  <span className="text-[9px] text-[#60606a] tabular-nums shrink-0">
+                  <span className="text-[9px] text-ghost tabular-nums shrink-0">
                     {tx.created ? new Date(tx.created).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' }) : ''}
                   </span>
                 </div>
@@ -679,17 +678,17 @@ export default function TeamDetail() {
 
       {/* ═══ OVERVIEW (cont.): season history ═══ */}
       {activeTab === 'overview' && (
-      <section className="bg-[#141419] rounded-2xl p-4 sm:p-5 border border-[#22222b]">
+      <section className="bg-surface rounded-2xl p-4 sm:p-5 border border-line">
         <p className="text-[11px] font-bold text-accent-500 tracking-[0.18em] uppercase mb-3">Season History</p>
         {playedSeasons.length === 0 ? (
-          <p className="text-[12px] text-[#60606a] py-6 text-center">
+          <p className="text-[12px] text-ghost py-6 text-center">
             No completed seasons yet{nfl?.isOffseason ? ` — the ${nfl.season} season hasn't started` : ''}.
           </p>
         ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead>
-              <tr className="text-[10px] text-[#75757f] uppercase tracking-wider">
+              <tr className="text-[10px] text-faint uppercase tracking-wider">
                 <th className="py-1.5 font-bold">Season</th>
                 <th className="py-1.5 font-bold">Record</th>
                 <th className="py-1.5 font-bold text-right">Points</th>
@@ -698,10 +697,10 @@ export default function TeamDetail() {
             </thead>
             <tbody>
               {playedSeasons.map((s) => (
-                <tr key={s.season} className="border-t border-[#1b1b22] text-[12px]">
+                <tr key={s.season} className="border-t border-line-subtle text-[12px]">
                   <td className="py-2 text-white font-semibold">{s.season}</td>
-                  <td className="py-2 text-[#9c9ca7] tabular-nums">{s.wins}-{s.losses}</td>
-                  <td className="py-2 text-[#9c9ca7] text-right tabular-nums">{s.fpts.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
+                  <td className="py-2 text-muted tabular-nums">{s.wins}-{s.losses}</td>
+                  <td className="py-2 text-muted text-right tabular-nums">{s.fpts.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
                   <td className="py-2 text-white text-right tabular-nums font-medium">{s.finish} / {s.teams}</td>
                 </tr>
               ))}
@@ -714,21 +713,21 @@ export default function TeamDetail() {
 
       {/* ═══ OVERVIEW (cont.): GM profile + head-to-head rivalries ═══ */}
       {activeTab === 'overview' && (h2h && h2h.length > 0) && (
-      <section className="bg-[#141419] rounded-2xl p-4 sm:p-5 border border-[#22222b]">
+      <section className="bg-surface rounded-2xl p-4 sm:p-5 border border-line">
         <p className="text-[11px] font-bold text-accent-500 tracking-[0.18em] uppercase mb-0.5">Head-to-Head</p>
-        <p className="text-[10px] text-[#75757f] mb-3">All-time record vs each manager across every season of the dynasty</p>
+        <p className="text-[10px] text-faint mb-3">All-time record vs each manager across every season of the dynasty</p>
 
         {gmTags.length > 0 && (
           <div className="flex flex-wrap gap-1.5 mb-4">
             {gmTags.map((t) => (
-              <span key={t} className="inline-flex items-center rounded-full bg-[#1b1b22] border border-[#2e2e38] px-2 py-0.5 text-[10px] font-semibold text-[#c4c4cc]">
+              <span key={t} className="inline-flex items-center rounded-full bg-elevated border border-[#2e2e38] px-2 py-0.5 text-[10px] font-semibold text-[#c4c4cc]">
                 {t}
               </span>
             ))}
           </div>
         )}
 
-        <div className="-mx-4 sm:-mx-5 border-t border-[#1b1b22]">
+        <div className="-mx-4 sm:-mx-5 border-t border-line-subtle">
           {h2h.map((r) => {
             const oppRoster = ownerCurrentRoster(r.opponentOwnerId);
             const winPct = r.games ? r.wins / r.games : 0;
@@ -739,12 +738,12 @@ export default function TeamDetail() {
                   <p className="text-[13px] text-white font-medium truncate group-hover:text-accent-400 transition-colors">
                     {ownerName(r.opponentOwnerId)}
                   </p>
-                  <p className="text-[10px] text-[#75757f] tabular-nums">
+                  <p className="text-[10px] text-faint tabular-nums">
                     {r.games} game{r.games !== 1 ? 's' : ''} · {avgMargin >= 0 ? '+' : ''}{avgMargin.toFixed(1)} avg margin
                   </p>
                 </div>
                 {/* Win-pct mini bar */}
-                <div className="w-16 h-1.5 rounded-full bg-[#22222b] overflow-hidden shrink-0">
+                <div className="w-16 h-1.5 rounded-full bg-overlay overflow-hidden shrink-0">
                   <div className="h-full rounded-full" style={{ width: `${winPct * 100}%`, backgroundColor: winPct >= 0.5 ? CHART_POS : CHART_NEG, opacity: 0.85 }} />
                 </div>
                 <div className="text-right shrink-0 w-14">
@@ -754,9 +753,9 @@ export default function TeamDetail() {
                 </div>
               </>
             );
-            const cls = 'group flex items-center gap-3 px-4 sm:px-5 py-2.5 border-b border-[#1b1b22] last:border-b-0';
+            const cls = 'group flex items-center gap-3 px-4 sm:px-5 py-2.5 border-b border-line-subtle last:border-b-0';
             return oppRoster ? (
-              <Link key={r.opponentOwnerId} to={`/teams/${oppRoster.roster_id}`} className={`${cls} hover:bg-[#1b1b22] active:bg-[#22222b] transition-colors`}>
+              <Link key={r.opponentOwnerId} to={`/teams/${oppRoster.roster_id}`} className={`${cls} hover:bg-elevated active:bg-overlay transition-colors`}>
                 {rowInner}
               </Link>
             ) : (
@@ -784,14 +783,14 @@ export default function TeamDetail() {
         lineupGroups ? (
           <div className="space-y-4">
             {/* Starting lineup */}
-            <section className="bg-[#141419] rounded-2xl border border-[#22222b] overflow-hidden">
+            <section className="bg-surface rounded-2xl border border-line overflow-hidden">
               <div className="px-4 sm:px-5 pt-4 pb-2 flex items-baseline justify-between">
                 <p className="text-[11px] font-bold text-accent-500 tracking-[0.18em] uppercase">Starting Lineup</p>
-                <span className="text-[10px] text-[#60606a]">{lineupGroups.starters.length} slots</span>
+                <span className="text-[10px] text-ghost">{lineupGroups.starters.length} slots</span>
               </div>
               {lineupGroups.starters.map((s, i) => {
                 const chip = (
-                  <span className="font-display text-[10px] font-bold w-9 text-center text-[#75757f] uppercase tracking-wide shrink-0">
+                  <span className="font-display text-[10px] font-bold w-9 text-center text-faint uppercase tracking-wide shrink-0">
                     {s.slot}
                   </span>
                 );
@@ -807,9 +806,9 @@ export default function TeamDetail() {
                     divided
                   />
                 ) : (
-                  <div key={`${s.slot}-${i}`} className="flex items-center gap-3 px-3 py-2.5 border-b border-[#1b1b22] last:border-b-0">
+                  <div key={`${s.slot}-${i}`} className="flex items-center gap-3 px-3 py-2.5 border-b border-line-subtle last:border-b-0">
                     {chip}
-                    <div className="w-9 h-9 rounded-full bg-[#161616] border border-[#22222b] shrink-0" />
+                    <div className="w-9 h-9 rounded-full bg-[#161616] border border-line shrink-0" />
                     <span className="text-[13px] text-[#4c4c56] italic">Empty</span>
                   </div>
                 );
@@ -817,10 +816,10 @@ export default function TeamDetail() {
             </section>
 
             {/* Bench */}
-            <section className="bg-[#141419] rounded-2xl border border-[#22222b] overflow-hidden">
+            <section className="bg-surface rounded-2xl border border-line overflow-hidden">
               <div className="px-4 sm:px-5 pt-4 pb-2 flex items-baseline justify-between">
                 <p className="text-[11px] font-bold text-accent-500 tracking-[0.18em] uppercase">Bench</p>
-                <span className="text-[10px] text-[#60606a]">{lineupGroups.bench.length} players</span>
+                <span className="text-[10px] text-ghost">{lineupGroups.bench.length} players</span>
               </div>
               {(showFullRoster ? lineupGroups.bench : lineupGroups.bench.slice(0, 8)).map((a) => (
                 <PlayerRow key={a.id} playerId={a.id} name={a.name} position={a.position} team={a.team} value={a.value} divided />
@@ -828,7 +827,7 @@ export default function TeamDetail() {
               {lineupGroups.bench.length > 8 && (
                 <button
                   onClick={() => setShowFullRoster((v) => !v)}
-                  className="w-full py-2.5 text-[11px] text-[#75757f] hover:text-white active:text-white transition-colors border-t border-[#1b1b22]"
+                  className="w-full py-2.5 text-[11px] text-faint hover:text-white active:text-white transition-colors border-t border-line-subtle"
                 >
                   {showFullRoster ? 'Show less' : `Show all ${lineupGroups.bench.length} bench players`}
                 </button>
@@ -836,10 +835,10 @@ export default function TeamDetail() {
             </section>
           </div>
         ) : (
-          <section className="bg-[#141419] rounded-2xl border border-[#22222b] overflow-hidden">
+          <section className="bg-surface rounded-2xl border border-line overflow-hidden">
             <div className="px-4 sm:px-5 pt-4 pb-2 flex items-baseline justify-between">
               <p className="text-[11px] font-bold text-accent-500 tracking-[0.18em] uppercase">Roster</p>
-              <span className="text-[10px] text-[#60606a]">{rosterAssets.length} players</span>
+              <span className="text-[10px] text-ghost">{rosterAssets.length} players</span>
             </div>
             {visibleAssets.map((a) => (
               <PlayerRow key={a.id} playerId={a.id} name={a.name} position={a.position} team={a.team} value={a.value} divided />
@@ -847,7 +846,7 @@ export default function TeamDetail() {
             {rosterAssets.length > 8 && (
               <button
                 onClick={() => setShowFullRoster((v) => !v)}
-                className="w-full py-2.5 text-[11px] text-[#75757f] hover:text-white active:text-white transition-colors border-t border-[#1b1b22]"
+                className="w-full py-2.5 text-[11px] text-faint hover:text-white active:text-white transition-colors border-t border-line-subtle"
               >
                 {showFullRoster ? 'Show less' : `Show all ${rosterAssets.length} players`}
               </button>

@@ -265,10 +265,10 @@ export function TradeEvaluator({ initialSides }: TradeEvaluatorProps = {}) {
         <button
           onClick={() => { if (!globalMode) setActiveDropdown({ side: sideIndex, type: 'team' }); }}
           disabled={globalMode}
-          className={`w-full flex items-center justify-between bg-[#1b1b22] px-4 sm:px-5 py-2.5 group ${sideIndex > 0 ? 'border-t border-[#26262f]' : ''}`}
+          className={`w-full flex items-center justify-between bg-elevated px-4 sm:px-5 py-2.5 group ${sideIndex > 0 ? 'border-t border-[#26262f]' : ''}`}
         >
           <div className="flex items-center gap-2 min-w-0">
-            <span className={`font-bold text-sm truncate ${(globalMode || roster) ? 'text-white' : 'text-[#75757f]'}`}>
+            <span className={`font-bold text-sm truncate ${(globalMode || roster) ? 'text-white' : 'text-faint'}`}>
               {globalMode ? `Side ${sideIndex === 0 ? 'A' : 'B'}` : roster ? getTeamDisplayName(roster) : 'Select team...'}
             </span>
             {(globalMode || roster) && tradeAnalysis && (
@@ -289,7 +289,7 @@ export function TradeEvaluator({ initialSides }: TradeEvaluatorProps = {}) {
               )
             )}
             {assetCount > 0 && (
-              <span className="text-[10px] text-[#75757f]">
+              <span className="text-[10px] text-faint">
                 {assetCount} asset{assetCount !== 1 ? 's' : ''}
               </span>
             )}
@@ -297,16 +297,16 @@ export function TradeEvaluator({ initialSides }: TradeEvaluatorProps = {}) {
           <div className="flex items-center gap-2 shrink-0">
             {side.assets.length > 0 && tradeAnalysis && net !== 0 ? (
               <span className={`text-[11px] font-semibold tabular-nums ${
-                isNearEven ? 'text-[#75757f]' : net > 0 ? 'text-emerald-400' : 'text-red-400'
+                isNearEven ? 'text-faint' : net > 0 ? 'text-emerald-400' : 'text-red-400'
               }`}>
                 {net > 0 ? '+' : ''}{net.toLocaleString()} CV
               </span>
             ) : side.assets.length > 0 ? (
-              <span className="text-[11px] text-[#75757f] font-medium tabular-nums">
+              <span className="text-[11px] text-faint font-medium tabular-nums">
                 {sideTotal.adjustedTotal.toLocaleString()} CV
               </span>
             ) : null}
-            {!globalMode && <ChevronDown className="h-4 w-4 text-[#4c4c56] group-hover:text-[#75757f] transition-colors" />}
+            {!globalMode && <ChevronDown className="h-4 w-4 text-[#4c4c56] group-hover:text-faint transition-colors" />}
           </div>
         </button>
 
@@ -323,13 +323,13 @@ export function TradeEvaluator({ initialSides }: TradeEvaluatorProps = {}) {
                   position={asset.type === 'player' ? asset.position : 'PICK'}
                   team={asset.team}
                   value={asset.value}
-                  className="group/row border-t border-[#1b1b22] px-4 sm:px-5"
+                  className="group/row border-t border-line-subtle px-4 sm:px-5"
                   suffix={
                     <button
                       onClick={() => removeAsset(sideIndex, asset.id)}
                       className="p-1 rounded opacity-0 group-hover/row:opacity-100 hover:bg-red-500/10 transition-all shrink-0"
                     >
-                      <X className="h-3 w-3 text-[#75757f] hover:text-red-400" />
+                      <X className="h-3 w-3 text-faint hover:text-red-400" />
                     </button>
                   }
                 />
@@ -337,17 +337,17 @@ export function TradeEvaluator({ initialSides }: TradeEvaluatorProps = {}) {
             })}
 
             {/* Add buttons */}
-            <div className="flex gap-2 py-2 px-4 sm:px-5 border-t border-[#1b1b22]">
+            <div className="flex gap-2 py-2 px-4 sm:px-5 border-t border-line-subtle">
               <button
                 onClick={() => setActiveDropdown({ side: sideIndex, type: 'player' })}
-                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] text-[#75757f] hover:text-accent-400 hover:bg-accent-500/5 transition-all"
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] text-faint hover:text-accent-400 hover:bg-accent-500/5 transition-all"
               >
                 <Plus className="h-3 w-3" />
                 Player
               </button>
               <button
                 onClick={() => setActiveDropdown({ side: sideIndex, type: 'pick' })}
-                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] text-[#75757f] hover:text-cyan-400 hover:bg-cyan-500/5 transition-all"
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] text-faint hover:text-cyan-400 hover:bg-cyan-500/5 transition-all"
               >
                 <Plus className="h-3 w-3" />
                 Pick
@@ -366,7 +366,7 @@ export function TradeEvaluator({ initialSides }: TradeEvaluatorProps = {}) {
         <div className="flex justify-end mb-2">
           <button
             onClick={resetTrade}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-[#75757f] hover:text-white hover:bg-[#1b1b22] rounded-lg text-xs font-medium transition-all"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-faint hover:text-white hover:bg-elevated rounded-lg text-xs font-medium transition-all"
           >
             <RotateCcw className="h-3.5 w-3.5" />
             Reset
@@ -375,21 +375,21 @@ export function TradeEvaluator({ initialSides }: TradeEvaluatorProps = {}) {
       )}
 
       {/* Trade builder — styled like TradeCard */}
-      <div className="bg-[#141419] border border-[#22222b] rounded-xl overflow-hidden">
+      <div className="bg-surface border border-line rounded-xl overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between bg-white/[0.05] px-4 sm:px-5 py-3 sm:py-4">
           <div className="flex items-center gap-2">
             <span className="px-2 py-0.5 bg-white text-black text-[10px] font-extrabold tracking-[1px] rounded-sm">
               TRADE
             </span>
-            <span className="text-[11px] text-[#75757f]">Evaluator</span>
+            <span className="text-[11px] text-faint">Evaluator</span>
           </div>
           <button
             onClick={swapSides}
-            className="w-7 h-7 rounded-full bg-[#1b1b22] flex items-center justify-center hover:bg-[#26262f] transition-all group"
+            className="w-7 h-7 rounded-full bg-elevated flex items-center justify-center hover:bg-[#26262f] transition-all group"
             title="Swap sides"
           >
-            <ArrowLeftRight className="w-3 h-3 text-[#75757f] group-hover:text-accent-400 transition-colors" />
+            <ArrowLeftRight className="w-3 h-3 text-faint group-hover:text-accent-400 transition-colors" />
           </button>
         </div>
 
@@ -402,9 +402,9 @@ export function TradeEvaluator({ initialSides }: TradeEvaluatorProps = {}) {
 
       {/* ── Empty-side hint ── */}
       {(hasZeroSide || tradeSides.some((s) => s.rosterId === 0)) && (
-        <div className="mt-4 bg-[#141419] border border-[#26262f] rounded-xl px-4 py-3 flex items-center gap-2.5">
-          <Info className="h-4 w-4 text-[#75757f] shrink-0" />
-          <span className="text-[11px] text-[#9c9ca7]">
+        <div className="mt-4 bg-surface border border-[#26262f] rounded-xl px-4 py-3 flex items-center gap-2.5">
+          <Info className="h-4 w-4 text-faint shrink-0" />
+          <span className="text-[11px] text-muted">
             {tradeSides.some((s) => s.rosterId === 0)
               ? 'Select a team on each side, then add players or picks to compare a trade.'
               : 'Add assets to both sides to see the trade analysis and roster impact.'}
@@ -424,7 +424,7 @@ export function TradeEvaluator({ initialSides }: TradeEvaluatorProps = {}) {
         const bar1Pct = (totals[1].adjustedTotal / maxTotal) * 100;
 
         return (
-          <div className="mt-4 bg-[#141419] rounded-xl p-4 sm:p-5">
+          <div className="mt-4 bg-surface rounded-xl p-4 sm:p-5">
             {/* Header */}
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
@@ -451,15 +451,15 @@ export function TradeEvaluator({ initialSides }: TradeEvaluatorProps = {}) {
                 return (
                   <div key={sideIndex}>
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-[11px] font-medium text-[#9c9ca7]">
+                      <span className="text-[11px] font-medium text-muted">
                         {globalMode ? `Side ${sideIndex === 0 ? 'A' : 'B'}` : roster ? getTeamDisplayName(roster) : ''}
-                        <span className="text-[#60606a] ml-1">gives</span>
+                        <span className="text-ghost ml-1">gives</span>
                       </span>
-                      <span className={`text-xs font-bold tabular-nums ${isW ? 'text-emerald-400' : 'text-[#9c9ca7]'}`}>
+                      <span className={`text-xs font-bold tabular-nums ${isW ? 'text-emerald-400' : 'text-muted'}`}>
                         {totals[sideIndex].adjustedTotal.toLocaleString()}
                       </span>
                     </div>
-                    <div className="w-full h-2 bg-[#1b1b22] rounded-full overflow-hidden">
+                    <div className="w-full h-2 bg-elevated rounded-full overflow-hidden">
                       <div
                         className="h-full rounded-full transition-all duration-500"
                         style={{
@@ -477,7 +477,7 @@ export function TradeEvaluator({ initialSides }: TradeEvaluatorProps = {}) {
 
             {/* ── Value Adjustment Breakdown ── */}
             {tradeAnalysis.valueAdjustment > 0 && (
-              <div className="pt-3 mt-3 border-t border-[#1b1b22] space-y-2">
+              <div className="pt-3 mt-3 border-t border-line-subtle space-y-2">
                 {tradeSides.map((side, sideIndex) => {
                   const sideResult = sideIndex === 0 ? tradeAnalysis.side1 : tradeAnalysis.side2;
                   const roster = rosters?.find(r => r.roster_id === side.rosterId);
@@ -488,7 +488,7 @@ export function TradeEvaluator({ initialSides }: TradeEvaluatorProps = {}) {
                       <div className="text-[#80808c] font-semibold uppercase tracking-wider">
                         {teamLabel}
                       </div>
-                      <div className="flex items-center justify-between text-[#75757f]">
+                      <div className="flex items-center justify-between text-faint">
                         <span>Raw value</span>
                         <span className="tabular-nums">{sideResult.rawTotal.toLocaleString()}</span>
                       </div>
@@ -498,7 +498,7 @@ export function TradeEvaluator({ initialSides }: TradeEvaluatorProps = {}) {
                           <span className="tabular-nums">+{sideResult.valueAdjustment.toLocaleString()}</span>
                         </div>
                       )}
-                      <div className="flex items-center justify-between text-white font-semibold pt-0.5 border-t border-[#1b1b22]">
+                      <div className="flex items-center justify-between text-white font-semibold pt-0.5 border-t border-line-subtle">
                         <span>Adjusted</span>
                         <span className="tabular-nums">{sideResult.adjustedTotal.toLocaleString()}</span>
                       </div>
@@ -508,8 +508,8 @@ export function TradeEvaluator({ initialSides }: TradeEvaluatorProps = {}) {
 
                 {tradeAnalysis.rawDifference !== tradeAnalysis.adjustedDifference && (
                   <div className="flex items-center gap-1.5 pt-1">
-                    <Info className="h-3 w-3 text-[#60606a] shrink-0" />
-                    <span className="text-[10px] text-[#75757f]">
+                    <Info className="h-3 w-3 text-ghost shrink-0" />
+                    <span className="text-[10px] text-faint">
                       Raw gap: {tradeAnalysis.rawDifference.toLocaleString()} → Adjusted gap: {tradeAnalysis.adjustedDifference.toLocaleString()}
                     </span>
                   </div>
@@ -523,7 +523,7 @@ export function TradeEvaluator({ initialSides }: TradeEvaluatorProps = {}) {
       {/* ── Community feedback: your own read on fairness ── */}
       {tradeAnalysis && tradeSides[0].assets.some((a) => a.type === 'player')
         && tradeSides[1].assets.some((a) => a.type === 'player') && (
-        <div className="mt-4 bg-[#141419] rounded-xl p-4 sm:p-5">
+        <div className="mt-4 bg-surface rounded-xl p-4 sm:p-5">
           {feedbackSent ? (
             <p className="text-[12px] text-emerald-400 text-center">
               Thanks — your take was added to the community values.
@@ -533,20 +533,20 @@ export function TradeEvaluator({ initialSides }: TradeEvaluatorProps = {}) {
               <p className="text-[11px] font-bold text-white uppercase tracking-wider text-center mb-1">
                 Who wins this trade?
               </p>
-              <p className="text-[10px] text-[#75757f] text-center mb-3">
+              <p className="text-[10px] text-faint text-center mb-3">
                 Your call trains community values — separate from the math above.
               </p>
               <div className="grid grid-cols-3 gap-2">
                 <button onClick={() => submitFeedback(1)}
-                  className="rounded-lg border border-[#2a2a34] bg-[#1b1b22] py-2 text-[11px] font-medium text-white hover:border-emerald-500 hover:bg-emerald-500/10 transition-colors">
+                  className="rounded-lg border border-line-strong bg-elevated py-2 text-[11px] font-medium text-white hover:border-emerald-500 hover:bg-emerald-500/10 transition-colors">
                   Side 1
                 </button>
                 <button onClick={() => submitFeedback(0.5)}
-                  className="rounded-lg border border-[#2a2a34] bg-[#1b1b22] py-2 text-[11px] font-medium text-white hover:border-accent-500 hover:bg-accent-500/10 transition-colors">
+                  className="rounded-lg border border-line-strong bg-elevated py-2 text-[11px] font-medium text-white hover:border-accent-500 hover:bg-accent-500/10 transition-colors">
                   Fair
                 </button>
                 <button onClick={() => submitFeedback(0)}
-                  className="rounded-lg border border-[#2a2a34] bg-[#1b1b22] py-2 text-[11px] font-medium text-white hover:border-emerald-500 hover:bg-emerald-500/10 transition-colors">
+                  className="rounded-lg border border-line-strong bg-elevated py-2 text-[11px] font-medium text-white hover:border-emerald-500 hover:bg-emerald-500/10 transition-colors">
                   Side 2
                 </button>
               </div>
@@ -557,11 +557,11 @@ export function TradeEvaluator({ initialSides }: TradeEvaluatorProps = {}) {
 
       {/* ── Post-Trade Roster Impact ── */}
       {tradeAnalysis && rosterImpacts && (
-        <div className="mt-4 bg-[#141419] rounded-xl p-4 sm:p-5">
+        <div className="mt-4 bg-surface rounded-xl p-4 sm:p-5">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <span className="text-xs font-bold text-white uppercase tracking-wider">Roster Impact</span>
-              <span className="text-[10px] text-[#75757f]">After trade, by position</span>
+              <span className="text-[10px] text-faint">After trade, by position</span>
             </div>
           </div>
 
@@ -582,7 +582,7 @@ export function TradeEvaluator({ initialSides }: TradeEvaluatorProps = {}) {
 
               return (
                 <div key={sideIndex} className="space-y-2">
-                  <div className="flex items-center justify-between pb-2 border-b border-[#1b1b22]">
+                  <div className="flex items-center justify-between pb-2 border-b border-line-subtle">
                     <span className="text-[11px] font-semibold text-white">
                       {roster ? getTeamDisplayName(roster) : `Side ${sideIndex + 1}`}
                     </span>
@@ -593,7 +593,7 @@ export function TradeEvaluator({ initialSides }: TradeEvaluatorProps = {}) {
                         <TrendingDown className="h-3 w-3 text-red-400" />
                       ) : null}
                       <span className={`text-[11px] font-bold tabular-nums ${
-                        totalDelta > 0 ? 'text-emerald-400' : totalDelta < 0 ? 'text-red-400' : 'text-[#75757f]'
+                        totalDelta > 0 ? 'text-emerald-400' : totalDelta < 0 ? 'text-red-400' : 'text-faint'
                       }`}>
                         {totalDelta > 0 ? '+' : ''}{totalDelta.toLocaleString()}
                       </span>
@@ -607,12 +607,12 @@ export function TradeEvaluator({ initialSides }: TradeEvaluatorProps = {}) {
                     const beforePct = (before / scale) * 100;
                     const afterPct = (after / scale) * 100;
                     const deltaColor =
-                      delta > 0 ? 'text-emerald-400' : delta < 0 ? 'text-red-400' : 'text-[#75757f]';
+                      delta > 0 ? 'text-emerald-400' : delta < 0 ? 'text-red-400' : 'text-faint';
 
                     return (
                       <div key={pos}>
                         <div className="flex items-center justify-between mb-1">
-                          <span className="text-[10px] font-semibold text-[#9c9ca7] w-6">{pos}</span>
+                          <span className="text-[10px] font-semibold text-muted w-6">{pos}</span>
                           <div className="flex items-center gap-2 text-[10px] tabular-nums">
                             <span className="text-[#80808c]">{before.toLocaleString()}</span>
                             <span className="text-[#4c4c56]">→</span>
@@ -626,7 +626,7 @@ export function TradeEvaluator({ initialSides }: TradeEvaluatorProps = {}) {
                           </div>
                         </div>
                         {/* Stacked bars: before (grey) + after (color) */}
-                        <div className="relative w-full h-1.5 bg-[#1b1b22] rounded-full overflow-hidden">
+                        <div className="relative w-full h-1.5 bg-elevated rounded-full overflow-hidden">
                           <div
                             className="absolute inset-y-0 left-0 bg-[#363641] rounded-full"
                             style={{ width: `${beforePct}%` }}
@@ -643,8 +643,8 @@ export function TradeEvaluator({ initialSides }: TradeEvaluatorProps = {}) {
                   })}
 
                   {pickDelta !== 0 && (
-                    <div className="flex items-center justify-between pt-2 mt-2 border-t border-[#1b1b22]">
-                      <span className="text-[10px] font-semibold text-[#9c9ca7]">Picks</span>
+                    <div className="flex items-center justify-between pt-2 mt-2 border-t border-line-subtle">
+                      <span className="text-[10px] font-semibold text-muted">Picks</span>
                       <span className={`text-[10px] font-semibold tabular-nums ${
                         pickDelta > 0 ? 'text-emerald-400' : 'text-red-400'
                       }`}>

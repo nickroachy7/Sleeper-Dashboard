@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import { Scale, Target, Swords, ChevronLeft, ChevronRight, Gamepad2, Wrench } from 'lucide-react';
+import { Scale, Target, Swords, ChevronRight, Gamepad2, Wrench } from 'lucide-react';
 import type { ComponentType } from 'react';
 import { TradeEvaluator } from './TradeEvaluator';
 import { TradeFinder } from './TradeFinder';
 import { RankEmPanel } from './RankEm';
 import { NoLeagueState } from '../components/NoLeagueState';
+import { SubPageHeader } from '../components/ui';
 import { useActiveLeague } from '../lib/active-league';
 import { useUrlState } from '../hooks/useUrlState';
 import type { TradeAsset } from '../lib/trade-shared';
@@ -78,18 +79,13 @@ export default function TradeTools() {
         {active ? (
           <>
             {/* Back to the Minis grid + the active mini's one-line hint. */}
-            <div className="flex items-center justify-between gap-3 mb-4">
-              <button
-                onClick={() => setMany({ tab: null })}
-                className="inline-flex items-center gap-1.5 text-[13px] font-medium text-[#9c9ca7] hover:text-white transition-colors -ml-1"
-              >
-                <ChevronLeft className="h-4 w-4" /> Minis
-              </button>
-              <span className="flex items-center gap-1.5 text-[13px] font-semibold text-white">
-                <active.icon className="h-4 w-4 text-accent-400" /> {active.label}
-              </span>
-            </div>
-            <p className="text-[12px] text-[#75757f] -mt-2 mb-4">{active.subtitle}</p>
+            <SubPageHeader
+              backLabel="Minis"
+              onBack={() => setMany({ tab: null })}
+              title={active.label}
+              icon={active.icon}
+              subtitle={active.subtitle}
+            />
 
             {active.id === 'evaluate' ? (
               // The Evaluator works without a league (global value calculator).
@@ -119,7 +115,7 @@ function MinisGrid({ onOpen }: { onOpen: (id: string) => void }) {
       <div>
         <p className="text-[11px] font-bold text-accent-500 tracking-[0.2em] uppercase mb-1">Minis</p>
         <h1 className="font-display text-xl font-bold text-white tracking-tight">Games &amp; tools</h1>
-        <p className="text-[13px] text-[#75757f] mt-1">Quick games that sharpen the community values, and tools for working trades.</p>
+        <p className="text-[13px] text-faint mt-1">Quick games that sharpen the community values, and tools for working trades.</p>
       </div>
 
       {SECTIONS.map(({ kind, label, icon: SectionIcon }) => {
@@ -127,7 +123,7 @@ function MinisGrid({ onOpen }: { onOpen: (id: string) => void }) {
         if (!items.length) return null;
         return (
           <section key={kind}>
-            <p className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.14em] text-[#75757f] mb-2.5">
+            <p className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.14em] text-faint mb-2.5">
               <SectionIcon className="h-3.5 w-3.5" /> {label}
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -135,14 +131,14 @@ function MinisGrid({ onOpen }: { onOpen: (id: string) => void }) {
                 <button
                   key={m.id}
                   onClick={() => onOpen(m.id)}
-                  className="group flex items-center gap-3.5 text-left rounded-2xl border border-[#22222b] bg-[#141419] p-4 hover:border-accent-500/40 hover:bg-[#17171d] transition-colors"
+                  className="group flex items-center gap-3.5 text-left rounded-2xl border border-line bg-surface p-4 hover:border-accent-500/40 hover:bg-[#17171d] transition-colors"
                 >
                   <span className="w-11 h-11 rounded-xl bg-accent-500/10 flex items-center justify-center shrink-0 group-hover:bg-accent-500/15 transition-colors">
                     <m.icon className="h-5 w-5 text-accent-400" />
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="block text-[14px] font-semibold text-white">{m.label}</span>
-                    <span className="block text-[12px] text-[#75757f] leading-snug mt-0.5">{m.blurb}</span>
+                    <span className="block text-[12px] text-faint leading-snug mt-0.5">{m.blurb}</span>
                   </span>
                   <ChevronRight className="h-4 w-4 text-[#4c4c56] group-hover:text-accent-400 shrink-0 transition-colors" />
                 </button>

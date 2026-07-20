@@ -1,14 +1,15 @@
-import { useMemo, useState, Fragment } from 'react';
+import { useEffect, useMemo, useState, Fragment } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { TrendingUp, Layers, Trophy } from 'lucide-react';
+import { TrendingUp, Layers } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useUrlState } from '../hooks/useUrlState';
 import { TabBar } from '../components/TabBar';
 import { VALUE_SOURCE } from '../lib/value-source';
 import { Pagination } from '../components/Pagination';
 import { FilterBar, SearchInput, FilterPills, SortSelect } from '../components/FilterBar';
+import { MetaText, FilterSheet, FilterSheetGroup } from '../components/ui';
 import { PlayerRow } from '../components/PlayerRow';
-import { RecordsPanel } from '../components/RecordsPanel';
 import { LeaguePicker } from '../components/LeaguePicker';
 import { IdpToggle } from '../components/IdpToggle';
 import { useValueMovers } from '../hooks/detail';
@@ -65,6 +66,9 @@ interface UnifiedValue {
   trend: number | null;
   injuryStatus: string | null;
   pickTier: string | null;
+  /** Pick identity (picks only) — for round/year filtering. */
+  pickYear: string | null;
+  pickRound: number | null;
   fetchedAt: string | null;
   /** 30-day community-value change (players only); null when unknown/flat. */
   delta: number | null;
@@ -101,7 +105,7 @@ async function fetchPickValues(): Promise<PickValueDetailed[]> {
 
 type SortField = 'rank' | 'value' | 'name' | 'rising' | 'falling';
 type SortDirection = 'asc' | 'desc';
-type TabType = 'players' | 'picks' | 'records';
+type TabType = 'players' | 'picks';
 
 const ITEMS_PER_PAGE = 50;
 const MOVER_WINDOW_DAYS = 30;
@@ -129,7 +133,12 @@ const tierAccents: Record<number, string> = {
 // filters) or draft-'pick' rankings. Picks are no longer interleaved into the
 // player list — they're their own tab.
 
-function ValuesTab({ kind, leagueFilterId }: { kind: 'player' | 'pick'; leagueFilterId?: string | null }) {
+function ValuesTab({ kind, leagueFilterId, leagues, onLeagueFilterChange }: {
+  kind: 'player' | 'pick';
+  leagueFilterId?: string | null;
+  leagues?: { rootLeagueId: string; name: string; season: string }[];
+  onLeagueFilterChange?: (id: string | null) => void;
+}) {
   const { get, setMany } = useUrlState();
   const showIdp = useShowIdp();
   const searchQuery = get('q');
@@ -141,6 +150,9 @@ function ValuesTab({ kind, leagueFilterId }: { kind: 'player' | 'pick'; leagueFi
   const sortField = get('sf', 'rank') as SortField;
   const sortDirection = get('sd', 'asc') as SortDirection;
   const currentPage = Number(get('page', '1')) || 1;
+  // Pick-tab filters (round + draft year), URL-driven like the position filter.
+  const roundFilter = get('round', 'ALL');
+  const yearFilter = get('year', 'ALL');
 
   // When a league is picked (Players tab only), keep only players rostered in
   // it — but on the GLOBAL value scale, so ranks read as "where my league's
@@ -191,7 +203,7 @@ function ValuesTab({ kind, leagueFilterId }: { kind: 'player' | 'pick'; leagueFi
           team: pv.player.team, age: pv.player.age, value: pv.value,
           rank: pv.rank, positionRank: pv.position_rank, tier: pv.tier,
           trend: pv.trend, injuryStatus: pv.player.injury_status,
-          pickTier: null, fetchedAt: pv.fetched_at,
+          pickTier: null, pickYear: null, pickRound: null, fetchedAt: pv.fetched_at,
           delta: deltaById.get(pv.player_id) ?? null,
         });
       }
@@ -203,7 +215,8 @@ function ValuesTab({ kind, leagueFilterId }: { kind: 'player' | 'pick'; leagueFi
           name: pick.pick_type, position: 'PICK', team: null, age: null,
           value: pick.value, rank: pick.rank, positionRank: null,
           tier: null, trend: null, injuryStatus: null,
-          pickTier: pick.pick_tier, fetchedAt: pick.fetched_at,
+          pickTier: pick.pick_tier, pickYear: pick.pick_year, pickRound: pick.pick_round,
+          fetchedAt: pick.fetched_at,
           delta: null,
         });
       }
@@ -223,6 +236,13 @@ function ValuesTab({ kind, leagueFilterId }: { kind: 'player' | 'pick'; leagueFi
     return map;
   }, [unifiedValues]);
 
+  // Distinct draft years present in the pick data, ascending — for the Picks
+  // filter sheet's Year options.
+  const pickYears = useMemo(() => {
+    if (kind !== 'pick' || !pickValues) return [];
+    return [...new Set(pickValues.map((p) => p.pick_year))].sort();
+  }, [kind, pickValues]);
+
   const leagueFiltered = kind === 'player' && !!leagueFilterId && !!rosterSet;
 
   const filteredAndSorted = useMemo(() => {
@@ -240,6 +260,12 @@ function ValuesTab({ kind, leagueFilterId }: { kind: 'player' | 'pick'; leagueFi
     }
     if (kind === 'player' && positionFilter !== 'ALL') {
       filtered = filtered.filter(item => matchesPositionFilter(item.position, positionFilter));
+    }
+    if (kind === 'pick' && roundFilter !== 'ALL') {
+      filtered = filtered.filter(item => String(item.pickRound) === roundFilter);
+    }
+    if (kind === 'pick' && yearFilter !== 'ALL') {
+      filtered = filtered.filter(item => item.pickYear === yearFilter);
     }
     // Rising/Falling: keep only players that meaningfully moved the right way,
     // then order by size of the move. These modes have a fixed direction, so
@@ -264,7 +290,7 @@ function ValuesTab({ kind, leagueFilterId }: { kind: 'player' | 'pick'; leagueFi
       return sortDirection === 'asc' ? comparison : -comparison;
     });
     return filtered;
-  }, [unifiedValues, kind, searchQuery, positionFilter, sortField, sortDirection, leagueFiltered, rosterSet]);
+  }, [unifiedValues, kind, searchQuery, positionFilter, roundFilter, yearFilter, sortField, sortDirection, leagueFiltered, rosterSet]);
 
   const totalPages = Math.ceil(filteredAndSorted.length / ITEMS_PER_PAGE);
   const paginatedValues = useMemo(() => {
@@ -305,67 +331,110 @@ function ValuesTab({ kind, leagueFilterId }: { kind: 'player' | 'pick'; leagueFi
 
   return (
     <>
-      {lastUpdated && (
-        <p className="text-[11px] text-[#60606a] mb-3">
-          Updated {new Date(lastUpdated).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} at {new Date(lastUpdated).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
-        </p>
-      )}
-      <FilterBar sticky>
-        <SearchInput
-          value={searchQuery}
-          onChange={handleSearchChange}
-          placeholder={kind === 'pick' ? 'Search picks…' : 'Search players…'}
-        />
-        {kind === 'player' && (
-        <FilterPills
-          options={[
-            { value: 'ALL', label: 'All' },
-            { value: 'QB', label: 'QB' },
-            { value: 'RB', label: 'RB' },
-            { value: 'WR', label: 'WR' },
-            { value: 'TE', label: 'TE' },
-            // IDP position pills only appear once the viewer opts in.
-            ...(showIdp ? IDP_FILTER_GROUPS.map(({ value, label }) => ({ value, label })) : []),
-          ]}
-          selected={positionFilter}
-          onChange={handlePositionFilterChange}
-        />
-        )}
-        {kind === 'player' && <IdpToggle />}
-        <SortSelect
-          value={isMoverSort ? sortField : `${sortField}-${sortDirection}`}
-          onChange={(val) => {
-            // Rising/Falling are directionless mover sorts; the rest are field-dir pairs.
-            if (val === 'rising' || val === 'falling') {
-              setMany({ sf: val, sd: null, page: null });
-              return;
-            }
-            const [field, dir] = val.split('-') as [SortField, SortDirection];
-            setMany({
-              sf: field === 'rank' ? null : field,
-              sd: dir === 'asc' ? null : dir,
-              page: null,
-            });
-          }}
-          options={[
-            { value: 'rank-asc', label: 'Rank (High → Low)' },
-            { value: 'rank-desc', label: 'Rank (Low → High)' },
-            { value: 'value-desc', label: 'Value (High → Low)' },
-            { value: 'value-asc', label: 'Value (Low → High)' },
-            { value: 'name-asc', label: 'Name (A → Z)' },
-            { value: 'name-desc', label: 'Name (Z → A)' },
-            // Movement sorts — player list only (picks have no value history).
-            ...(kind === 'player' ? [
-              { value: 'rising', label: `Rising (${MOVER_WINDOW_DAYS}d) ▲` },
-              { value: 'falling', label: `Falling (${MOVER_WINDOW_DAYS}d) ▼` },
-            ] : []),
-          ]}
-        />
-      </FilterBar>
+      <FilterBar
+        sticky
+        search={
+          <SearchInput
+            value={searchQuery}
+            onChange={handleSearchChange}
+            placeholder={kind === 'pick' ? 'Search picks…' : 'Search players…'}
+          />
+        }
+        sort={
+          <SortSelect
+            compact
+            value={isMoverSort ? sortField : `${sortField}-${sortDirection}`}
+            onChange={(val) => {
+              // Rising/Falling are directionless mover sorts; the rest are field-dir pairs.
+              if (val === 'rising' || val === 'falling') {
+                setMany({ sf: val, sd: null, page: null });
+                return;
+              }
+              const [field, dir] = val.split('-') as [SortField, SortDirection];
+              setMany({
+                sf: field === 'rank' ? null : field,
+                sd: dir === 'asc' ? null : dir,
+                page: null,
+              });
+            }}
+            options={[
+              { value: 'rank-asc', label: 'Rank (High → Low)' },
+              { value: 'rank-desc', label: 'Rank (Low → High)' },
+              { value: 'value-desc', label: 'Value (High → Low)' },
+              { value: 'value-asc', label: 'Value (Low → High)' },
+              { value: 'name-asc', label: 'Name (A → Z)' },
+              { value: 'name-desc', label: 'Name (Z → A)' },
+              // Movement sorts — player list only (picks have no value history).
+              ...(kind === 'player' ? [
+                { value: 'rising', label: `Rising (${MOVER_WINDOW_DAYS}d) ▲` },
+                { value: 'falling', label: `Falling (${MOVER_WINDOW_DAYS}d) ▼` },
+              ] : []),
+            ]}
+          />
+        }
+        trailing={kind === 'player' ? (
+          <FilterSheet activeCount={(positionFilter !== 'ALL' ? 1 : 0) + (leagueFilterId ? 1 : 0) + (showIdp ? 1 : 0)}>
+            <FilterSheetGroup label="Position">
+              <FilterPills
+                options={[
+                  { value: 'ALL', label: 'All' },
+                  { value: 'QB', label: 'QB' },
+                  { value: 'RB', label: 'RB' },
+                  { value: 'WR', label: 'WR' },
+                  { value: 'TE', label: 'TE' },
+                  ...(showIdp ? IDP_FILTER_GROUPS.map(({ value, label }) => ({ value, label })) : []),
+                ]}
+                selected={positionFilter}
+                onChange={handlePositionFilterChange}
+              />
+            </FilterSheetGroup>
 
-      <div className="bg-[#141419] rounded-2xl overflow-hidden border border-[#22222b]">
+            {leagues && leagues.length > 0 && onLeagueFilterChange && (
+              <FilterSheetGroup label="League">
+                <LeaguePicker
+                  leagues={leagues}
+                  selected={leagueFilterId ?? null}
+                  onSelect={onLeagueFilterChange}
+                  allLabel="All leagues"
+                />
+              </FilterSheetGroup>
+            )}
+
+            <FilterSheetGroup label="Defense">
+              <IdpToggle />
+            </FilterSheetGroup>
+          </FilterSheet>
+        ) : kind === 'pick' ? (
+          <FilterSheet activeCount={(roundFilter !== 'ALL' ? 1 : 0) + (yearFilter !== 'ALL' ? 1 : 0)}>
+            <FilterSheetGroup label="Round">
+              <FilterPills
+                options={[
+                  { value: 'ALL', label: 'All' },
+                  { value: '1', label: '1st' },
+                  { value: '2', label: '2nd' },
+                  { value: '3', label: '3rd' },
+                  { value: '4', label: '4th' },
+                ]}
+                selected={roundFilter}
+                onChange={(v) => setMany({ round: v === 'ALL' ? null : v, page: null })}
+              />
+            </FilterSheetGroup>
+            {pickYears.length > 0 && (
+              <FilterSheetGroup label="Year">
+                <FilterPills
+                  options={[{ value: 'ALL', label: 'All' }, ...pickYears.map((y) => ({ value: y, label: y }))]}
+                  selected={yearFilter}
+                  onChange={(v) => setMany({ year: v === 'ALL' ? null : v, page: null })}
+                />
+              </FilterSheetGroup>
+            )}
+          </FilterSheet>
+        ) : undefined}
+      />
+
+      <div className="bg-surface rounded-2xl overflow-hidden border border-line">
         {paginatedValues.length === 0 && (
-          <p className="px-4 py-10 text-center text-[13px] text-[#75757f]">
+          <p className="px-4 py-10 text-center text-[13px] text-faint">
             {isMoverSort
               ? `No ${sortField === 'rising' ? 'risers' : 'fallers'} in the last ${MOVER_WINDOW_DAYS} days${positionFilter !== 'ALL' ? ` at ${positionFilter}` : ''}.`
               : 'No players match your filters.'}
@@ -390,14 +459,14 @@ function ValuesTab({ kind, leagueFilterId }: { kind: 'player' | 'pick'; leagueFi
             <Fragment key={`${item.type}-${item.id}`}>
               {showTierHeader && (
                 <div
-                  className="px-4 py-2.5 bg-[#17171d] border-b border-[#1b1b22] sticky top-0 z-[5]"
+                  className="px-4 py-2.5 bg-[#17171d] border-b border-line-subtle sticky top-0 z-[5]"
                   style={{ borderLeft: `3px solid ${tierAccents[item.tier!] || '#333'}` }}
                 >
-                  <span className="text-xs font-bold text-[#9c9ca7]">
+                  <span className="text-xs font-bold text-muted">
                     Tier {item.tier}
                   </span>
                   {tierDescriptions[item.tier!] && (
-                    <span className="text-xs text-[#75757f] ml-2">
+                    <span className="text-xs text-faint ml-2">
                       — {tierDescriptions[item.tier!]}
                     </span>
                   )}
@@ -439,6 +508,13 @@ function ValuesTab({ kind, leagueFilterId }: { kind: 'player' | 'pick'; leagueFi
         itemsPerPage={ITEMS_PER_PAGE}
         onPageChange={(page) => { setMany({ page: page === 1 ? null : String(page) }); window.scrollTo({ top: 0 }); }}
       />
+
+      {/* Data freshness — present but out of the way, at the foot of the list. */}
+      {lastUpdated && (
+        <MetaText className="mt-4 text-center">
+          Updated {new Date(lastUpdated).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} at {new Date(lastUpdated).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+        </MetaText>
+      )}
     </>
   );
 }
@@ -448,17 +524,23 @@ function ValuesTab({ kind, leagueFilterId }: { kind: 'player' | 'pick'; leagueFi
 const PLAYERS_TABS = [
   { id: 'players' as const, label: 'Players', icon: TrendingUp },
   { id: 'picks' as const, label: 'Picks', icon: Layers },
-  { id: 'records' as const, label: 'Records', icon: Trophy },
 ];
 
 /** The Ranking section: community-driven (YAP) player + rookie-pick values,
- *  plus a league-filtered Records tab (the record book that used to live under
- *  League → History). Players/Picks are global; Records filters to one of the
- *  user's leagues. "Rank 'Em" is a contribution action, not a tab. */
+ *  both global. Records (league-scoped) lives on the League page now.
+ *  "Rank 'Em" is a contribution action, not a tab. */
 export function PlayersPage() {
   const { get, setMany } = useUrlState();
-  const activeTab = get('tab', 'players') as TabType;
+  const rawTab = get('tab', 'players');
   const { leagues } = useActiveLeague();
+
+  // Records moved to the League page; keep old ?tab=records links working.
+  const navigate = useNavigate();
+  useEffect(() => {
+    if (rawTab === 'records') navigate('/league?tab=records', { replace: true });
+  }, [rawTab, navigate]);
+
+  const activeTab = (rawTab === 'picks' ? 'picks' : 'players') as TabType;
 
   // League filter for the Players list: null = "All" (global rankings, the
   // default). Picking a league shows just its rostered players on the global
@@ -468,26 +550,9 @@ export function PlayersPage() {
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto space-y-4">
-      {/* League filter — leads the page on the Players tab (like the League
-          page's switcher). "All" = global community rankings; pick a league to
-          compare your roster against them. Only when the user has a league. */}
-      {activeTab === 'players' && leagues.length > 0 && (
-        <div className="flex items-center justify-between gap-3 rounded-2xl border border-[#1f1f27] bg-white/[0.03] px-3 py-2.5 sm:px-4">
-          <p className="text-[12px] text-[#75757f]">
-            {leagueFilterId ? 'Your league on the global scale' : 'Global community rankings'}
-          </p>
-          <LeaguePicker
-            leagues={leagues}
-            selected={leagueFilterId}
-            onSelect={(id) => { setLeagueFilterId(id); setMany({ page: null }); }}
-            allLabel="All"
-          />
-        </div>
-      )}
-
-      {/* Tabs (the nav already names the page "Ranking"). The "Rank 'Em"
-          contribution flow moved to Minis. Rising/falling movers are a sort
-          option on the list, not a separate section. */}
+      {/* Tabs (the nav already names the page "Ranking"). The league filter used
+          to lead the page in its own row; it now lives inside the Players tab's
+          filter sheet (⚙ beside the search box) so the top stays clean. */}
       <TabBar
         tabs={PLAYERS_TABS}
         active={activeTab}
@@ -495,9 +560,15 @@ export function PlayersPage() {
       />
 
       <div>
-        {activeTab === 'records' ? <RecordsPanel />
-          : activeTab === 'picks' ? <ValuesTab kind="pick" />
-          : <ValuesTab kind="player" leagueFilterId={leagueFilterId} />}
+        {activeTab === 'picks' ? <ValuesTab kind="pick" />
+          : (
+            <ValuesTab
+              kind="player"
+              leagueFilterId={leagueFilterId}
+              leagues={leagues}
+              onLeagueFilterChange={(id) => { setLeagueFilterId(id); setMany({ page: null }); }}
+            />
+          )}
       </div>
     </div>
   );

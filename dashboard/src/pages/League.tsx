@@ -1,13 +1,14 @@
 import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { Users, ListOrdered, ArrowLeftRight, Layers } from 'lucide-react';
+import { Users, ArrowLeftRight, Trophy } from 'lucide-react';
 import { TabBar } from '../components/TabBar';
 import { SectionCard } from '../components/SectionCard';
+import { Segmented } from '../components/ui';
 import { MyTeamPicker } from '../components/MyTeamCard';
 import { NoLeagueState } from '../components/NoLeagueState';
 import { LeagueSwitcher } from '../components/LeagueSwitcher';
+import { HistoryPanel } from '../components/HistoryPanel';
 import { TransactionsPanel } from './Transactions';
-import { DraftsPanel } from './Drafts';
 import { useLeagueDirectory } from '../hooks/detail';
 import { useLeagueMatchups, pairGames, type MatchupRow } from '../hooks/league';
 import { useTeamStrength } from '../hooks/useTeamStrength';
@@ -17,16 +18,20 @@ import { useActiveLeague } from '../lib/active-league';
 
 // ── Types ───────────────────────────────────────────────────────────
 
-type LeagueTab = 'standings' | 'transactions' | 'drafts';
+type LeagueTab = 'standings' | 'transactions' | 'history';
 
-// Weekly matchups live on each team's page (Schedule tab) — a per-team
-// schedule reads better than a league-wide scoreboard and saves a tab here.
-// The record book + all-time history moved to Ranking → Records (it filters
-// by league there), which keeps these three tabs fitting in a row.
+// Weekly matchups live on each team's page (Schedule tab). "History" is the
+// league's backward-looking hub: the all-time record book + manager leaderboard
+// show immediately, with Drafts as a sub-page. Folding drafts + records under
+// one tab keeps the row to three fully-labeled tabs on mobile. History is
+// league-scoped (follows this page's league switcher), which is why it lives
+// here rather than on the community Ranking page.
 const LEAGUE_TABS = [
-  { id: 'standings' as const, label: 'Standings', icon: ListOrdered },
+  // "Teams" is shorter than "Standings" (so the row fits "Transactions" in full)
+  // but the tab still leads with the standings view — id stays 'standings'.
+  { id: 'standings' as const, label: 'Teams', icon: Users },
   { id: 'transactions' as const, label: 'Transactions', icon: ArrowLeftRight },
-  { id: 'drafts' as const, label: 'Drafts', icon: Layers },
+  { id: 'history' as const, label: 'History', icon: Trophy },
 ];
 
 interface DirRoster {
@@ -78,13 +83,14 @@ export default function League() {
   const { data: matchups } = useLeagueMatchups();
   const { byRoster: teamStrength } = useTeamStrength();
   const { rosterId: myRosterId } = useMyTeam();
-  const { get, set } = useUrlState();
+  const { get, set, setMany } = useUrlState();
 
   const reqTab = get('tab');
   const activeTab: LeagueTab =
     reqTab === 'transactions' ? 'transactions'
-    : reqTab === 'drafts' ? 'drafts'
-    : 'standings'; // old ?tab=scoreboard / ?tab=history links land here too
+    // Drafts + Records folded into History; old links land on the right view.
+    : reqTab === 'history' || reqTab === 'records' || reqTab === 'drafts' ? 'history'
+    : 'standings'; // old ?tab=scoreboard links land here too
 
   // Seasons in the dynasty, newest first, flagged by whether they've kicked off.
   const seasons = useMemo(() => {
@@ -229,22 +235,17 @@ export default function League() {
     );
   }
 
-  // Season pill selector (standings tab).
-  const showSeasonPills = activeTab === 'standings' && seasons.filter((s) => s.started).length > 1;
+  // Season pill selector (standings tab) — shared Segmented (compact/inline).
+  const startedSeasons = seasons.filter((s) => s.started);
+  const showSeasonPills = activeTab === 'standings' && startedSeasons.length > 1;
   const seasonPills = (
-    <div className="flex gap-1 flex-wrap">
-      {seasons.filter((s) => s.started).map((s) => (
-        <button
-          key={s.leagueId}
-          onClick={() => set('season', s.season === defaultSeasonName(seasons, defaultLeagueId) ? null : s.season)}
-          className={`px-2.5 py-1 rounded-md text-[11px] font-semibold tabular-nums transition-colors ${
-            s.season === selectedSeason ? 'bg-accent-500 text-white' : 'text-[#75757f] hover:text-white bg-[#1b1b22]'
-          }`}
-        >
-          {s.season}
-        </button>
-      ))}
-    </div>
+    <Segmented
+      size="sm"
+      layout="inline"
+      value={selectedSeason}
+      onChange={(season) => set('season', season === defaultSeasonName(seasons, defaultLeagueId) ? null : season)}
+      options={startedSeasons.map((s) => ({ value: s.season, label: s.season }))}
+    />
   );
 
   return (
@@ -252,7 +253,7 @@ export default function League() {
       {/* ── League identity + switcher. This is the ONE place to switch leagues
           — the app chrome is league-neutral, so everything league-specific
           (including "which league am I viewing") lives on this page. ── */}
-      <div className="rounded-2xl border border-[#1f1f27] bg-white/[0.03] px-3 py-3 sm:px-4">
+      <div className="rounded-2xl border border-line-subtle bg-white/[0.03] px-3 py-3 sm:px-4">
         <LeagueSwitcher />
       </div>
 
@@ -260,7 +261,9 @@ export default function League() {
       <TabBar
         tabs={LEAGUE_TABS}
         active={activeTab}
-        onChange={(id) => set('tab', id === 'standings' ? null : id)}
+        // Clear the History sub-view (?view) when switching tabs so it doesn't
+        // persist onto Standings/Trades.
+        onChange={(id) => setMany({ tab: id === 'standings' ? null : id, view: null })}
       />
 
       {/* ═══ STANDINGS ═══ */}
@@ -276,14 +279,14 @@ export default function League() {
           flush
         >
           {standings.length === 0 ? (
-            <p className="text-[12px] text-[#60606a] px-4 sm:px-5 pb-5">
+            <p className="text-[12px] text-ghost px-4 sm:px-5 pb-5">
               No standings yet — the {selectedSeason} season hasn't started.
             </p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse min-w-[560px]">
                 <thead>
-                  <tr className="text-[10px] uppercase tracking-[0.1em] text-[#60606a] border-b border-[#1b1b22]">
+                  <tr className="text-[10px] uppercase tracking-[0.1em] text-ghost border-b border-line-subtle">
                     <th className="font-bold py-2 pl-4 sm:pl-5 pr-2">#</th>
                     <th className="font-bold py-2 px-2">Team</th>
                     <th className="font-bold py-2 px-2 text-center">Record</th>
@@ -300,25 +303,25 @@ export default function League() {
                 </thead>
                 <tbody>
                   {standings.map((s, i) => {
-                    const streakColor = s.streak.startsWith('W') ? 'text-accent-500' : s.streak.startsWith('L') ? 'text-red-400' : 'text-[#75757f]';
+                    const streakColor = s.streak.startsWith('W') ? 'text-accent-500' : s.streak.startsWith('L') ? 'text-red-400' : 'text-faint';
                     const playoffLine = i === Math.ceil(standings.length / 2) - 1; // rough top-half divider
-                    const luckColor = s.luck >= 2 ? 'text-amber-400' : s.luck <= -2 ? 'text-sky-400' : 'text-[#75757f]';
+                    const luckColor = s.luck >= 2 ? 'text-amber-400' : s.luck <= -2 ? 'text-sky-400' : 'text-faint';
                     const luckLabel = s.luck >= 2 ? `Lucky — ${s.luck} more win${s.luck !== 1 ? 's' : ''} than performance` : s.luck <= -2 ? `Unlucky — ${Math.abs(s.luck)} fewer win${Math.abs(s.luck) !== 1 ? 's' : ''} than performance` : 'Record matches performance';
                     // The visitor's own team (roster ids are stable across the
                     // season chain, so this holds on past seasons too).
                     const isMine = s.rosterId === myRosterId;
                     return (
-                      <tr key={s.rosterId} className={`group border-b border-[#1b1b22] last:border-0 hover:bg-[#1b1b22] transition-colors ${isMine ? 'bg-accent-500/[0.06]' : ''} ${playoffLine ? 'shadow-[inset_0_-1px_0_rgba(34,197,94,0.25)]' : ''}`}>
+                      <tr key={s.rosterId} className={`group border-b border-line-subtle last:border-0 hover:bg-elevated transition-colors ${isMine ? 'bg-accent-500/[0.06]' : ''} ${playoffLine ? 'shadow-[inset_0_-1px_0_rgba(34,197,94,0.25)]' : ''}`}>
                         <td className="py-2.5 pl-4 sm:pl-5 pr-2">
-                          <span className={`font-display text-[13px] font-bold tabular-nums ${isMine ? 'text-accent-400' : 'text-[#75757f]'}`}>{s.rank}</span>
+                          <span className={`font-display text-[13px] font-bold tabular-nums ${isMine ? 'text-accent-400' : 'text-faint'}`}>{s.rank}</span>
                         </td>
                         <td className="py-2.5 px-2">
                           <Link to={`/teams/${s.rosterId}`} className="flex items-center gap-2.5 min-w-0">
-                            <span className="w-7 h-7 rounded-full overflow-hidden bg-[#22222b] shrink-0 ring-1 ring-inset ring-white/10 flex items-center justify-center">
+                            <span className="w-7 h-7 rounded-full overflow-hidden bg-overlay shrink-0 ring-1 ring-inset ring-white/10 flex items-center justify-center">
                               {s.avatar ? (
                                 <img src={s.avatar} alt="" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.visibility = 'hidden'; }} />
                               ) : (
-                                <Users className="h-3.5 w-3.5 text-[#60606a]" />
+                                <Users className="h-3.5 w-3.5 text-ghost" />
                               )}
                             </span>
                             <span className={`text-[13px] truncate group-hover:text-accent-400 transition-colors ${isMine ? 'font-bold text-white' : 'font-medium text-white'}`}>{s.name}</span>
@@ -329,7 +332,7 @@ export default function League() {
                             )}
                           </Link>
                         </td>
-                        <td className="py-2.5 px-2 text-center text-[13px] tabular-nums text-[#d6d6de]">
+                        <td className="py-2.5 px-2 text-center text-[13px] tabular-nums text-ink-soft">
                           {s.wins}-{s.losses}{s.ties ? `-${s.ties}` : ''}
                         </td>
                         {showExpected && (
@@ -339,11 +342,11 @@ export default function League() {
                         )}
                         {showPower && (
                           <td className="py-2.5 px-2 text-center text-[12px] tabular-nums" title="Power rank by weighted roster value">
-                            {teamStrength.get(s.rosterId) ? <span className="text-[#c4c4cd]">#{teamStrength.get(s.rosterId)!.rank}</span> : <span className="text-[#4c4c56]">—</span>}
+                            {teamStrength.get(s.rosterId) ? <span className="text-ink-soft">#{teamStrength.get(s.rosterId)!.rank}</span> : <span className="text-[#4c4c56]">—</span>}
                           </td>
                         )}
-                        <td className="py-2.5 px-2 text-right text-[12px] tabular-nums text-[#9c9ca7]">{fmtPts(s.pf)}</td>
-                        <td className="py-2.5 px-2 text-right text-[12px] tabular-nums text-[#75757f]">{fmtPts(s.pa)}</td>
+                        <td className="py-2.5 px-2 text-right text-[12px] tabular-nums text-muted">{fmtPts(s.pf)}</td>
+                        <td className="py-2.5 px-2 text-right text-[12px] tabular-nums text-faint">{fmtPts(s.pa)}</td>
                         <td className={`py-2.5 px-2 pr-4 sm:pr-5 text-center text-[12px] font-semibold tabular-nums ${streakColor}`}>{s.streak}</td>
                       </tr>
                     );
@@ -358,8 +361,8 @@ export default function League() {
       {/* ═══ TRANSACTIONS ═══ */}
       {activeTab === 'transactions' && <TransactionsPanel />}
 
-      {/* ═══ DRAFTS ═══ */}
-      {activeTab === 'drafts' && <DraftsPanel />}
+      {/* ═══ HISTORY (record book + manager leaderboard, with Drafts sub-page) ═══ */}
+      {activeTab === 'history' && <HistoryPanel initialView={reqTab === 'drafts' ? 'drafts' : undefined} />}
     </div>
   );
 }

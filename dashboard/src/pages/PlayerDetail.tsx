@@ -8,6 +8,7 @@ import { SectionCard } from '../components/SectionCard';
 import { StatTile } from '../components/StatTile';
 import { Stat, StatStrip } from '../components/StatStrip';
 import { TabBar } from '../components/TabBar';
+import { Segmented } from '../components/ui';
 import { PlayerRow } from '../components/PlayerRow';
 import { usePlayerDetail, useLeagueDirectory, usePlayerFacts, usePlayerLeagueWeeks } from '../hooks/detail';
 import { usePlayers, usePlayerValuesList, useTrending } from '../hooks/queries';
@@ -46,7 +47,7 @@ function txKind(type: string): TimelineEvent['kind'] {
 }
 
 // All transaction types share one neutral badge — the label carries the meaning.
-const BADGE_CLS = 'bg-[#22222b] text-[#9c9ca7] border border-[#2e2e38]';
+const BADGE_CLS = 'bg-overlay text-muted border border-[#2e2e38]';
 const KIND_BADGE: Record<TimelineEvent['kind'], { label: string; cls: string }> = {
   draft: { label: 'DRAFTED', cls: BADGE_CLS },
   trade: { label: 'TRADE', cls: BADGE_CLS },
@@ -141,7 +142,7 @@ function computeOutlook(opts: {
 function OutlookCard({ blurb }: { blurb: string }) {
   return (
     <SectionCard label="Outlook" sub="Auto-generated read from value trend, age & production — not trade advice">
-      <p className="text-[13px] text-[#d6d6de] leading-relaxed">{blurb}</p>
+      <p className="text-[13px] text-ink-soft leading-relaxed">{blurb}</p>
     </SectionCard>
   );
 }
@@ -421,7 +422,7 @@ export default function PlayerDetail() {
   if (!data.player) {
     return (
       <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto text-center py-16">
-        <p className="text-sm text-[#9c9ca7]">Player not found.</p>
+        <p className="text-sm text-muted">Player not found.</p>
         <Link to="/" className="text-xs text-accent-400 mt-2 inline-block">Back to Home</Link>
       </div>
     );
@@ -436,7 +437,7 @@ export default function PlayerDetail() {
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto space-y-4">
       {/* ── Header ── */}
-      <section className="relative overflow-hidden rounded-2xl border border-[#22222b] bg-gradient-to-br from-[#16161c] via-[#141419] to-[#111116]">
+      <section className="relative overflow-hidden rounded-2xl border border-line bg-gradient-to-br from-[#16161c] via-[#141419] to-[#111116]">
         <div className="pointer-events-none absolute -top-20 -right-12 h-48 w-48 rounded-full bg-accent-500/10 blur-3xl" />
         <div className="relative p-4 sm:p-6">
           {/* Floated so the text column below can use the full card width. */}
@@ -447,7 +448,7 @@ export default function PlayerDetail() {
             <ArrowRightLeft className="h-4 w-4" /> Trade
           </button>
           <div className="flex items-start gap-4">
-            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full overflow-hidden bg-[#22222b] shrink-0 ring-1 ring-inset ring-white/10">
+            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full overflow-hidden bg-overlay shrink-0 ring-1 ring-inset ring-white/10">
               <img
                 src={getPlayerImageUrl(player.player_id)}
                 alt=""
@@ -462,14 +463,14 @@ export default function PlayerDetail() {
                 </h1>
                 <PositionBadge position={player.position || '?'} size="sm" />
               </div>
-              <p className="text-[12px] text-[#9c9ca7] mt-1">
+              <p className="text-[12px] text-muted mt-1">
                 {player.team || 'Free Agent'}
                 {player.age ? ` · ${player.age} yrs` : ''}
                 {player.years_exp != null ? ` · ${player.years_exp === 0 ? 'Rookie' : `${player.years_exp} yr exp`}` : ''}
               </p>
               {/* Ownership is league-specific — only shown once a league is added. */}
               {hasLeague && (
-                <p className="text-[12px] text-[#75757f] mt-0.5 truncate">
+                <p className="text-[12px] text-faint mt-0.5 truncate">
                   {currentOwner ? (
                     <>
                       Owned by{' '}
@@ -507,7 +508,7 @@ export default function PlayerDetail() {
             </StatTile>
             <StatTile
               label="30-day trend"
-              valueClassName={trend > 0 ? 'text-accent-500' : trend < 0 ? 'text-red-400' : 'text-[#75757f]'}
+              valueClassName={trend > 0 ? 'text-accent-500' : trend < 0 ? 'text-red-400' : 'text-faint'}
             >
               {trend === 0 ? 'Flat' : (
                 <span className="flex items-center gap-1">
@@ -565,7 +566,7 @@ export default function PlayerDetail() {
         </SectionCard>
       ) : (
         <SectionCard label="Career Arc">
-          <p className="text-[12px] text-[#75757f] py-6 text-center">No NFL production on record yet.</p>
+          <p className="text-[12px] text-faint py-6 text-center">No NFL production on record yet.</p>
         </SectionCard>
       )}
 
@@ -573,7 +574,7 @@ export default function PlayerDetail() {
           silently dropping it, so the Production tab never looks half-empty. */}
       {(!hasLeague || !activeSeason || activeSeason.games === 0) && (
         <SectionCard label="Weekly Scoring">
-          <p className="text-[12px] text-[#75757f] py-6 text-center">
+          <p className="text-[12px] text-faint py-6 text-center">
             {hasLeague
               ? 'No weekly scoring yet — this season hasn’t been played in your league.'
               : 'Add your league to see week-by-week scoring and start/sit history.'}
@@ -586,19 +587,13 @@ export default function PlayerDetail() {
           label="Weekly Scoring"
           sub={`In this league's scoring · ${activeSeason.season} season`}
           right={leagueSeasonsPlayed && leagueSeasonsPlayed.length > 1 ? (
-            <div className="flex gap-1">
-              {[...leagueSeasonsPlayed].reverse().map((s) => (
-                <button
-                  key={s.leagueId}
-                  onClick={() => setPickedSeason(s.season)}
-                  className={`px-2 py-0.5 rounded-md text-[10px] font-semibold tabular-nums transition-colors ${
-                    s.season === activeSeason?.season ? 'bg-accent-500 text-white' : 'text-[#75757f] hover:text-white bg-[#1b1b22]'
-                  }`}
-                >
-                  {s.season}
-                </button>
-              ))}
-            </div>
+            <Segmented
+              size="sm"
+              layout="inline"
+              value={activeSeason?.season ?? ''}
+              onChange={(season) => setPickedSeason(season)}
+              options={[...leagueSeasonsPlayed].reverse().map((s) => ({ value: s.season, label: s.season }))}
+            />
           ) : undefined}
         >
           <StatStrip>
@@ -621,13 +616,13 @@ export default function PlayerDetail() {
           </StatStrip>
           {/* One row per week: points bar scaled to the season's best week;
               green = started, gray = scored on the bench. */}
-          <div className="mt-4 border-t border-[#1b1b22]">
+          <div className="mt-4 border-t border-line-subtle">
             {activeSeason.weeks.map((w) => {
               const max = Math.max(activeSeason.best?.points ?? 0, 1);
               const pct = Math.max((Math.max(w.points, 0) / max) * 100, 2);
               return (
-                <div key={w.week} className="flex items-center gap-3 py-1.5 border-b border-[#1b1b22] last:border-b-0">
-                  <span className="w-10 shrink-0 text-[11px] text-[#75757f] font-semibold tabular-nums">Wk {w.week}</span>
+                <div key={w.week} className="flex items-center gap-3 py-1.5 border-b border-line-subtle last:border-b-0">
+                  <span className="w-10 shrink-0 text-[11px] text-faint font-semibold tabular-nums">Wk {w.week}</span>
                   <div className="flex-1 h-4 rounded-sm bg-[#101015]/60 overflow-hidden">
                     <div
                       className={`h-full rounded-sm ${w.started ? 'bg-accent-500/80' : 'bg-[#3f3f46]'}`}
@@ -637,7 +632,7 @@ export default function PlayerDetail() {
                   <span className="w-12 shrink-0 text-right font-display text-[13px] font-bold text-white tabular-nums">
                     {w.points.toFixed(1)}
                   </span>
-                  <span className={`w-14 shrink-0 text-right text-[10px] font-semibold ${w.started ? 'text-accent-400' : 'text-[#60606a]'}`}>
+                  <span className={`w-14 shrink-0 text-right text-[10px] font-semibold ${w.started ? 'text-accent-400' : 'text-ghost'}`}>
                     {w.started ? 'Started' : 'Benched'}
                   </span>
                 </div>
@@ -669,11 +664,11 @@ export default function PlayerDetail() {
                     <span className={`w-px flex-1 ${isLast ? 'bg-transparent' : 'bg-[#2e2e38]'}`} />
                   </span>
                   <span className={`min-w-0 flex-1 truncate text-[13px] font-semibold transition-colors ${
-                    isLast && isTeam ? 'text-accent-400' : isTeam ? 'text-[#d6d6de] group-hover:text-white' : 'text-[#75757f]'
+                    isLast && isTeam ? 'text-accent-400' : isTeam ? 'text-ink-soft group-hover:text-white' : 'text-faint'
                   }`}>
                     {isTeam ? directory!.teamName(stop.rosterId!) : 'Free agency'}
                   </span>
-                  <span className="shrink-0 text-[9px] text-[#75757f] uppercase tracking-[0.08em] font-bold tabular-nums">
+                  <span className="shrink-0 text-[9px] text-faint uppercase tracking-[0.08em] font-bold tabular-nums">
                     {isTeam ? stop.how : 'Dropped'}{stop.season ? ` · ${stop.season}` : ''}
                   </span>
                 </>
@@ -696,12 +691,12 @@ export default function PlayerDetail() {
       )}
 
       {/* ── League history timeline ── */}
-      <section className="bg-[#141419] rounded-2xl border border-[#22222b] overflow-hidden">
+      <section className="bg-surface rounded-2xl border border-line overflow-hidden">
         <div className="px-4 sm:px-5 pt-4 pb-2">
           <p className="text-[11px] font-bold text-accent-500 tracking-[0.18em] uppercase">League History</p>
         </div>
         {timeline.length === 0 ? (
-          <p className="text-[12px] text-[#75757f] px-4 sm:px-5 pb-5">
+          <p className="text-[12px] text-faint px-4 sm:px-5 pb-5">
             No league events for this player — never drafted, traded, or moved on waivers.
           </p>
         ) : (
@@ -714,7 +709,7 @@ export default function PlayerDetail() {
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="text-[13px] text-white font-medium leading-snug">{ev.headline}</p>
-                    {ev.detail && <p className="text-[11px] text-[#75757f] mt-0.5">{ev.detail}</p>}
+                    {ev.detail && <p className="text-[11px] text-faint mt-0.5">{ev.detail}</p>}
                     {(ev.received?.length || ev.sent?.length) ? (
                       // Two columns when a trade has both sides; a single left
                       // column for a one-sided add/drop.
@@ -723,7 +718,7 @@ export default function PlayerDetail() {
                           {ev.received?.map((a, i) => (
                             <div key={`r${i}`} className="flex items-baseline gap-1.5 text-[12px] leading-tight">
                               <span className="text-emerald-400 font-bold shrink-0">+</span>
-                              <span className={`truncate ${a.isSubject ? 'text-white font-medium' : a.isPick ? 'text-[#9c9ca7]' : 'text-[#d6d6de]'}`}>{a.text}</span>
+                              <span className={`truncate ${a.isSubject ? 'text-white font-medium' : a.isPick ? 'text-muted' : 'text-ink-soft'}`}>{a.text}</span>
                             </div>
                           ))}
                         </div>
@@ -732,7 +727,7 @@ export default function PlayerDetail() {
                             {ev.sent.map((a, i) => (
                               <div key={`s${i}`} className="flex items-baseline gap-1.5 text-[12px] leading-tight">
                                 <span className="text-red-400 font-bold shrink-0">−</span>
-                                <span className={`truncate ${a.isSubject ? 'text-white font-medium' : a.isPick ? 'text-[#75757f]' : 'text-[#9c9ca7]'}`}>{a.text}</span>
+                                <span className={`truncate ${a.isSubject ? 'text-white font-medium' : a.isPick ? 'text-faint' : 'text-muted'}`}>{a.text}</span>
                               </div>
                             ))}
                           </div>
@@ -740,20 +735,20 @@ export default function PlayerDetail() {
                       </div>
                     ) : null}
                   </div>
-                  <span className="text-[10px] text-[#60606a] shrink-0 tabular-nums mt-0.5">
+                  <span className="text-[10px] text-ghost shrink-0 tabular-nums mt-0.5">
                     {ev.kind === 'draft' ? ev.season : ev.timestamp ? dateStr(ev.timestamp) : ev.season}
                   </span>
                   {ev.transactionId && <ChevronRight className="h-4 w-4 text-[#4c4c56] group-hover:text-accent-400 shrink-0 mt-0.5 transition-colors" />}
                 </>
               );
               const stripe = idx % 2 === 1 ? 'bg-[#17171d]' : '';
-              const rowCls = `group flex items-start gap-3 px-4 sm:px-5 py-3 border-t border-[#1b1b22] transition-colors ${stripe}`;
+              const rowCls = `group flex items-start gap-3 px-4 sm:px-5 py-3 border-t border-line-subtle transition-colors ${stripe}`;
               return ev.transactionId ? (
-                <Link key={ev.key} to={`/trades/${ev.transactionId}`} className={`${rowCls} hover:bg-[#1b1b22] active:bg-[#22222b]`}>
+                <Link key={ev.key} to={`/trades/${ev.transactionId}`} className={`${rowCls} hover:bg-elevated active:bg-overlay`}>
                   {inner}
                 </Link>
               ) : ev.teamRosterId !== undefined ? (
-                <Link key={ev.key} to={`/teams/${ev.teamRosterId}`} className={`${rowCls} hover:bg-[#1b1b22] active:bg-[#22222b]`}>
+                <Link key={ev.key} to={`/teams/${ev.teamRosterId}`} className={`${rowCls} hover:bg-elevated active:bg-overlay`}>
                   {inner}
                 </Link>
               ) : (

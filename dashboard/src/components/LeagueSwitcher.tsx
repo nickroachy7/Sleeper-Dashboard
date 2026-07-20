@@ -3,6 +3,7 @@ import { ChevronsUpDown, Check, Plus } from 'lucide-react';
 import { useLeague } from '../hooks/queries';
 import { useActiveLeague } from '../lib/active-league';
 import { openAddLeague } from '../lib/add-league-modal';
+import { LeagueMenuItem } from './LeagueMenuItem';
 
 function statusDot(status?: string) {
   if (status === 'in_season' || status === 'drafting') return 'bg-emerald-500';
@@ -130,27 +131,22 @@ export function LeagueSwitcher({ onNavigate, compact = false }: { onNavigate?: (
               {leagues.map((l) => {
                 const isActive = l.rootLeagueId === activeRootId;
                 return (
-                  <button
+                  <LeagueMenuItem
                     key={l.rootLeagueId}
-                    role="menuitem"
+                    name={l.name}
+                    sub={`${l.season} Season`}
+                    active={isActive}
                     onClick={() => choose(l.rootLeagueId)}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-[#1b1b22] transition-colors"
-                  >
-                    <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${isActive ? 'bg-accent-500' : 'bg-[#3a3a44]'}`} />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[13px] font-medium text-white truncate">{l.name}</p>
-                      <p className="text-[11px] text-[#75757f]">{l.season} Season</p>
-                    </div>
-                    {isActive && <Check className="h-4 w-4 text-accent-400 shrink-0" />}
-                  </button>
+                    trailing={isActive ? <Check className="h-4 w-4 text-accent-400 shrink-0" /> : undefined}
+                  />
                 );
               })}
             </div>
           ) : (
-            <p className="px-3 py-2.5 text-[12px] text-[#75757f]">No leagues added yet.</p>
+            <p className="px-3 py-2.5 text-[12px] text-faint">No leagues added yet.</p>
           )}
 
-          <div className="border-t border-[#22222b] mt-1 pt-1">
+          <div className="border-t border-line mt-1 pt-1">
             <button
               role="menuitem"
               onClick={() => { setOpen(false); onNavigate?.(); openAddLeague(); }}

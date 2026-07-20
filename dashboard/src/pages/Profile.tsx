@@ -58,7 +58,7 @@ function DraggableRow({ id, children }: { id: string; children: ReactNode }) {
     <div
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
-      className={`flex items-stretch ${isDragging ? 'relative z-10 bg-[#1b1b22] shadow-lg shadow-black/40' : ''}`}
+      className={`flex items-stretch ${isDragging ? 'relative z-10 bg-elevated shadow-lg shadow-black/40' : ''}`}
     >
       {/* Grip is the only drag surface — inner buttons/inputs stay tappable,
           and touch-none keeps mobile scroll from eating the gesture. */}
@@ -305,11 +305,11 @@ export default function Profile() {
   if (!profile) {
     return (
       <div className="min-h-dvh p-4 sm:p-6 lg:p-8 max-w-2xl mx-auto">
-        <div className="rounded-2xl border border-[#22222b] bg-[#141419] p-10 text-center">
+        <div className="rounded-2xl border border-line bg-surface p-10 text-center">
           <UserRound className="h-8 w-8 text-[#3a3a44] mx-auto mb-3" />
           <p className="text-[15px] font-semibold text-white">No one here by that name</p>
-          <p className="text-[13px] text-[#75757f] mt-1">
-            There's no profile at <span className="text-[#c4c4cd]">/u/{username}</span>.
+          <p className="text-[13px] text-faint mt-1">
+            There's no profile at <span className="text-ink-soft">/u/{username}</span>.
           </p>
           <Link to="/" className="inline-flex items-center gap-1.5 mt-4 text-[13px] text-accent-400 hover:text-accent-300 font-medium transition-colors">
             <ChevronLeft className="h-4 w-4" /> Back home
@@ -323,14 +323,14 @@ export default function Profile() {
     <div className="min-h-dvh">
       <div className="p-4 sm:p-6 lg:p-8 max-w-2xl mx-auto space-y-4">
         {/* ── Identity card ── */}
-        <section className="relative overflow-hidden rounded-2xl border border-[#22222b] bg-gradient-to-br from-[#16161c] via-[#141419] to-[#111116]">
+        <section className="relative overflow-hidden rounded-2xl border border-line bg-gradient-to-br from-[#16161c] via-[#141419] to-[#111116]">
           <div className="pointer-events-none absolute -top-16 -right-10 h-40 w-40 rounded-full bg-accent-500/10 blur-3xl" />
           <div className="relative flex items-center gap-4 p-4 sm:p-5">
-            <div className="w-14 h-14 rounded-2xl overflow-hidden bg-[#22222b] shrink-0 ring-1 ring-inset ring-white/10 flex items-center justify-center">
+            <div className="w-14 h-14 rounded-2xl overflow-hidden bg-overlay shrink-0 ring-1 ring-inset ring-white/10 flex items-center justify-center">
               {profile.avatar_url ? (
                 <img src={profile.avatar_url} alt="" className="w-full h-full object-cover" />
               ) : (
-                <UserRound className="h-6 w-6 text-[#60606a]" />
+                <UserRound className="h-6 w-6 text-ghost" />
               )}
             </div>
             <div className="min-w-0 flex-1">
@@ -346,24 +346,24 @@ export default function Profile() {
             </button>
           </div>
           {/* Stat strip */}
-          <div className="relative grid grid-cols-2 border-t border-[#1b1b22] divide-x divide-[#1b1b22]">
+          <div className="relative grid grid-cols-2 border-t border-line-subtle divide-x divide-line-subtle">
             <div className="px-4 sm:px-5 py-3">
-              <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#75757f] flex items-center gap-1"><Swords className="h-3 w-3" /> Votes cast</p>
+              <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-faint flex items-center gap-1"><Swords className="h-3 w-3" /> Votes cast</p>
               <p className="font-display text-[15px] font-bold text-white tabular-nums mt-0.5">{Math.round(totalVotes).toLocaleString()}</p>
             </div>
             <div className="px-4 sm:px-5 py-3">
-              <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#75757f] flex items-center gap-1"><TrendingUp className="h-3 w-3" /> Players moved</p>
+              <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-faint flex items-center gap-1"><TrendingUp className="h-3 w-3" /> Players moved</p>
               <p className="font-display text-[15px] font-bold text-white tabular-nums mt-0.5">{movedCount.toLocaleString()}</p>
             </div>
           </div>
         </section>
 
         {/* ── Board ── */}
-        <section className="rounded-2xl border border-[#22222b] bg-[#141419] overflow-hidden">
-          <div className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3.5 border-b border-[#1b1b22]">
+        <section className="rounded-2xl border border-line bg-surface overflow-hidden">
+          <div className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3.5 border-b border-line-subtle">
             <div>
               <p className="text-[11px] font-bold text-accent-500 tracking-[0.18em] uppercase">The board</p>
-              <p className="text-[11px] text-[#75757f] mt-0.5">
+              <p className="text-[11px] text-faint mt-0.5">
                 {editing
                   ? 'Tap ▲▼ to nudge, or tap a rank number to type a new spot.'
                   : `Community rankings, reshaped by ${isMe ? 'your' : `${profile.username}'s`} votes — ▲▼ marks the disagreements.`}
@@ -376,7 +376,7 @@ export default function Profile() {
                   className={`flex items-center gap-1.5 h-8 px-3 rounded-lg text-[12px] font-semibold transition-colors ${
                     editing
                       ? 'bg-accent-500 text-[#06110a] hover:bg-accent-400'
-                      : 'border border-[#2a2a34] text-[#c4c4cd] hover:bg-[#1b1b22]'
+                      : 'border border-line-strong text-ink-soft hover:bg-elevated'
                   }`}
                 >
                   {editing ? <X className="h-3.5 w-3.5" /> : <Pencil className="h-3.5 w-3.5" />}
@@ -429,12 +429,12 @@ export default function Profile() {
                             if (e.key === 'Enter') commitRankDraft();
                             if (e.key === 'Escape') setRankDraft(null);
                           }}
-                          className="w-11 h-7 rounded-md bg-[#1b1b22] border border-accent-500/50 text-center text-[13px] font-bold text-white tabular-nums outline-none"
+                          className="w-11 h-7 rounded-md bg-elevated border border-accent-500/50 text-center text-[13px] font-bold text-white tabular-nums outline-none"
                         />
                       ) : (
                         <button
                           onClick={() => setRankDraft({ id: r.player_id, value: String(r.rank) })}
-                          className="w-11 h-7 rounded-md border border-[#2a2a34] text-[13px] font-bold text-[#c4c4cd] tabular-nums hover:border-accent-500/50 hover:text-white transition-colors"
+                          className="w-11 h-7 rounded-md border border-line-strong text-[13px] font-bold text-ink-soft tabular-nums hover:border-accent-500/50 hover:text-white transition-colors"
                           title="Tap to set an exact rank"
                         >
                           {r.rank}
@@ -449,7 +449,7 @@ export default function Profile() {
                   team={r.player!.team}
                   meta={
                     r.moved ? (
-                      <span className={r.delta > 0 ? 'text-accent-400 font-semibold' : r.delta < 0 ? 'text-red-400 font-semibold' : 'text-[#75757f]'}>
+                      <span className={r.delta > 0 ? 'text-accent-400 font-semibold' : r.delta < 0 ? 'text-red-400 font-semibold' : 'text-faint'}>
                         {r.delta > 0 ? `▲${r.delta} vs crowd` : r.delta < 0 ? `▼${Math.abs(r.delta)} vs crowd` : `${r.wins}-${r.losses}`}
                       </span>
                     ) : undefined
@@ -460,7 +460,7 @@ export default function Profile() {
                         <button
                           onClick={() => nudge(r.rank, -1)}
                           disabled={r.rank === 1}
-                          className="p-1.5 rounded-md border border-[#2a2a34] text-[#9c9ca7] hover:text-white hover:bg-[#1b1b22] disabled:opacity-30 transition-colors"
+                          className="p-1.5 rounded-md border border-line-strong text-muted hover:text-white hover:bg-elevated disabled:opacity-30 transition-colors"
                           aria-label="Move up"
                         >
                           <ChevronUp className="h-4 w-4" />
@@ -468,7 +468,7 @@ export default function Profile() {
                         <button
                           onClick={() => nudge(r.rank, 1)}
                           disabled={r.rank === rows.length}
-                          className="p-1.5 rounded-md border border-[#2a2a34] text-[#9c9ca7] hover:text-white hover:bg-[#1b1b22] disabled:opacity-30 transition-colors"
+                          className="p-1.5 rounded-md border border-line-strong text-muted hover:text-white hover:bg-elevated disabled:opacity-30 transition-colors"
                           aria-label="Move down"
                         >
                           <ChevronDown className="h-4 w-4" />
@@ -477,7 +477,7 @@ export default function Profile() {
                             (not hidden) reserves the slot on untouched rows. */}
                         <button
                           onClick={() => setRating(r.player_id, 1500)}
-                          className={`p-1.5 rounded-md border border-[#2a2a34] text-[#75757f] hover:text-white hover:bg-[#1b1b22] transition-colors ${r.moved ? '' : 'invisible'}`}
+                          className={`p-1.5 rounded-md border border-line-strong text-faint hover:text-white hover:bg-elevated transition-colors ${r.moved ? '' : 'invisible'}`}
                           aria-label="Reset to community rank"
                           title="Reset to community rank"
                           tabIndex={r.moved ? 0 : -1}

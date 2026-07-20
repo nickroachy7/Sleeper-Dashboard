@@ -1,6 +1,7 @@
-import { useState, useMemo, useEffect, useRef } from 'react';
-import { Search, X } from 'lucide-react';
+import { useState, useMemo, useRef } from 'react';
+import { X } from 'lucide-react';
 import { type TradeAsset, useClickOutside, getPlayerImageUrl } from '../lib/trade-shared';
+import { SearchInput } from './ui';
 
 interface AssetDropdownProps {
   isOpen: boolean;
@@ -21,15 +22,8 @@ export function AssetDropdown({
 }: AssetDropdownProps) {
   const [search, setSearch] = useState('');
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
 
   useClickOutside(dropdownRef, onClose);
-
-  useEffect(() => {
-    if (isOpen && inputRef.current) {
-      setTimeout(() => inputRef.current?.focus(), 50);
-    }
-  }, [isOpen]);
 
   // Reset search when the dropdown closes (state-adjust-during-render pattern)
   const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
@@ -65,18 +59,8 @@ export function AssetDropdown({
           </button>
         </div>
 
-        <div className="p-3 border-b border-[#1f1f27]">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#75757f]" />
-            <input
-              ref={inputRef}
-              type="text"
-              placeholder="Search..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-9 pr-4 py-2.5 text-sm bg-[#1b1b22] border border-[#2e2e38] rounded-lg text-white placeholder-[#75757f] focus:outline-none focus:border-accent-500/50 transition-colors"
-            />
-          </div>
+        <div className="p-3 border-b border-line-subtle">
+          <SearchInput value={search} onChange={setSearch} placeholder="Search…" autoFocus />
         </div>
 
         <div className="max-h-80 overflow-y-auto overscroll-contain">

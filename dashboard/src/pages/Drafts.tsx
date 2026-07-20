@@ -18,6 +18,7 @@ import { useState, useMemo } from 'react';
 import { useUrlState } from '../hooks/useUrlState';
 import { FilterPills } from '../components/FilterBar';
 import { PlayerRow } from '../components/PlayerRow';
+import { Select } from '../components/ui';
 import type { DraftPickRow } from '../types/domain';
 
 interface Player {
@@ -44,7 +45,7 @@ interface TradedPick {
 
 const roundColors: Record<number, string> = {
   1: 'bg-amber-500/15 text-amber-400 border-amber-500/25',
-  2: 'bg-[#22222b] text-[#9c9ca7] border-[#363641]',
+  2: 'bg-overlay text-muted border-line-strong',
   3: 'bg-orange-500/15 text-orange-400 border-orange-500/25',
   4: 'bg-stone-500/15 text-stone-400 border-stone-500/25',
 };
@@ -211,8 +212,8 @@ export function DraftsPanel() {
     return (
       <div>
         <div className="flex flex-col items-center justify-center py-16 text-center">
-          <div className="w-14 h-14 bg-[#1b1b22] rounded-2xl flex items-center justify-center mb-4">
-            <FileText className="h-7 w-7 text-[#75757f]" />
+          <div className="w-14 h-14 bg-elevated rounded-2xl flex items-center justify-center mb-4">
+            <FileText className="h-7 w-7 text-faint" />
           </div>
           <h3 className="text-lg font-bold text-white mb-2">No Draft Data</h3>
           <p className="text-sm text-[#80808c] max-w-sm mb-6">
@@ -255,21 +256,19 @@ export function DraftsPanel() {
         <div className="space-y-4">
           {data.drafts.length > 0 && (
             <div className="flex flex-wrap items-center gap-3">
-              <select
+              <Select
                 value={selectedDraft || ''}
-                onChange={(e) => {
-                  const isDefault = e.target.value === data.drafts[0]?.draft_id;
-                  set('draft', isDefault ? null : e.target.value);
+                onChange={(value) => {
+                  const isDefault = value === data.drafts[0]?.draft_id;
+                  set('draft', isDefault ? null : value);
                   setExpandedRounds(new Set([1]));
                 }}
-                className="px-3 py-2 bg-[#141419] border border-[#2a2a34] rounded-lg text-xs font-medium text-white focus:outline-none focus:ring-2 focus:ring-accent-500/50"
-              >
-                {data.drafts.map((draft) => (
-                  <option key={draft.draft_id} value={draft.draft_id}>
-                    {draft.season} {draft.type} Draft
-                  </option>
-                ))}
-              </select>
+                options={data.drafts.map((draft) => ({
+                  value: draft.draft_id,
+                  label: `${draft.season} ${draft.type} Draft`,
+                }))}
+                ariaLabel="Draft"
+              />
               {currentDraft && (
                 <span className={`px-2.5 py-1 rounded-lg text-xs font-semibold ${
                   currentDraft.status === 'complete' ? 'bg-emerald-500/15 text-emerald-400' : 'bg-amber-500/15 text-amber-400'
@@ -287,7 +286,7 @@ export function DraftsPanel() {
                 const isExpanded = expandedRounds.has(round);
 
                 return (
-                  <div key={round} className="bg-[#141419] rounded-xl overflow-hidden">
+                  <div key={round} className="bg-surface rounded-xl overflow-hidden">
                     <button
                       onClick={() => toggleRound(round)}
                       className="w-full px-4 py-3 flex items-center justify-between hover:bg-[#17171d] transition-colors"
@@ -298,14 +297,14 @@ export function DraftsPanel() {
                         </div>
                         <div className="text-left">
                           <h3 className="font-semibold text-sm text-white">Round {round}</h3>
-                          <p className="text-[10px] text-[#75757f]">{picks.length} picks</p>
+                          <p className="text-[10px] text-faint">{picks.length} picks</p>
                         </div>
                       </div>
-                      <ChevronRight className={`h-4 w-4 text-[#75757f] transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
+                      <ChevronRight className={`h-4 w-4 text-faint transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
                     </button>
 
                     {isExpanded && (
-                      <div className="border-t border-[#1b1b22]">
+                      <div className="border-t border-line-subtle">
                         <div className="divide-y divide-[#17171d]">
                           {picks.map((pick) => {
                             const player = pick.player_id ? getPlayer(pick.player_id) : undefined;
@@ -321,7 +320,7 @@ export function DraftsPanel() {
                                 meta={getTeamNameByUserId(pick.picked_by)}
                                 size="sm"
                                 lead={
-                                  <span className="font-mono text-xs font-bold text-[#60606a] w-8">
+                                  <span className="font-mono text-xs font-bold text-ghost w-8">
                                     {pickDisplay}
                                   </span>
                                 }
@@ -336,12 +335,12 @@ export function DraftsPanel() {
               })}
             </div>
           ) : (
-            <div className="bg-[#141419] rounded-xl p-12 text-center">
-              <div className="w-12 h-12 bg-[#1b1b22] rounded-xl flex items-center justify-center mx-auto mb-3">
-                <FileText className="h-6 w-6 text-[#75757f]" />
+            <div className="bg-surface rounded-xl p-12 text-center">
+              <div className="w-12 h-12 bg-elevated rounded-xl flex items-center justify-center mx-auto mb-3">
+                <FileText className="h-6 w-6 text-faint" />
               </div>
               <h3 className="text-base font-bold text-white mb-1">No Picks Yet</h3>
-              <p className="text-sm text-[#75757f]">This draft hasn't started or has no recorded picks</p>
+              <p className="text-sm text-faint">This draft hasn't started or has no recorded picks</p>
             </div>
           )}
         </div>
@@ -360,7 +359,7 @@ export function DraftsPanel() {
                   className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
                     selectedSeason === season
                       ? 'bg-purple-500/15 text-purple-400 ring-1 ring-purple-500/30'
-                      : 'bg-[#1b1b22] text-[#9c9ca7] hover:bg-[#26262f]'
+                      : 'bg-elevated text-muted hover:bg-[#26262f]'
                   }`}
                 >
                   {season}
@@ -369,7 +368,7 @@ export function DraftsPanel() {
             </div>
             <button
               onClick={() => setShowLegend(!showLegend)}
-              className="flex items-center gap-1 text-[11px] text-[#75757f] hover:text-[#9c9ca7] transition-colors"
+              className="flex items-center gap-1 text-[11px] text-faint hover:text-muted transition-colors"
             >
               <Info className="h-3.5 w-3.5" />
               Legend
@@ -378,7 +377,7 @@ export function DraftsPanel() {
 
           {/* Collapsible Legend */}
           {showLegend && (
-            <div className="rounded-xl p-3 bg-[#141419] flex flex-wrap gap-4 text-xs">
+            <div className="rounded-xl p-3 bg-surface flex flex-wrap gap-4 text-xs">
               <div className="flex items-center gap-2">
                 <span className="text-[#80808c]">Rounds:</span>
                 {[1, 2, 3, 4].map(round => (
@@ -388,9 +387,9 @@ export function DraftsPanel() {
                 ))}
               </div>
               <div className="flex items-center gap-3">
-                <div className="flex items-center gap-1 text-[11px]"><CircleDot className="h-3 w-3 text-[#9c9ca7]" /><span className="text-[#9c9ca7]">Own</span></div>
-                <div className="flex items-center gap-1 text-[11px]"><ArrowRightLeft className="h-3 w-3 text-emerald-500" /><span className="text-[#9c9ca7]">Acquired</span></div>
-                <div className="flex items-center gap-1 text-[11px]"><MinusCircle className="h-3 w-3 text-red-400" /><span className="text-[#9c9ca7]">Traded</span></div>
+                <div className="flex items-center gap-1 text-[11px]"><CircleDot className="h-3 w-3 text-muted" /><span className="text-muted">Own</span></div>
+                <div className="flex items-center gap-1 text-[11px]"><ArrowRightLeft className="h-3 w-3 text-emerald-500" /><span className="text-muted">Acquired</span></div>
+                <div className="flex items-center gap-1 text-[11px]"><MinusCircle className="h-3 w-3 text-red-400" /><span className="text-muted">Traded</span></div>
               </div>
             </div>
           )}
@@ -403,20 +402,20 @@ export function DraftsPanel() {
               return (
                 <div
                   key={rosterId}
-                  className={`bg-[#141419] rounded-xl border overflow-hidden animate-smooth hover:border-[#363641] ${
+                  className={`bg-surface rounded-xl border overflow-hidden animate-smooth hover:border-line-strong ${
                     index === 0 ? 'border-amber-500/40 card-glow-gold' :
                     index === sortedTeams.length - 1 ? 'border-red-500/20' :
-                    'border-[#2a2a34]'
+                    'border-line-strong'
                   }`}
                 >
-                  <div className="p-4 border-b border-[#1b1b22]">
+                  <div className="p-4 border-b border-line-subtle">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold ${
                           index === 0 ? 'bg-amber-500/20 text-amber-400' :
                           index === 1 ? 'bg-zinc-500/20 text-zinc-300' :
                           index === 2 ? 'bg-orange-500/20 text-orange-400' :
-                          'bg-[#1b1b22] text-[#75757f]'
+                          'bg-elevated text-faint'
                         }`}>
                           #{index + 1}
                         </div>
@@ -426,7 +425,7 @@ export function DraftsPanel() {
                           <div className="flex items-center gap-1.5 mt-0.5">
                             {countByRound.map((count, rIdx) => (
                               <span key={rIdx} className={`text-[9px] font-bold ${
-                                count === 0 ? 'text-red-400/60' : count >= 2 ? 'text-emerald-400' : 'text-[#75757f]'
+                                count === 0 ? 'text-red-400/60' : count >= 2 ? 'text-emerald-400' : 'text-faint'
                               }`}>
                                 {rIdx + 1}st:{count}
                               </span>
@@ -444,7 +443,7 @@ export function DraftsPanel() {
                           ) : extraPicks < 4 - picks.filter(p => p.originalOwner === rosterId).length ? (
                             <TrendingDown className="h-3.5 w-3.5 text-red-400" />
                           ) : (
-                            <Minus className="h-3.5 w-3.5 text-[#75757f]" />
+                            <Minus className="h-3.5 w-3.5 text-faint" />
                           )}
                           <span className="text-lg font-bold text-white">{totalValue}</span>
                         </div>
@@ -452,7 +451,7 @@ export function DraftsPanel() {
                     </div>
 
                     {/* Stacked bar chart */}
-                    <div className="mt-2 h-1.5 bg-[#1b1b22] rounded-full overflow-hidden flex">
+                    <div className="mt-2 h-1.5 bg-elevated rounded-full overflow-hidden flex">
                       {[1, 2, 3, 4].map(round => {
                         const count = countByRound[round - 1];
                         if (count === 0) return null;
@@ -496,7 +495,7 @@ export function DraftsPanel() {
                           );
                         })
                       ) : (
-                        <span className="text-xs text-[#75757f] italic">No picks</span>
+                        <span className="text-xs text-faint italic">No picks</span>
                       )}
                     </div>
                   </div>

@@ -163,7 +163,7 @@ export default function TradeDetail() {
   if (!tx || tx.type !== 'trade' || !built) {
     return (
       <div className="p-4 sm:p-6 lg:p-8 max-w-3xl mx-auto text-center py-16">
-        <p className="text-sm text-[#75757f]">Trade not found.</p>
+        <p className="text-sm text-faint">Trade not found.</p>
         <Link to="/league?tab=transactions" className="text-xs text-accent-400 mt-2 inline-block">Back to Transactions</Link>
       </div>
     );
@@ -176,9 +176,9 @@ export default function TradeDetail() {
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-3xl mx-auto space-y-4">
       {/* ── Value over time (on top) ── */}
-      <div className="bg-[#141419] rounded-2xl p-4 sm:p-5 border border-[#22222b]">
+      <div className="bg-surface rounded-2xl p-4 sm:p-5 border border-line">
         <p className="text-[11px] font-bold text-white tracking-[0.18em] uppercase mb-0.5">Value Since The Trade</p>
-        <p className="text-[10px] text-[#75757f] mb-4">
+        <p className="text-[10px] text-faint mb-4">
           Community value of what each side received, over time. Used picks are tracked as the player drafted;
           future picks are charted at their projected tier value.
         </p>
@@ -195,7 +195,7 @@ export default function TradeDetail() {
                   <div key={r.teamName} className="bg-[#17171d] rounded-lg px-3 py-2.5">
                     <div className="flex items-center gap-1.5 mb-1">
                       <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: r.color }} />
-                      <span className="text-[11px] text-[#9c9ca7] truncate">{r.teamName}</span>
+                      <span className="text-[11px] text-muted truncate">{r.teamName}</span>
                     </div>
                     <div className="flex items-baseline gap-2">
                       <span className="font-display text-lg font-bold text-white tabular-nums">
@@ -203,14 +203,14 @@ export default function TradeDetail() {
                       </span>
                       {delta != null && (
                         <span className={`text-[12px] font-semibold tabular-nums flex items-center gap-0.5 ${
-                          delta > 0 ? 'text-emerald-400' : delta < 0 ? 'text-red-400' : 'text-[#75757f]'
+                          delta > 0 ? 'text-emerald-400' : delta < 0 ? 'text-red-400' : 'text-faint'
                         }`}>
                           {delta > 0 ? <TrendingUp className="h-3 w-3" /> : delta < 0 ? <TrendingDown className="h-3 w-3" /> : <Minus className="h-3 w-3" />}
                           {delta > 0 ? '+' : ''}{delta.toLocaleString()}
                         </span>
                       )}
                     </div>
-                    <p className="text-[10px] text-[#60606a] mt-0.5">
+                    <p className="text-[10px] text-ghost mt-0.5">
                       {r.then != null ? `${r.then.toLocaleString()} at trade` : 'no value at trade date'}
                     </p>
                   </div>
@@ -219,7 +219,7 @@ export default function TradeDetail() {
             </div>
           </>
         ) : (
-          <p className="py-8 text-center text-[11px] text-[#60606a]">
+          <p className="py-8 text-center text-[11px] text-ghost">
             Not enough value history to chart this trade yet — this happens for pick-only trades or trades
             older than our value data.
           </p>

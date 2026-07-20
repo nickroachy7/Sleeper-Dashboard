@@ -76,7 +76,7 @@ export default function Home() {
         {/* Sample-preview banner */}
         {isPreview && (
           <div className="flex flex-col sm:flex-row sm:items-center gap-3 rounded-xl bg-accent-500/10 border border-accent-500/25 px-4 py-3">
-            <p className="text-[13px] text-[#c4c4cd] flex-1">
+            <p className="text-[13px] text-ink-soft flex-1">
               You're viewing a <span className="font-semibold text-white">sample league</span>. Add your own to see your rosters, values, and trades.
             </p>
             <button
@@ -94,7 +94,7 @@ export default function Home() {
             <p className="text-[11px] font-bold text-accent-500 tracking-[0.2em] uppercase">
               The Wire
             </p>
-            <span className="text-[11px] text-[#75757f]">Across your leagues</span>
+            <span className="text-[11px] text-faint">Across your leagues</span>
           </div>
           <LeagueFeed />
         </div>
