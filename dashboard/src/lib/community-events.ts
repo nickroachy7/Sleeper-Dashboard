@@ -7,6 +7,17 @@
  * low-trust kinds only (see migration 20260710).
  */
 import { supabase } from './supabase';
+import { isPickAsset, pickEventKey } from './vote-assets';
+
+/** A vote side's JSON shape: a player, or a draft pick (year-round key). An id
+ *  prefixed 'PICK:' becomes a { pick } side; anything else a { player_id }. */
+function assetSide(assetId: string): { player_id: string } | { pick: string } {
+  if (isPickAsset(assetId)) {
+    const key = pickEventKey(assetId);
+    if (key) return { pick: key };
+  }
+  return { player_id: assetId };
+}
 
 /** Stable-ish anonymous voter id so one browser's taps can be de-weighted
  *  later if needed. Not auth — just a coarse identity for abuse control. */
@@ -29,20 +40,22 @@ async function userId(): Promise<string | null> {
 }
 
 export interface PairwiseVoteArgs {
-  /** The player kept / preferred. */
+  /** The asset kept / preferred — a player id, or a 'PICK:YYYY-R' sentinel. */
   winnerId: string;
-  /** The player passed on. */
+  /** The asset passed on — a player id, or a 'PICK:YYYY-R' sentinel. */
   loserId: string;
   /** Superflex context (default true — the league is SF). */
   superflex?: boolean;
 }
 
-/** Record a "who'd you rather keep?" tap. Fire-and-forget from the UI. */
+/** Record a "who'd you rather keep?" tap. Fire-and-forget from the UI. Each
+ *  side may be a player or a draft pick; picks feed the same community engine
+ *  (which already rates picks) and the voter's personal board. */
 export async function recordPairwiseVote(args: PairwiseVoteArgs): Promise<void> {
   const { error } = await supabase.from('value_events').insert({
     kind: 'pairwise',
-    side_a: [{ player_id: args.winnerId }],
-    side_b: [{ player_id: args.loserId }],
+    side_a: [assetSide(args.winnerId)],
+    side_b: [assetSide(args.loserId)],
     outcome: 1.0,
     weight: 1.0,
     voter_id: voterId(),

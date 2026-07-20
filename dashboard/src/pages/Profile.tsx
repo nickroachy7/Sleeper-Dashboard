@@ -17,6 +17,8 @@ import { FilterPills } from '../components/FilterBar';
 import { Pagination } from '../components/Pagination';
 import { useShowIdp } from '../lib/idp-store';
 import { isIdp, matchesPositionFilter, IDP_FILTER_GROUPS } from '../lib/positions';
+import { blendedValue, ratingForBlended as ratingForBlendedShared } from '../lib/board';
+import { isPickAsset, pickLabel } from '../lib/vote-assets';
 
 // ── Public profile: /u/<username> ─────────────────────────────────
 // The shareable face of an account: a COMPLETE player-rankings board from day
@@ -35,11 +37,6 @@ import { isIdp, matchesPositionFilter, IDP_FILTER_GROUPS } from '../lib/position
 
 const POSITIONS = ['ALL', 'QB', 'RB', 'WR', 'TE'] as const;
 const PAGE_SIZE = 50;
-
-// One vote moves a player ±16 Elo (K=32 from even); ×8 ≈ ±128 board points —
-// enough to hop a few spots among the stars, minor further down. Repeated
-// votes compound.
-const ELO_SCALE = 8;
 
 interface BoardRow {
   player_id: string;
@@ -150,13 +147,18 @@ export default function Profile() {
         // Defensive fallback: a row should always have a baseline (backfill +
         // both write paths set it), but never anchor to 0 if one is missing —
         // fall back to the live value so the player doesn't sink to the bottom.
-        const anchor = r.baseline_value ?? communityValues?.get(r.player_id) ?? 0;
-        const deviation = (r.rating - 1500) * ELO_SCALE;
+        const fallback = communityValues?.get(r.player_id);
+        const anchor = r.baseline_value ?? fallback ?? 0;
+        // Picks are board rows too (sentinel id); synthesize a display asset
+        // since they aren't in the players map.
+        const player = isPickAsset(r.player_id)
+          ? { player_id: r.player_id, full_name: pickLabel(r.player_id), position: 'PICK', team: null }
+          : playersMap.get(r.player_id);
         return {
           player_id: r.player_id,
-          player: playersMap.get(r.player_id),
+          player,
           communityValue: anchor,
-          blended: anchor + deviation,
+          blended: blendedValue(r, fallback),
           moved: r.rating !== 1500,
           wins: r.wins,
           losses: r.losses,
@@ -168,10 +170,12 @@ export default function Profile() {
     // measure movement vs the board's OWN frozen starting order (baseline) —
     // i.e. "where you've moved this player from where you started", a stable
     // reference, not a moving community target. IDP players are dropped unless
-    // the viewer opted in, so a shared board reads offense-only for most.
-    const scoped = all.filter((r) =>
-      (showIdp || !isIdp(r.player!.position)) && matchesPositionFilter(r.player!.position, pos)
-    );
+    // the viewer opted in; picks show only in the unfiltered "ALL" view (they
+    // have no player position to scope by).
+    const scoped = all.filter((r) => {
+      if (isPickAsset(r.player_id)) return pos === 'ALL';
+      return (showIdp || !isIdp(r.player!.position)) && matchesPositionFilter(r.player!.position, pos);
+    });
     const baselineOrder = [...scoped].sort((a, b) => b.communityValue - a.communityValue);
     const baselineRank = new Map(baselineOrder.map((r, i) => [r.player_id, i + 1]));
 
@@ -224,8 +228,7 @@ export default function Profile() {
     if (error) queryClient.invalidateQueries({ queryKey: ['user-board', profile.user_id] });
   };
 
-  const ratingForBlended = (targetBlended: number, communityValue: number) =>
-    1500 + (targetBlended - communityValue) / ELO_SCALE;
+  const ratingForBlended = ratingForBlendedShared;
 
   // Set an exact rank within the current position scope: midpoint between the
   // new neighbors' blended values (blended is global, so between two QBs is
@@ -411,7 +414,7 @@ export default function Profile() {
                 const row = (
                 <PlayerRow
                   key={r.player_id}
-                  playerId={r.player_id}
+                  playerId={isPickAsset(r.player_id) ? null : r.player_id}
                   rank={editing ? undefined : r.rank}
                   lead={
                     editing ? (

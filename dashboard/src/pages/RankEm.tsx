@@ -1,15 +1,19 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Sparkles, UserRound } from 'lucide-react';
+import { Sparkles, UserRound, TrendingUp, TrendingDown } from 'lucide-react';
 import { PositionBadge } from '../components/PositionBadge';
-import { usePlayers, usePlayerValuesList } from '../hooks/queries';
-import { getPlayerImageUrl } from '../lib/trade-shared';
+import { AssetAvatar } from '../components/AssetAvatar';
+import { VoteComparePanel, type CompareSide } from '../components/VoteComparePanel';
+import { usePlayers, usePlayerValuesList, usePickValues } from '../hooks/queries';
+import { useMyBoard } from '../hooks/useMyBoard';
+import { usePairDetails, type AssetDetail } from '../hooks/usePairDetails';
 import { recordPairwiseVote } from '../lib/community-events';
 import { useAuth } from '../lib/auth';
 import { supabase } from '../lib/supabase';
 import { useShowIdp } from '../lib/idp-store';
 import { isVisiblePosition } from '../lib/positions';
+import { pickAssetId, isPickAsset, pickLabel } from '../lib/vote-assets';
 import type { Player } from '../types/domain';
 
 // Starter mode: boards begin as a copy of the community rankings; votes create
@@ -17,6 +21,13 @@ import type { Player } from '../types/domain';
 // so the user's first disagreements land on names their friends recognize.
 const SEED_TARGET = 15;   // star votes before blending into the full pool
 const SEED_POOL = 30;     // draw early matchups from the top N by value
+
+// Catered matchups: once a user has a real board, most questions should be
+// about players they actually care about — roughly the first 5-7 pages of their
+// personal rankings (50/page) — while still occasionally surfacing deeper
+// players so the tail of the board keeps getting refined and never goes stale.
+const CATER_TOP_N = 350;    // "their tier" — top ~7 pages of the personal board
+const CATER_SHARE = 0.8;    // ~80% of matchups anchored in that top tier
 
 /**
  * Pairwise value voting — "who'd you rather keep?". Each tap records one
@@ -31,8 +42,10 @@ const SEED_POOL = 30;     // draw early matchups from the top N by value
  */
 export function RankEmPanel() {
   const { data: players } = usePlayers();
-  const { data: valueMap } = usePlayerValuesList();
+  const { data: playerValueMap } = usePlayerValuesList();
+  const { data: pickValues } = usePickValues();
   const { user, username } = useAuth();
+  const { data: myBoard } = useMyBoard(user?.id);
   const showIdp = useShowIdp();
   const navigate = useNavigate();
   const [pair, setPair] = useState<[Player, Player] | null>(null);
@@ -57,22 +70,101 @@ export function RankEmPanel() {
   const totalVotes = (boardVotes ?? 0) + votes;
   const seeding = !!user && boardVotes != null && totalVotes < SEED_TARGET;
 
-  // Value-ranked pool of players we actually have a value for. IDP players are
-  // only in the pool — and thus only votable — for users who opted into them,
-  // so IDP values are shaped by people who run IDP leagues.
+  // Draft picks as synthetic "players" so they flow through the same pool,
+  // cards, and vote path. One asset per year-round, using the Mid-tier value as
+  // the neutral center (matching the personal board's pick anchor). position
+  // 'PICK' gets its own badge; player_id is the 'PICK:YYYY-R' board sentinel.
+  const pickAssets = useMemo<Player[]>(() => {
+    if (!pickValues) return [];
+    return pickValues
+      .filter((pv) => pv.pick_tier === 'Mid')
+      .map((pv) => ({
+        player_id: pickAssetId(pv.pick_year, pv.pick_round),
+        full_name: pickLabel(pickAssetId(pv.pick_year, pv.pick_round)),
+        position: 'PICK',
+        team: null,
+      }));
+  }, [pickValues]);
+
+  const pickValueMap = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const pv of pickValues ?? []) {
+      if (pv.pick_tier === 'Mid') m.set(pickAssetId(pv.pick_year, pv.pick_round), pv.value);
+    }
+    return m;
+  }, [pickValues]);
+
+  // Combined asset value map (players + picks) — the market number for any asset.
+  const valueMap = useMemo(() => {
+    const m = new Map<string, number>(playerValueMap ?? []);
+    for (const [k, v] of pickValueMap) m.set(k, v);
+    return m;
+  }, [playerValueMap, pickValueMap]);
+
+  const byId = useMemo(
+    () => new Map([...(players ?? []), ...pickAssets].map((p) => [p.player_id, p])),
+    [players, pickAssets]
+  );
+
+  // Community-value order → overall rank and per-position rank, so cards can
+  // show "#12 · WR4". Computed from the community value list (the market), not
+  // the personal board, since these are the shared market ranks.
+  const { overallRank, positionRank } = useMemo(() => {
+    const overall = new Map<string, number>();
+    const posRank = new Map<string, number>();
+    const posCount = new Map<string, number>();
+    if (!players || !valueMap) return { overallRank: overall, positionRank: posRank };
+    const ranked = [...players]
+      .filter((p) => valueMap.has(p.player_id))
+      .sort((a, b) => (valueMap.get(b.player_id) ?? 0) - (valueMap.get(a.player_id) ?? 0));
+    ranked.forEach((p, i) => {
+      overall.set(p.player_id, i + 1);
+      const n = (posCount.get(p.position) ?? 0) + 1;
+      posCount.set(p.position, n);
+      posRank.set(p.player_id, n);
+    });
+    return { overallRank: overall, positionRank: posRank };
+  }, [players, valueMap]);
+
+  // The matchup pool, ORDERED by relevance to this user. Signed-in users with a
+  // real board get their OWN ranking order (catered — most matchups land on
+  // assets they care about); everyone else falls back to community value. Picks
+  // are mixed in by value alongside players, so matchups can be player-vs-pick.
   const pool = useMemo(() => {
     if (!players || !valueMap) return [];
-    return players
+    // Personal-board order when we have a materialized board with real opinions
+    // (the board already contains pick rows once seeded, so picks come along).
+    const boardOrder =
+      myBoard && myBoard.some((r) => r.moved)
+        ? myBoard
+            .map((r) => byId.get(r.player_id))
+            .filter((p): p is Player => !!p && isVisiblePosition(p.position, showIdp) && valueMap.has(p.player_id))
+        : null;
+    if (boardOrder && boardOrder.length >= 2) return boardOrder;
+    // Fallback: community value order across players + picks.
+    return [...players, ...pickAssets]
       .filter((p) => isVisiblePosition(p.position, showIdp) && valueMap.has(p.player_id))
       .sort((a, b) => (valueMap.get(b.player_id) ?? 0) - (valueMap.get(a.player_id) ?? 0));
-  }, [players, valueMap, showIdp]);
+  }, [players, pickAssets, valueMap, showIdp, myBoard, byId]);
 
-  // Pick a player, then an opponent within a nearby value window. In starter
-  // mode both come from the star pool (still value-adjacent — real debates).
+  // Pick an anchor, then a nearby-in-ranking opponent (a genuine coin-flip
+  // teaches the model more than a blowout). Seeding: draw from the top stars.
+  // Otherwise: MOSTLY anchor in the user's relevant tier (top ~350), but
+  // ~20% of the time reach into the long tail so lower-ranked players keep
+  // getting refined and the board never goes stale at the bottom.
   const nextPair = useCallback(() => {
-    const activePool = seeding ? pool.slice(0, SEED_POOL) : pool;
-    if (activePool.length < 2) return;
-    const i = Math.floor(Math.random() * activePool.length);
+    if (pool.length < 2) return;
+    let activePool = pool;
+    let anchorMax = pool.length;
+    if (seeding) {
+      activePool = pool.slice(0, SEED_POOL);
+      anchorMax = activePool.length;
+    } else if (pool.length > CATER_TOP_N) {
+      // Confine the ANCHOR to the top tier most of the time; the opponent window
+      // can still spill just past the boundary, keeping edges from being islands.
+      anchorMax = Math.random() < CATER_SHARE ? CATER_TOP_N : pool.length;
+    }
+    const i = Math.floor(Math.random() * anchorMax);
     const window = seeding ? 6 : 12;
     const lo = Math.max(0, i - window);
     const hi = Math.min(activePool.length - 1, i + window);
@@ -89,6 +181,22 @@ export function RankEmPanel() {
     if (seeding) nextPair();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [seeding]);
+
+  // Enriched context for the two assets on screen — powers the trend arrow on
+  // the cards and the compare panel below (age, injury, value sparkline).
+  const { data: pairDetails } = usePairDetails(pair?.[0].player_id, pair?.[1].player_id);
+
+  // Build a compare-side (card + panel context) for a player in the current pair.
+  const compareSide = useCallback(
+    (p: Player, detail: AssetDetail | undefined): CompareSide => ({
+      player: p,
+      value: valueMap?.get(p.player_id) ?? null,
+      overallRank: overallRank.get(p.player_id) ?? null,
+      positionRank: positionRank.get(p.player_id) ?? null,
+      detail,
+    }),
+    [valueMap, overallRank, positionRank]
+  );
 
   const vote = async (winner: Player, loser: Player) => {
     if (pending) return;
@@ -166,15 +274,23 @@ export function RankEmPanel() {
       {!pair ? (
         <div className="text-center text-muted py-20 text-[14px]">Loading matchup…</div>
       ) : (
-        <div className="grid grid-cols-[1fr_auto_1fr] items-stretch gap-3 sm:gap-5">
-          <VoteCard player={pair[0]} highlighted={flash === pair[0].full_name} disabled={pending}
-            onPick={() => vote(pair[0], pair[1])} />
-          <div className="flex items-center justify-center text-muted text-[12px] font-medium tracking-widest uppercase">
-            or
+        <>
+          <div className="grid grid-cols-[1fr_auto_1fr] items-stretch gap-3 sm:gap-5">
+            <VoteCard
+              side={compareSide(pair[0], pairDetails?.a)}
+              highlighted={flash === pair[0].full_name} disabled={pending}
+              onPick={() => vote(pair[0], pair[1])} />
+            <div className="flex items-center justify-center text-muted text-[12px] font-medium tracking-widest uppercase">
+              or
+            </div>
+            <VoteCard
+              side={compareSide(pair[1], pairDetails?.b)}
+              highlighted={flash === pair[1].full_name} disabled={pending}
+              onPick={() => vote(pair[1], pair[0])} />
           </div>
-          <VoteCard player={pair[1]} highlighted={flash === pair[1].full_name} disabled={pending}
-            onPick={() => vote(pair[1], pair[0])} />
-        </div>
+
+          <VoteComparePanel a={compareSide(pair[0], pairDetails?.a)} b={compareSide(pair[1], pairDetails?.b)} />
+        </>
       )}
 
       <p className="mt-8 text-center text-[12px] text-muted leading-relaxed max-w-md mx-auto">
@@ -186,10 +302,13 @@ export function RankEmPanel() {
 }
 
 function VoteCard({
-  player, highlighted, disabled, onPick,
+  side, highlighted, disabled, onPick,
 }: {
-  player: Player; highlighted: boolean; disabled: boolean; onPick: () => void;
+  side: CompareSide; highlighted: boolean; disabled: boolean; onPick: () => void;
 }) {
+  const { player, value, overallRank, positionRank, detail } = side;
+  const trend = detail?.trend30 ?? null;
+  const pick = isPickAsset(player.player_id);
   return (
     <button
       onClick={onPick}
@@ -200,18 +319,25 @@ function VoteCard({
           : 'border-[#22222b] bg-[#141419] hover:border-accent-500 hover:bg-[#1b1b22]'}
         disabled:cursor-default`}
     >
-      <img
-        src={getPlayerImageUrl(player.player_id)}
-        alt={player.full_name}
-        loading="lazy"
-        className="h-24 w-24 sm:h-28 sm:w-28 rounded-full object-cover object-top bg-[#101015] mb-3"
-      />
+      <AssetAvatar id={player.player_id} alt={player.full_name} size={112} className="mb-3" />
       <span className="text-[15px] font-medium text-center leading-tight mb-2">
         {player.full_name}
       </span>
-      <span className="flex items-center gap-1.5 text-muted">
+      <span className="flex items-center gap-1.5 text-muted mb-2.5">
         <PositionBadge position={player.position} />
         {player.team && <span className="text-[12px]">{player.team}</span>}
+      </span>
+
+      {/* At-a-glance market context so the pick isn't a blind guess. */}
+      <span className="flex items-center gap-2 text-[11px] text-[#9c9ca7] tabular-nums">
+        {value != null && <span className="font-semibold text-white">{Math.round(value).toLocaleString()}</span>}
+        {overallRank && <span>#{overallRank}</span>}
+        {!pick && positionRank && <span>{player.position}{positionRank}</span>}
+        {trend != null && Math.abs(trend) >= 50 && (
+          <span className={`inline-flex items-center gap-0.5 font-semibold ${trend > 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+            {trend > 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+          </span>
+        )}
       </span>
     </button>
   );
