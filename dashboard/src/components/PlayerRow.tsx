@@ -17,6 +17,10 @@ export interface PlayerRowProps {
   team?: string | null;
   /** Primary trailing value (e.g. KTC value). */
   value?: number;
+  /** Small secondary value under the main value (e.g. community value beneath
+   *  "your value" on a personal board). Rendered muted; ignored when `delta` is
+   *  set (that mode already repurposes the value line). */
+  subValue?: ReactNode;
   /** Trend chip on the right (green up / red down). When set, `value` moves to the meta line. */
   delta?: number;
   injuryStatus?: string | null;
@@ -55,6 +59,7 @@ export function PlayerRow({
   position,
   team,
   value,
+  subValue,
   delta,
   injuryStatus,
   rank,
@@ -141,8 +146,13 @@ export function PlayerRow({
               {Math.abs(delta!).toLocaleString()}
             </span>
           ) : value !== undefined ? (
-            <span className={`font-display text-[14px] font-bold tabular-nums shrink-0 ${valueColor}`}>
-              {value > 0 ? value.toLocaleString() : '—'}
+            <span className="shrink-0 flex flex-col items-end leading-tight">
+              <span className={`font-display text-[14px] font-bold tabular-nums ${valueColor}`}>
+                {value > 0 ? value.toLocaleString() : '—'}
+              </span>
+              {subValue != null && subValue !== '' && (
+                <span className="text-[10px] text-ghost tabular-nums">{subValue}</span>
+              )}
             </span>
           ) : null}
         </div>

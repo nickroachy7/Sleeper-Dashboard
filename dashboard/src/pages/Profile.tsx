@@ -166,26 +166,41 @@ export default function Profile() {
       })
       .filter((r) => !!r.player);
 
-    // Rank deltas compare like-for-like within the SAME position filter, and
-    // measure movement vs the board's OWN frozen starting order (baseline) —
-    // i.e. "where you've moved this player from where you started", a stable
-    // reference, not a moving community target. IDP players are dropped unless
-    // the viewer opted in; picks show only in the unfiltered "ALL" view (they
-    // have no player position to scope by).
-    const scoped = all.filter((r) => {
-      if (isPickAsset(r.player_id)) return pos === 'ALL';
-      return (showIdp || !isIdp(r.player!.position)) && matchesPositionFilter(r.player!.position, pos);
-    });
-    const baselineOrder = [...scoped].sort((a, b) => b.communityValue - a.communityValue);
-    const baselineRank = new Map(baselineOrder.map((r, i) => [r.player_id, i + 1]));
+    // The user's FULL visible board (IDP hidden unless opted in; picks always
+    // count — they're ranked among players). The value ladder is computed over
+    // this whole set, NOT the filtered view, so a position filter never
+    // rescales a player's value.
+    const visible = all.filter((r) => showIdp || isPickAsset(r.player_id) || !isIdp(r.player!.position));
 
-    return scoped
-      .sort((a, b) => b.blended - a.blended)
-      .map((r, i) => ({
-        ...r,
-        rank: i + 1,
-        delta: (baselineRank.get(r.player_id) ?? i + 1) - (i + 1), // + = above start
-      }));
+    // "Your value" (9999 → down): take the community value ladder — every
+    // asset's community value, sorted high→low — and reassign it to the user's
+    // OWN ranking order. Their #1 gets the top community value (~9999), #2 the
+    // next, and so on, so the board always reads 9999-down in the user's order.
+    // This is a pure reindex: same set of community values, redistributed by
+    // where the user ranks each asset. (Ordering itself still uses `blended` so
+    // drag / ▲▼ / set-exact-rank keep working unchanged.)
+    const userOrder = [...visible].sort((a, b) => b.blended - a.blended);
+    const ladder = visible.map((r) => r.communityValue).sort((a, b) => b - a);
+    const yourValueById = new Map(userOrder.map((r, i) => [r.player_id, ladder[i] ?? 0]));
+
+    // Scope to the position filter for display (picks only in the "ALL" view —
+    // they have no player position to filter by).
+    const scoped = userOrder.filter((r) => {
+      if (isPickAsset(r.player_id)) return pos === 'ALL';
+      return matchesPositionFilter(r.player!.position, pos);
+    });
+
+    // Rank deltas compare like-for-like within the SAME position filter: how
+    // many spots the user moved a player vs where the crowd has them.
+    const communityOrder = [...scoped].sort((a, b) => b.communityValue - a.communityValue);
+    const communityRank = new Map(communityOrder.map((r, i) => [r.player_id, i + 1]));
+
+    return scoped.map((r, i) => ({
+      ...r,
+      yourValue: yourValueById.get(r.player_id) ?? 0,
+      rank: i + 1,
+      delta: (communityRank.get(r.player_id) ?? i + 1) - (i + 1), // + = above crowd
+    }));
   }, [board, playersMap, communityValues, pos, showIdp]);
 
   const totalVotes = useMemo(
@@ -443,7 +458,12 @@ export default function Profile() {
                     ) : undefined
                   }
                   to={editing ? null : undefined}
-                  value={Math.round(r.blended)}
+                  value={Math.round(r.yourValue)}
+                  // Owner-only: the community value beneath "your value" so the
+                  // gap between your take and the crowd is visible on every row.
+                  subValue={isMe && !editing
+                    ? `${Math.round(r.communityValue).toLocaleString()} community`
+                    : undefined}
                   name={r.player!.full_name}
                   position={r.player!.position}
                   team={r.player!.team}
