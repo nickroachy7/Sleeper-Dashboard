@@ -1,10 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Sparkles, UserRound, TrendingUp, TrendingDown } from 'lucide-react';
-import { PositionBadge } from '../components/PositionBadge';
-import { AssetAvatar } from '../components/AssetAvatar';
-import { VoteComparePanel, type CompareSide } from '../components/VoteComparePanel';
+import { Sparkles, UserRound } from 'lucide-react';
+import { PlayerVersus, type CompareSide } from '../components/PlayerVersus';
 import { usePlayers, usePlayerValuesList, usePickValues } from '../hooks/queries';
 import { useMyBoard } from '../hooks/useMyBoard';
 import { usePairDetails, type AssetDetail } from '../hooks/usePairDetails';
@@ -13,7 +11,7 @@ import { useAuth } from '../lib/auth';
 import { supabase } from '../lib/supabase';
 import { useShowIdp } from '../lib/idp-store';
 import { isVisiblePosition } from '../lib/positions';
-import { pickAssetId, isPickAsset, pickLabel } from '../lib/vote-assets';
+import { pickAssetId, pickLabel } from '../lib/vote-assets';
 import type { Player } from '../types/domain';
 
 // Starter mode: boards begin as a copy of the community rankings; votes create
@@ -274,23 +272,14 @@ export function RankEmPanel() {
       {!pair ? (
         <div className="text-center text-muted py-20 text-[14px]">Loading matchup…</div>
       ) : (
-        <>
-          <div className="grid grid-cols-[1fr_auto_1fr] items-stretch gap-3 sm:gap-5">
-            <VoteCard
-              side={compareSide(pair[0], pairDetails?.a)}
-              highlighted={flash === pair[0].full_name} disabled={pending}
-              onPick={() => vote(pair[0], pair[1])} />
-            <div className="flex items-center justify-center text-muted text-[12px] font-medium tracking-widest uppercase">
-              or
-            </div>
-            <VoteCard
-              side={compareSide(pair[1], pairDetails?.b)}
-              highlighted={flash === pair[1].full_name} disabled={pending}
-              onPick={() => vote(pair[1], pair[0])} />
-          </div>
-
-          <VoteComparePanel a={compareSide(pair[0], pairDetails?.a)} b={compareSide(pair[1], pairDetails?.b)} />
-        </>
+        <PlayerVersus
+          a={compareSide(pair[0], pairDetails?.a)}
+          b={compareSide(pair[1], pairDetails?.b)}
+          variant="vote"
+          disabled={pending}
+          pickedIndex={flash === pair[0].full_name ? 0 : flash === pair[1].full_name ? 1 : null}
+          onPick={(i) => (i === 0 ? vote(pair[0], pair[1]) : vote(pair[1], pair[0]))}
+        />
       )}
 
       <p className="mt-8 text-center text-[12px] text-muted leading-relaxed max-w-md mx-auto">
@@ -298,47 +287,5 @@ export function RankEmPanel() {
         votes like these — not from any outside site.
       </p>
     </div>
-  );
-}
-
-function VoteCard({
-  side, highlighted, disabled, onPick,
-}: {
-  side: CompareSide; highlighted: boolean; disabled: boolean; onPick: () => void;
-}) {
-  const { player, value, overallRank, positionRank, detail } = side;
-  const trend = detail?.trend30 ?? null;
-  const pick = isPickAsset(player.player_id);
-  return (
-    <button
-      onClick={onPick}
-      disabled={disabled}
-      className={`group flex flex-col items-center rounded-[12px] border p-5 sm:p-7 transition-all
-        ${highlighted
-          ? 'border-accent-500 bg-accent-500/10 scale-[0.98]'
-          : 'border-[#22222b] bg-[#141419] hover:border-accent-500 hover:bg-[#1b1b22]'}
-        disabled:cursor-default`}
-    >
-      <AssetAvatar id={player.player_id} alt={player.full_name} size={112} className="mb-3" />
-      <span className="text-[15px] font-medium text-center leading-tight mb-2">
-        {player.full_name}
-      </span>
-      <span className="flex items-center gap-1.5 text-muted mb-2.5">
-        <PositionBadge position={player.position} />
-        {player.team && <span className="text-[12px]">{player.team}</span>}
-      </span>
-
-      {/* At-a-glance market context so the pick isn't a blind guess. */}
-      <span className="flex items-center gap-2 text-[11px] text-[#9c9ca7] tabular-nums">
-        {value != null && <span className="font-semibold text-white">{Math.round(value).toLocaleString()}</span>}
-        {overallRank && <span>#{overallRank}</span>}
-        {!pick && positionRank && <span>{player.position}{positionRank}</span>}
-        {trend != null && Math.abs(trend) >= 50 && (
-          <span className={`inline-flex items-center gap-0.5 font-semibold ${trend > 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-            {trend > 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-          </span>
-        )}
-      </span>
-    </button>
   );
 }
