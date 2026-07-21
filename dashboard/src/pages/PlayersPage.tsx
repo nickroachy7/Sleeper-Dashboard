@@ -331,12 +331,8 @@ function ValuesTab({ kind, leagueFilterId, leagues, onLeagueFilterChange }: {
 
   return (
     <>
-      <div className="bg-surface rounded-2xl overflow-hidden border border-line">
-      {/* Controls live INSIDE the list card as a header, so search + filters and
-          the rows below read as one component (matches the profile board).
-          FilterBar carries its own mb-3, so the wrapper only needs top padding. */}
-      <div className="px-4 sm:px-5 pt-4">
       <FilterBar
+        sticky
         search={
           <SearchInput
             value={searchQuery}
@@ -435,9 +431,8 @@ function ValuesTab({ kind, leagueFilterId, leagues, onLeagueFilterChange }: {
           </FilterSheet>
         ) : undefined}
       />
-      </div>
 
-      <div className="border-t border-line-subtle">
+      <div className="bg-surface rounded-2xl overflow-hidden border border-line">
         {paginatedValues.length === 0 && (
           <p className="px-4 py-10 text-center text-[13px] text-faint">
             {isMoverSort
@@ -506,18 +501,13 @@ function ValuesTab({ kind, leagueFilterId, leagues, onLeagueFilterChange }: {
         })}
       </div>
 
-      {totalPages > 1 && (
-        <div className="px-4 sm:px-5 py-3 border-t border-line-subtle">
-          <Pagination
-            currentPage={currentPage}
-            totalPages={totalPages}
-            totalItems={filteredAndSorted.length}
-            itemsPerPage={ITEMS_PER_PAGE}
-            onPageChange={(page) => { setMany({ page: page === 1 ? null : String(page) }); window.scrollTo({ top: 0 }); }}
-          />
-        </div>
-      )}
-      </div>
+      <Pagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        totalItems={filteredAndSorted.length}
+        itemsPerPage={ITEMS_PER_PAGE}
+        onPageChange={(page) => { setMany({ page: page === 1 ? null : String(page) }); window.scrollTo({ top: 0 }); }}
+      />
 
       {/* Data freshness — present but out of the way, at the foot of the list. */}
       {lastUpdated && (
