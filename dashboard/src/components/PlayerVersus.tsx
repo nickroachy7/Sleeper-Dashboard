@@ -43,12 +43,18 @@ function lead(x: number | null | undefined, y: number | null | undefined, higher
 
 // ── Combined dual-line value chart ───────────────────────────────────────────
 // Purpose-built (not the single-series ValueChart): two lines on one shared
-// y-scale over the union of both date ranges, endpoint dots, hairline grid.
+// y-scale over the union of both date ranges, with y gridlines, an x date axis,
+// endpoint dots, and a value label pinned to each line's current point.
 
-const M = { top: 10, right: 12, bottom: 20, left: 40 };
+// Extra right margin leaves room for the endpoint value labels.
+const M = { top: 12, right: 52, bottom: 24, left: 42 };
+
+function fmtMonth(iso: string): string {
+  return new Date(iso + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
 
 function CombinedChart({
-  seriesA, seriesB, height = 130,
+  seriesA, seriesB, height = 176,
 }: {
   seriesA: { date: string; value: number }[];
   seriesB: { date: string; value: number }[];
@@ -88,9 +94,28 @@ function CombinedChart({
     const stepV = [1, 2, 2.5, 5, 10].map((m) => m * mag).find((s) => span / s <= 4) || 10 * mag;
     const yTicks: { v: number; py: number }[] = [];
     for (let t = Math.ceil(vMin / stepV) * stepV; t <= vMax; t += stepV) yTicks.push({ v: t, py: y(t) });
-    const endA = seriesA.length ? { px: x(seriesA[seriesA.length - 1].date), py: y(seriesA[seriesA.length - 1].value) } : null;
-    const endB = seriesB.length ? { px: x(seriesB[seriesB.length - 1].date), py: y(seriesB[seriesB.length - 1].value) } : null;
-    return { pathA: pathOf(seriesA), pathB: pathOf(seriesB), yTicks, endA, endB };
+
+    // x date ticks: ~4 evenly spaced across the shared range, min 56px apart.
+    const uniq = [...new Set(all.map((d) => d.date))].sort();
+    const xTicks: { px: number; label: string }[] = [];
+    const nTicks = Math.min(4, uniq.length);
+    for (let i = 0; i < nTicks; i++) {
+      const d = uniq[Math.round((i / Math.max(nTicks - 1, 1)) * (uniq.length - 1))];
+      const px = x(d);
+      if (xTicks.length && px - xTicks[xTicks.length - 1].px < 56) continue;
+      xTicks.push({ px, label: fmtMonth(d) });
+    }
+
+    const endOf = (s: { date: string; value: number }[]) =>
+      s.length ? { px: x(s[s.length - 1].date), py: y(s[s.length - 1].value), value: s[s.length - 1].value } : null;
+    let endA = endOf(seriesA);
+    let endB = endOf(seriesB);
+    // Nudge the two value labels apart if their endpoints nearly overlap.
+    if (endA && endB && Math.abs(endA.py - endB.py) < 12) {
+      if (endA.value >= endB.value) { endA = { ...endA, py: endA.py - 6 }; endB = { ...endB, py: endB.py + 6 }; }
+      else { endA = { ...endA, py: endA.py + 6 }; endB = { ...endB, py: endB.py - 6 }; }
+    }
+    return { pathA: pathOf(seriesA), pathB: pathOf(seriesB), yTicks, xTicks, endA, endB, chartRight: width - M.right };
   }, [seriesA, seriesB, width, height]);
 
   return (
@@ -99,16 +124,33 @@ function CombinedChart({
         <svg width={width} height={height} className="block">
           {plot.yTicks.map(({ v, py }) => (
             <g key={v}>
-              <line x1={M.left} x2={width - M.right} y1={py} y2={py} stroke="#1a1a1a" strokeWidth={1} />
+              <line x1={M.left} x2={plot.chartRight} y1={py} y2={py} stroke="#1a1a1a" strokeWidth={1} />
               <text x={M.left - 6} y={py + 3} textAnchor="end" fontSize={9} fill="#555555" style={{ fontVariantNumeric: 'tabular-nums' }}>
                 {Math.round(v).toLocaleString()}
               </text>
             </g>
           ))}
+          {plot.xTicks.map(({ px, label }) => (
+            <text key={label} x={px} y={height - 7} textAnchor="middle" fontSize={9} fill="#555555">{label}</text>
+          ))}
           {plot.pathA && <path d={plot.pathA} fill="none" stroke={COLOR_A} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />}
           {plot.pathB && <path d={plot.pathB} fill="none" stroke={COLOR_B} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />}
-          {plot.endA && <circle cx={plot.endA.px} cy={plot.endA.py} r={3.5} fill={COLOR_A} stroke="#0a0a0a" strokeWidth={2} />}
-          {plot.endB && <circle cx={plot.endB.px} cy={plot.endB.py} r={3.5} fill={COLOR_B} stroke="#0a0a0a" strokeWidth={2} />}
+          {plot.endA && (
+            <>
+              <circle cx={plot.endA.px} cy={plot.endA.py} r={3.5} fill={COLOR_A} stroke="#0a0a0a" strokeWidth={2} />
+              <text x={plot.chartRight + 6} y={plot.endA.py + 3} fontSize={10} fontWeight={700} fill={COLOR_A} style={{ fontVariantNumeric: 'tabular-nums' }}>
+                {Math.round(plot.endA.value).toLocaleString()}
+              </text>
+            </>
+          )}
+          {plot.endB && (
+            <>
+              <circle cx={plot.endB.px} cy={plot.endB.py} r={3.5} fill={COLOR_B} stroke="#0a0a0a" strokeWidth={2} />
+              <text x={plot.chartRight + 6} y={plot.endB.py + 3} fontSize={10} fontWeight={700} fill={COLOR_B} style={{ fontVariantNumeric: 'tabular-nums' }}>
+                {Math.round(plot.endB.value).toLocaleString()}
+              </text>
+            </>
+          )}
         </svg>
       )}
     </div>
@@ -198,22 +240,22 @@ function Header({
       </span>
     </div>
   );
-  const base = 'rounded-2xl border p-3 transition-all';
+  // Borderless — the parent card supplies the frame. A ring + tint marks the
+  // just-picked side in vote mode.
+  const base = `rounded-xl p-3 transition-all ${highlighted ? 'bg-accent-500/10 ring-1 ring-accent-500' : ''}`;
   if (variant === 'vote') {
     return (
       <button
         type="button"
         onClick={onPick}
         disabled={disabled}
-        className={`${base} ${highlighted
-          ? 'border-accent-500 bg-accent-500/10 scale-[0.98]'
-          : 'border-line bg-surface hover:border-accent-500 hover:bg-elevated'} disabled:cursor-default`}
+        className={`${base} hover:bg-elevated disabled:cursor-default`}
       >
         {inner}
       </button>
     );
   }
-  return <div className={`${base} border-line bg-surface`}>{inner}</div>;
+  return <div className={base}>{inner}</div>;
 }
 
 export interface PlayerVersusProps {
@@ -235,63 +277,66 @@ export function PlayerVersus({ a, b, variant = 'vote', pickedIndex = null, disab
 
   return (
     <div>
-      {/* Two tappable player headers, straddled by an OR badge. */}
-      <div className="relative grid grid-cols-2 gap-3 items-stretch">
-        <Header side={a} color={COLOR_A} variant={variant} highlighted={pickedIndex === 0} disabled={disabled} onPick={() => onPick?.(0)} />
-        <Header side={b} color={COLOR_B} variant={variant} highlighted={pickedIndex === 1} disabled={disabled} onPick={() => onPick?.(1)} />
-        <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-full bg-base border border-line flex items-center justify-center text-[10px] font-bold tracking-widest uppercase text-muted pointer-events-none">
-          or
-        </span>
-      </div>
-
-      {/* Aligned comparison: each metric is one row, both players side-by-side. */}
-      <div className="mt-3 rounded-2xl border border-line bg-surface px-3 sm:px-4 py-1">
-        <Row label="Value"
-          a={a.value != null ? Math.round(a.value).toLocaleString() : '—'}
-          b={b.value != null ? Math.round(b.value).toLocaleString() : '—'}
-          winner={lead(a.value, b.value)} />
-        <Row label="Rank"
-          a={a.overallRank ? `#${a.overallRank}` : '—'}
-          b={b.overallRank ? `#${b.overallRank}` : '—'}
-          winner={lead(a.overallRank, b.overallRank, false)} />
-        {!pick && (
-          <Row label="Pos Rank"
-            a={a.positionRank ? `${a.player.position}${a.positionRank}` : '—'}
-            b={b.positionRank ? `${b.player.position}${b.positionRank}` : '—'}
-            winner={lead(a.positionRank, b.positionRank, false)} />
-        )}
-        {!pick && (
-          <Row label="Age"
-            a={a.detail?.age != null ? a.detail.age : '—'}
-            b={b.detail?.age != null ? b.detail.age : '—'}
-            winner={lead(a.detail?.age ?? null, b.detail?.age ?? null, false)} />
-        )}
-        {!pick && (
-          // Trend keeps its own up/down red/green semantics, so no winner accent
-          // here — a "winning" but still-negative trend shouldn't read as green.
-          <Row label="30d Trend"
-            a={<TrendCell delta={a.detail?.trend30} />}
-            b={<TrendCell delta={b.detail?.trend30} />}
-            winner={null} />
-        )}
-      </div>
-
-      {/* One combined value chart — both players on a shared scale, with legend. */}
-      <div className="mt-3 rounded-2xl border border-line bg-surface px-3 sm:px-4 pt-3 pb-2">
-        <div className="flex items-center justify-between mb-1">
-          <p className="text-[10px] font-bold text-faint uppercase tracking-[0.14em]">Value history</p>
-          <div className="flex items-center gap-3 text-[10px] min-w-0">
-            <span className="inline-flex items-center gap-1 min-w-0"><span className="h-2 w-2 rounded-full shrink-0" style={{ background: COLOR_A }} /><span className="truncate text-muted max-w-[80px]">{a.player.full_name}</span></span>
-            <span className="inline-flex items-center gap-1 min-w-0"><span className="h-2 w-2 rounded-full shrink-0" style={{ background: COLOR_B }} /><span className="truncate text-muted max-w-[80px]">{b.player.full_name}</span></span>
-          </div>
+      {/* One unified card: headers → stats → chart, split by hairline dividers. */}
+      <div className="rounded-2xl border border-line bg-surface overflow-hidden">
+        {/* Section 1 — two tappable player headers, straddled by an OR badge. */}
+        <div className="relative grid grid-cols-2 gap-2 items-stretch p-1.5">
+          <Header side={a} color={COLOR_A} variant={variant} highlighted={pickedIndex === 0} disabled={disabled} onPick={() => onPick?.(0)} />
+          <Header side={b} color={COLOR_B} variant={variant} highlighted={pickedIndex === 1} disabled={disabled} onPick={() => onPick?.(1)} />
+          <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-full bg-surface border border-line flex items-center justify-center text-[10px] font-bold tracking-widest uppercase text-muted pointer-events-none">
+            or
+          </span>
         </div>
-        {hasChart ? (
-          <CombinedChart seriesA={chartA} seriesB={chartB} />
-        ) : (
-          <div className="h-[110px] flex items-center justify-center text-[11px] text-ghost">
-            {pick ? 'Pick value moves with the rookie class' : 'Not enough value history yet'}
+
+        {/* Section 2 — aligned comparison: each metric one row, both sides. */}
+        <div className="border-t border-line-subtle px-3 sm:px-4 py-1">
+          <Row label="Value"
+            a={a.value != null ? Math.round(a.value).toLocaleString() : '—'}
+            b={b.value != null ? Math.round(b.value).toLocaleString() : '—'}
+            winner={lead(a.value, b.value)} />
+          <Row label="Rank"
+            a={a.overallRank ? `#${a.overallRank}` : '—'}
+            b={b.overallRank ? `#${b.overallRank}` : '—'}
+            winner={lead(a.overallRank, b.overallRank, false)} />
+          {!pick && (
+            <Row label="Pos Rank"
+              a={a.positionRank ? `${a.player.position}${a.positionRank}` : '—'}
+              b={b.positionRank ? `${b.player.position}${b.positionRank}` : '—'}
+              winner={lead(a.positionRank, b.positionRank, false)} />
+          )}
+          {!pick && (
+            <Row label="Age"
+              a={a.detail?.age != null ? a.detail.age : '—'}
+              b={b.detail?.age != null ? b.detail.age : '—'}
+              winner={lead(a.detail?.age ?? null, b.detail?.age ?? null, false)} />
+          )}
+          {!pick && (
+            // Trend keeps its own up/down red/green semantics, so no winner accent
+            // here — a "winning" but still-negative trend shouldn't read as green.
+            <Row label="30d Trend"
+              a={<TrendCell delta={a.detail?.trend30} />}
+              b={<TrendCell delta={b.detail?.trend30} />}
+              winner={null} />
+          )}
+        </div>
+
+        {/* Section 3 — one combined value chart (both players, shared scale). */}
+        <div className="border-t border-line-subtle px-3 sm:px-4 pt-3 pb-2">
+          <div className="flex items-center justify-between mb-1">
+            <p className="text-[10px] font-bold text-faint uppercase tracking-[0.14em]">Value history</p>
+            <div className="flex items-center gap-3 text-[10px] min-w-0">
+              <span className="inline-flex items-center gap-1 min-w-0"><span className="h-2 w-2 rounded-full shrink-0" style={{ background: COLOR_A }} /><span className="truncate text-muted max-w-[80px]">{a.player.full_name}</span></span>
+              <span className="inline-flex items-center gap-1 min-w-0"><span className="h-2 w-2 rounded-full shrink-0" style={{ background: COLOR_B }} /><span className="truncate text-muted max-w-[80px]">{b.player.full_name}</span></span>
+            </div>
           </div>
-        )}
+          {hasChart ? (
+            <CombinedChart seriesA={chartA} seriesB={chartB} />
+          ) : (
+            <div className="h-[140px] flex items-center justify-center text-[11px] text-ghost">
+              {pick ? 'Pick value moves with the rookie class' : 'Not enough value history yet'}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
