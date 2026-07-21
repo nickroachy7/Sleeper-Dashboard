@@ -30,6 +30,7 @@ import {
 import { AssetDropdown } from '../components/AssetDropdown';
 import { TeamDropdown } from '../components/TeamDropdown';
 import { AssetRow } from '../components/AssetRow';
+import { LeaguePicker } from '../components/LeaguePicker';
 import { useActiveLeague } from '../lib/active-league';
 
 // ── Types ──────────────────────────────────────────────────────────
@@ -51,12 +52,14 @@ export interface TradeEvaluatorProps {
 // ── Main Component ─────────────────────────────────────────────────
 
 export function TradeEvaluator({ initialSides }: TradeEvaluatorProps = {}) {
-  // Global (no-league) mode: the evaluator becomes a pure value calculator —
-  // add any player/pick by search instead of from a league's rosters. Sentinel
-  // roster ids (1, 2) keep the per-side asset UI + analysis working without a
-  // league (they're just non-zero placeholders; there are no real rosters).
-  const { hasLeague } = useActiveLeague();
-  const globalMode = !hasLeague;
+  // The evaluator is a global value calculator by default (add any player/pick
+  // by search). Picking a league is OPTIONAL added context — it lets each side
+  // load a real roster. This is decoupled from the app's active league: the
+  // tool owns its own choice (null = global). Sentinel roster ids (1, 2) keep
+  // the per-side asset UI + analysis working in global mode.
+  const { leagues } = useActiveLeague();
+  const [toolLeagueId, setToolLeagueId] = useState<string | null>(null);
+  const globalMode = !toolLeagueId;
 
   // NOTE: to re-seed with new initial sides, the parent should remount this
   // component by changing its `key` prop. We intentionally do not sync
@@ -90,7 +93,7 @@ export function TradeEvaluator({ initialSides }: TradeEvaluatorProps = {}) {
   const tradeKey = tradeSides.map((s) => s.assets.map((a) => a.id).join(',')).join('|');
   useEffect(() => { setFeedbackSent(false); }, [tradeKey]);
 
-  const { rosters, players, playerValues, pickValues, tradedPicks, isLoading: dataLoading } = useTradeData();
+  const { rosters, players, playerValues, pickValues, tradedPicks, isLoading: dataLoading } = useTradeData(toolLeagueId);
 
   const getPicksOwnedByRoster = useCallback((rosterId: number): TradeAsset[] => {
     if (!rosters || !pickValues || !tradedPicks) return [];
@@ -168,7 +171,23 @@ export function TradeEvaluator({ initialSides }: TradeEvaluatorProps = {}) {
   }, []);
 
   const resetTrade = useCallback(() => {
-    setTradeSides([{ rosterId: 0, assets: [] }, { rosterId: 0, assets: [] }]);
+    // In global mode both sides use sentinel ids (1,2) so the asset UI works
+    // without rosters; in league mode they start unset (0 = "pick a team").
+    const empty = globalMode
+      ? [{ rosterId: 1, assets: [] }, { rosterId: 2, assets: [] }]
+      : [{ rosterId: 0, assets: [] }, { rosterId: 0, assets: [] }];
+    setTradeSides(empty as TradeSide[]);
+    setActiveDropdown(null);
+  }, [globalMode]);
+
+  // Switching the tool's league resets the trade to that mode's empty sides.
+  const changeToolLeague = useCallback((id: string | null) => {
+    setToolLeagueId(id);
+    setTradeSides(
+      id
+        ? [{ rosterId: 0, assets: [] }, { rosterId: 0, assets: [] }]
+        : [{ rosterId: 1, assets: [] }, { rosterId: 2, assets: [] }]
+    );
     setActiveDropdown(null);
   }, []);
 
@@ -361,18 +380,33 @@ export function TradeEvaluator({ initialSides }: TradeEvaluatorProps = {}) {
 
   return (
     <div>
-      {/* Reset button */}
-      {hasAssets && (
-        <div className="flex justify-end mb-2">
-          <button
-            onClick={resetTrade}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-faint hover:text-white hover:bg-elevated rounded-lg text-xs font-medium transition-all"
-          >
-            <RotateCcw className="h-3.5 w-3.5" />
-            Reset
-          </button>
+      {/* League context (optional): the evaluator is a global value calculator
+          by default; pick a league to load real rosters into each side. Only
+          shown when the user actually follows leagues. */}
+      <div className="flex items-center justify-between gap-3 mb-3">
+        <span className="text-[12px] text-faint">
+          {globalMode ? 'Any player or pick · community values' : 'Trading within your league'}
+        </span>
+        <div className="flex items-center gap-2">
+          {leagues.length > 0 && (
+            <LeaguePicker
+              leagues={leagues}
+              selected={toolLeagueId}
+              onSelect={changeToolLeague}
+              allLabel="No league"
+            />
+          )}
+          {hasAssets && (
+            <button
+              onClick={resetTrade}
+              className="flex items-center gap-1.5 px-3 h-8 text-faint hover:text-white hover:bg-elevated rounded-lg text-xs font-medium transition-colors"
+            >
+              <RotateCcw className="h-3.5 w-3.5" />
+              Reset
+            </button>
+          )}
         </div>
-      )}
+      </div>
 
       {/* Trade builder — styled like TradeCard */}
       <div className="bg-surface border border-line rounded-xl overflow-hidden">

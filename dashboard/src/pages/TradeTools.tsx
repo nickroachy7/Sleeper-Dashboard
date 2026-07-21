@@ -5,10 +5,8 @@ import type { ComponentType } from 'react';
 import { TradeEvaluator } from './TradeEvaluator';
 import { TradeFinder } from './TradeFinder';
 import { RankEmPanel } from './RankEm';
-import { NoLeagueState } from '../components/NoLeagueState';
 import { SubPageHeader } from '../components/ui';
 import { TabBar } from '../components/TabBar';
-import { useActiveLeague } from '../lib/active-league';
 import { useUrlState } from '../hooks/useUrlState';
 import type { TradeAsset } from '../lib/trade-shared';
 
@@ -51,7 +49,6 @@ interface InitialTradeState {
 export default function TradeTools() {
   const location = useLocation();
   const { get, setMany } = useUrlState();
-  const { hasLeague } = useActiveLeague();
   // No tab → the landing grid. A tab id → that mini's own view.
   const activeId = get('tab');
   const active = MINIS.find((m) => m.id === activeId) ?? null;
@@ -94,11 +91,9 @@ export default function TradeTools() {
             ) : active.id === 'rank' ? (
               // Rank 'Em is a community-value contribution game — no league needed.
               <RankEmPanel />
-            ) : hasLeague ? (
-              <TradeFinder />
             ) : (
-              <NoLeagueState heading="Add your league to find trades"
-                sub="Trade Finder scans your league's rosters for fair deals. The Evaluator works without a league." compact />
+              // TradeFinder owns its own league selection (prompts if none picked).
+              <TradeFinder />
             )}
           </>
         ) : (

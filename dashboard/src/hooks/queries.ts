@@ -50,12 +50,17 @@ export const queryKeys = {
 // (activeLeagueId null — a fresh public visitor), this returns a null current
 // and an empty chain: no league data, so the app shows onboarding instead of
 // defaulting to someone else's league.
-export function useLeagueIds() {
-  const { activeLeagueId } = useActiveLeague();
+/**
+ * Resolve a league's dynasty season chain from an EXPLICIT root league id (not
+ * the global active league). Returns { current, previous, chain }, or an empty
+ * chain when no root is given. This is the league-agnostic core; useLeagueIds()
+ * wraps it with the global active league for league-scoped pages.
+ */
+export function useLeagueIdsFor(rootLeagueId: string | null | undefined) {
   return useQuery({
-    queryKey: queryKeys.leagueIds(activeLeagueId),
+    queryKey: queryKeys.leagueIds(rootLeagueId ?? null),
     queryFn: async () => {
-      if (!activeLeagueId) return { current: null, previous: null, chain: [] as string[] };
+      if (!rootLeagueId) return { current: null, previous: null, chain: [] as string[] };
 
       const { data } = await supabase
         .from('leagues')
@@ -64,11 +69,11 @@ export function useLeagueIds() {
       const rows = data ?? [];
       const byId = new Map(rows.map((l) => [l.league_id, l]));
 
-      // Walk the previous_league_id chain from the active root (guarding
+      // Walk the previous_league_id chain from the given root (guarding
       // against cycles / rows not yet synced).
       const chain: string[] = [];
       const seen = new Set<string>();
-      let cursor: string | null = byId.has(activeLeagueId) ? activeLeagueId : null;
+      let cursor: string | null = byId.has(rootLeagueId) ? rootLeagueId : null;
       while (cursor && byId.has(cursor) && !seen.has(cursor)) {
         seen.add(cursor);
         chain.push(cursor);
@@ -82,6 +87,12 @@ export function useLeagueIds() {
       };
     },
   });
+}
+
+/** League-scoped pages: the season chain of the global ACTIVE league. */
+export function useLeagueIds() {
+  const { activeLeagueId } = useActiveLeague();
+  return useLeagueIdsFor(activeLeagueId);
 }
 
 export interface ChatLeagueContext {

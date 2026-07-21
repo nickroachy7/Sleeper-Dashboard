@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { useTradeData } from './useLeagueData';
+import { useActiveLeague } from '../lib/active-league';
 import {
   buildPlayersForRoster,
   buildPicksForRoster,
@@ -23,7 +24,9 @@ export interface TeamStrength {
  * Returns a Map keyed by roster_id plus the loading flag.
  */
 export function useTeamStrength(): { byRoster: Map<number, TeamStrength>; isLoading: boolean } {
-  const { rosters, players, playerValues, pickValues, tradedPicks, isLoading } = useTradeData();
+  // League page is league-scoped, so team strength follows the active league.
+  const { activeLeagueId } = useActiveLeague();
+  const { rosters, players, playerValues, pickValues, tradedPicks, isLoading } = useTradeData(activeLeagueId);
 
   const byRoster = useMemo(() => {
     const map = new Map<number, TeamStrength>();

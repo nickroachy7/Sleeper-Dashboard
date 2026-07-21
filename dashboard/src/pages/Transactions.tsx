@@ -525,8 +525,8 @@ export function TransactionsPanel() {
               { value: 'all', label: 'All' },
               { value: 'trade', label: 'Trades' },
               { value: 'waiver', label: 'Waivers' },
-              { value: 'free_agent', label: 'Free Agent' },
-              { value: 'commissioner', label: 'Commissioner' },
+              { value: 'free_agent', label: 'FA' },
+              { value: 'commissioner', label: 'Commish' },
             ]}
             selected={typeFilter}
             onChange={handleFilterChange}
