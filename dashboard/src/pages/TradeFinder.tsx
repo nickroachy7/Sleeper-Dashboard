@@ -37,6 +37,7 @@ import { LeaguePicker } from '../components/LeaguePicker';
 import { NoLeagueState } from '../components/NoLeagueState';
 import { Segmented } from '../components/ui';
 import { useActiveLeague } from '../lib/active-league';
+import { useMyTeamMap } from '../hooks/useMyTeam';
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -199,6 +200,7 @@ export function TradeFinder() {
   // pick-a-league prompt. Seeds from ?league= if present (e.g. a team page's
   // "Find trades" deep link).
   const { leagues } = useActiveLeague();
+  const { map: myTeamMap } = useMyTeamMap();
   const [toolLeagueId, setToolLeagueId] = useState<string | null>(searchParams.get('league'));
   const [tradeMode, setTradeMode] = useState<TradeMode>('dump');
   const [myRoster, setMyRoster] = useState<Roster | null>(null);
@@ -222,26 +224,43 @@ export function TradeFinder() {
     setScenarios([]);
   }, [tradeMode, assetSourceId]);
 
+  // Switching the Finder's league clears the old league's rosters/results so
+  // nothing stale carries over; the seed effect re-picks the new league's
+  // saved team (if any).
+  const changeToolLeague = useCallback((id: string | null) => {
+    setToolLeagueId(id);
+    setMyRoster(null);
+    setTargetRoster(null);
+    setSelectedAssetIds([]);
+    setScenarios([]);
+  }, []);
+
   // ── Data ──
 
   const { rosters, playerValues, pickValues, tradedPicks, isLoading: dataLoading } = useTradeData(toolLeagueId);
 
-  // Seed the "your team" side from a `?team=<rosterId>` param (once), so a
-  // team page's "Find trades" button lands here pre-scoped to that team in
-  // dump mode. Applied a single time when rosters load; the user can still
-  // switch teams freely afterward.
-  const seededTeamRef = useRef(false);
+  // Auto-seed the "your team" side so a returning user doesn't re-pick a team
+  // they've already chosen. Priority: an explicit `?team=<rosterId>` deep link
+  // (e.g. a team page's "Find trades" button), else the team they've saved for
+  // THIS league (my-team-store). Runs once per league — switching leagues in
+  // the Finder re-seeds from that league's saved team; the user can still
+  // change teams freely afterward.
+  const seededLeagueRef = useRef<string | null>(null);
   useEffect(() => {
-    if (seededTeamRef.current) return;
+    if (!toolLeagueId || !rosters?.length) return;
+    if (seededLeagueRef.current === toolLeagueId) return;
+    const savedRosterId = myTeamMap[toolLeagueId] ?? null;
     const teamParam = searchParams.get('team');
-    if (!teamParam || !rosters?.length) return;
-    const match = rosters.find((r) => r.roster_id === Number(teamParam));
-    if (match) {
-      setMyRoster(match);
-      setTradeMode('dump');
+    const wantRosterId = teamParam ? Number(teamParam) : savedRosterId;
+    if (wantRosterId != null) {
+      const match = rosters.find((r) => r.roster_id === wantRosterId);
+      if (match) {
+        setMyRoster(match);
+        setTradeMode('dump');
+      }
     }
-    seededTeamRef.current = true;
-  }, [searchParams, rosters]);
+    seededLeagueRef.current = toolLeagueId;
+  }, [toolLeagueId, rosters, myTeamMap, searchParams]);
 
   // ── Derived Data ──
 
@@ -660,7 +679,7 @@ export function TradeFinder() {
           Trade Finder scans a league's rosters for fair deals. Choose which one to search.
         </p>
         <div className="flex justify-center">
-          <LeaguePicker leagues={leagues} selected={null} onSelect={setToolLeagueId} allLabel="Select a league" />
+          <LeaguePicker leagues={leagues} selected={null} onSelect={changeToolLeague} allLabel="Select a league" />
         </div>
       </div>
     ) : (
@@ -677,7 +696,7 @@ export function TradeFinder() {
       {/* League scope — the Finder searches this league; switch it here. */}
       <div className="flex items-center justify-between gap-3 mb-3">
         <span className="text-[12px] text-faint">Finding trades in your league</span>
-        <LeaguePicker leagues={leagues} selected={toolLeagueId} onSelect={setToolLeagueId} />
+        <LeaguePicker leagues={leagues} selected={toolLeagueId} onSelect={changeToolLeague} />
       </div>
 
       {/* ── Setup Card — styled like TradeCard ── */}
