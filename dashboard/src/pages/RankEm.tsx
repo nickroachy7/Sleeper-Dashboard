@@ -28,6 +28,15 @@ const SEED_POOL = 30;     // draw early matchups from the top N by value
 const CATER_TOP_N = 350;    // "their tier" — top ~7 pages of the personal board
 const CATER_SHARE = 0.8;    // ~80% of matchups anchored in that top tier
 
+// Anchor draw is TOP-WEIGHTED, not flat: a plain uniform pick over the top tier
+// buries the recognizable stars (any one top-20 name would surface ~1/350 of
+// the time), which reads as "mostly bottom-tier". Raising Math.random() to this
+// power (>1) pulls the sample toward rank 0, so richer/higher-value players come
+// up far more often while mids + the tail still appear. With EXP≈2.2 over the
+// top 350: ~27% of anchors land in the top 20, ~41% in the top 50, ~68% in the
+// top 150. Tune here to shift the star-vs-depth balance.
+const ANCHOR_BIAS = 2.2;
+
 // Top-of-panel matchup filter: narrow the pool to one position (or picks) so a
 // user can deliberately "rank the RBs" etc. rather than only the mixed stream.
 type PosFilter = 'ALL' | 'QB' | 'RB' | 'WR' | 'TE' | 'DL' | 'LB' | 'DB' | 'PICK';
@@ -158,7 +167,9 @@ export function RankEmPanel() {
   // teaches the model more than a blowout). Seeding: draw from the top stars.
   // Otherwise: MOSTLY anchor in the user's relevant tier (top ~350), but
   // ~20% of the time reach into the long tail so lower-ranked players keep
-  // getting refined and the board never goes stale at the bottom.
+  // getting refined and the board never goes stale at the bottom. Within the
+  // chosen range the draw is TOP-WEIGHTED (ANCHOR_BIAS) so recognizable stars
+  // surface far more often than a flat draw would allow.
   const nextPair = useCallback(() => {
     if (pool.length < 2) return;
     let activePool = pool;
@@ -171,7 +182,11 @@ export function RankEmPanel() {
       // can still spill just past the boundary, keeping edges from being islands.
       anchorMax = Math.random() < CATER_SHARE ? CATER_TOP_N : pool.length;
     }
-    const i = Math.floor(Math.random() * anchorMax);
+    // Bias the anchor toward the top: random^BIAS ∈ [0,1) skews to 0, so higher-
+    // value players are sampled more often. Seeding already draws from a tight
+    // top-30 pool, so a light bias there is enough to favor the very top stars.
+    const bias = seeding ? 1.4 : ANCHOR_BIAS;
+    const i = Math.floor(Math.pow(Math.random(), bias) * anchorMax);
     const window = seeding ? 6 : 12;
     const lo = Math.max(0, i - window);
     const hi = Math.min(activePool.length - 1, i + window);

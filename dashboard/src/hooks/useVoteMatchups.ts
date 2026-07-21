@@ -33,10 +33,16 @@ export function useVoteMatchups(count: number, seed = 0): VoteMatchup[] {
     const window = 12;
     const out: VoteMatchup[] = [];
     const used = new Set<string>();
-    // Even, spread-out anchors across the value board so CTAs aren't all elites.
-    const step = Math.max(1, Math.floor(pool.length / (count + 1)));
+    // Anchors are spread across the board but TOP-WEIGHTED: raising each evenly-
+    // spaced fraction to a power (>1) pulls anchors toward the recognizable
+    // stars, so CTAs skew to richer players while still touching mids + depth.
+    // Deterministic (no Math.random) — a small seed jitter varies picks between
+    // mounts without reshuffling on every keystroke. Mirrors Rank 'Em's bias.
+    const BIAS = 2.2;
     for (let n = 0; n < count; n++) {
-      const i = Math.min(pool.length - 1, (seed + (n + 1) * step) % pool.length);
+      const frac = (n + 1) / (count + 1);
+      const jitter = ((seed + n) % 5) / 100; // ≤0.05 wobble, stays top-heavy
+      const i = Math.min(pool.length - 1, Math.floor((Math.pow(frac, BIAS) + jitter) * pool.length));
       const a = pool[i];
       if (!a || used.has(a.player_id)) continue;
       const lo = Math.max(0, i - window);
