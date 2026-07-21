@@ -14,6 +14,7 @@ import { usePlayerMap } from '../hooks/useLeagueData';
 import { usePlayerValuesList } from '../hooks/queries';
 import { PlayerRow } from '../components/PlayerRow';
 import { FilterPills } from '../components/FilterBar';
+import { SearchInput, FilterSheet, FilterSheetGroup } from '../components/ui';
 import { Pagination } from '../components/Pagination';
 import { useShowIdp } from '../lib/idp-store';
 import { isIdp, matchesPositionFilter, IDP_FILTER_GROUPS } from '../lib/positions';
@@ -83,6 +84,7 @@ export default function Profile() {
   const { data: communityValues } = usePlayerValuesList();
   const showIdp = useShowIdp();
   const [pos, setPos] = useState<string>('ALL');
+  const [boardQuery, setBoardQuery] = useState('');
   const [copied, setCopied] = useState(false);
   const [page, setPage] = useState(1);
   const [editing, setEditing] = useState(false);
@@ -92,7 +94,7 @@ export default function Profile() {
   useEffect(() => {
     setPage(1);
     setRankDraft(null);
-  }, [pos]);
+  }, [pos, boardQuery]);
 
   // If the viewer turns IDP off while an IDP position filter is active, the
   // board would otherwise strand on an empty view — snap back to "All".
@@ -202,6 +204,16 @@ export default function Profile() {
       delta: (communityRank.get(r.player_id) ?? i + 1) - (i + 1), // + = above crowd
     }));
   }, [board, playersMap, communityValues, pos, showIdp]);
+
+  // Board search filters the DISPLAYED rows by name (each row keeps its true
+  // board rank). Reordering is disabled while searching (see `editing` guard on
+  // the rows) since dragging within a filtered subset isn't meaningful.
+  const searching = boardQuery.trim().length > 0;
+  const shown = useMemo(() => {
+    const q = boardQuery.trim().toLowerCase();
+    if (!q) return rows;
+    return rows.filter((r) => r.player!.full_name.toLowerCase().includes(q));
+  }, [rows, boardQuery]);
 
   const totalVotes = useMemo(
     () => (board ?? []).reduce((sum, r) => sum + r.wins + r.losses, 0) / 2,
@@ -375,46 +387,59 @@ export default function Profile() {
 
         {/* ── Board ── */}
         <section className="rounded-2xl border border-line bg-surface overflow-hidden">
-          <div className="px-4 sm:px-5 py-3.5 border-b border-line-subtle space-y-3">
-            {/* Title + intro on their own full-width line so the copy can breathe. */}
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-[11px] font-bold text-accent-500 tracking-[0.18em] uppercase">The board</p>
-                <p className="text-[11px] text-faint mt-0.5 leading-snug">
-                  {editing
-                    ? 'Tap ▲▼ to nudge, or tap a rank number to type a new spot.'
-                    : `Community rankings, reshaped by ${isMe ? 'your' : `${profile.username}'s`} votes — ▲▼ marks the disagreements.`}
-                </p>
+          <div className="px-4 sm:px-5 py-3.5 border-b border-line-subtle space-y-2.5">
+            <div>
+              <p className="text-[11px] font-bold text-accent-500 tracking-[0.18em] uppercase">The board</p>
+              <p className="text-[11px] text-faint mt-0.5 leading-snug">
+                {editing
+                  ? 'Tap ▲▼ to nudge, or tap a rank number to type a new spot.'
+                  : `Community rankings, reshaped by ${isMe ? 'your' : `${profile.username}'s`} votes — ▲▼ marks the disagreements.`}
+              </p>
+            </div>
+            {/* One compact control line (matches the Ranking page): search grows,
+                a filter sheet holds the position filter, and — for the owner —
+                Adjust-ranks is the trailing action (an icon toggle). */}
+            <div className="flex items-center gap-2">
+              <div className="flex-1 min-w-0">
+                <SearchInput value={boardQuery} onChange={setBoardQuery} placeholder="Search the board…" />
               </div>
+              <FilterSheet activeCount={pos !== 'ALL' ? 1 : 0}>
+                <FilterSheetGroup label="Position">
+                  <FilterPills
+                    options={[
+                      ...POSITIONS.map((p) => ({ value: p as string, label: p === 'ALL' ? 'All' : p })),
+                      ...(showIdp ? IDP_FILTER_GROUPS.map(({ value, label }) => ({ value, label })) : []),
+                    ]}
+                    selected={pos}
+                    onChange={(v) => setPos(v)}
+                  />
+                </FilterSheetGroup>
+              </FilterSheet>
               {isMe && (
                 <button
                   onClick={() => { setEditing((e) => !e); setRankDraft(null); }}
-                  className={`shrink-0 inline-flex items-center gap-1.5 h-8 px-3 rounded-lg text-[12px] font-semibold whitespace-nowrap transition-colors ${
+                  title={editing ? 'Done adjusting' : 'Adjust ranks'}
+                  aria-label={editing ? 'Done adjusting' : 'Adjust ranks'}
+                  className={`shrink-0 h-9 w-9 flex items-center justify-center rounded-lg border transition-colors ${
                     editing
-                      ? 'bg-accent-500 text-[#06110a] hover:bg-accent-400'
-                      : 'border border-line-strong text-ink-soft hover:bg-elevated'
+                      ? 'bg-accent-500 border-accent-500 text-[#06110a] hover:bg-accent-400'
+                      : 'bg-surface border-line text-muted hover:text-white hover:border-line-strong'
                   }`}
                 >
-                  {editing ? <X className="h-3.5 w-3.5" /> : <Pencil className="h-3.5 w-3.5" />}
-                  {editing ? 'Done' : 'Adjust ranks'}
+                  {editing ? <X className="h-4 w-4" /> : <Pencil className="h-4 w-4" />}
                 </button>
               )}
             </div>
-            {/* Position filter gets its own scrollable line. */}
-            <FilterPills
-              options={[
-                ...POSITIONS.map((p) => ({ value: p as string, label: p === 'ALL' ? 'All' : p })),
-                ...(showIdp ? IDP_FILTER_GROUPS.map(({ value, label }) => ({ value, label })) : []),
-              ]}
-              selected={pos}
-              onChange={(v) => setPos(v)}
-            />
           </div>
 
           {boardLoading || rows.length === 0 ? (
             <div className="p-4 space-y-2">
               {Array.from({ length: 8 }).map((_, i) => <div key={i} className="skeleton h-11 w-full rounded-lg" />)}
             </div>
+          ) : shown.length === 0 ? (
+            <p className="px-4 sm:px-5 py-10 text-center text-[13px] text-faint">
+              No players match "{boardQuery}".
+            </p>
           ) : (
             <DndContext
               sensors={sensors}
@@ -423,11 +448,11 @@ export default function Profile() {
               onDragEnd={onDragEnd}
             >
             <SortableContext
-              items={rows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE).map((r) => r.player_id)}
+              items={shown.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE).map((r) => r.player_id)}
               strategy={verticalListSortingStrategy}
             >
             <div className="divide-y divide-[#17171d]">
-              {rows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE).map((r) => {
+              {shown.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE).map((r) => {
                 const row = (
                 <PlayerRow
                   key={r.player_id}
@@ -512,7 +537,9 @@ export default function Profile() {
                   size="sm"
                 />
                 );
-                return editing ? (
+                // Drag only in edit mode AND when not searching — reordering a
+                // filtered subset would move a player against the wrong neighbors.
+                return editing && !searching ? (
                   <DraggableRow key={r.player_id} id={r.player_id}>{row}</DraggableRow>
                 ) : (
                   row
@@ -523,12 +550,12 @@ export default function Profile() {
             </DndContext>
           )}
 
-          {rows.length > PAGE_SIZE && (
+          {shown.length > PAGE_SIZE && (
             <div className="px-4 sm:px-5 pb-4">
               <Pagination
                 currentPage={page}
-                totalPages={Math.ceil(rows.length / PAGE_SIZE)}
-                totalItems={rows.length}
+                totalPages={Math.ceil(shown.length / PAGE_SIZE)}
+                totalItems={shown.length}
                 itemsPerPage={PAGE_SIZE}
                 onPageChange={(p) => { setPage(p); setRankDraft(null); }}
               />
