@@ -237,55 +237,36 @@ export function RankEmPanel() {
 
   return (
     <div>
-      {/* Personal-board hook. While seeding, it's a progress meter — rank the
-          stars first so the first share already looks like a rankings list. */}
-      {user && username ? (
-        seeding ? (
-          <div className="mb-4 px-3.5 py-3 rounded-xl border border-accent-500/25 bg-accent-500/[0.06]">
-            <div className="flex items-center gap-2 text-[12.5px] text-[#c4c4cd]">
-              <Sparkles className="h-4 w-4 text-accent-400 shrink-0" />
-              <span>
-                <span className="font-semibold text-white">Make the board yours</span> — your{' '}
-                <Link to={`/u/${username}`} className="text-accent-400 hover:text-accent-300 font-medium">rankings</Link>{' '}
-                start as the crowd's; ranking the stars sets your takes apart.
-              </span>
-              <span className="ml-auto shrink-0 font-display font-bold text-accent-400 tabular-nums">
-                {Math.min(totalVotes, SEED_TARGET)} / {SEED_TARGET}
-              </span>
-            </div>
-            <div className="mt-2 h-1.5 rounded-full bg-[#1b1b22] overflow-hidden">
-              <div
-                className="h-full bg-accent-500 rounded-full transition-all duration-300"
-                style={{ width: `${Math.min(100, (totalVotes / SEED_TARGET) * 100)}%` }}
-              />
-            </div>
-          </div>
-        ) : (
-          <Link
-            to={`/u/${username}`}
-            className="flex items-center gap-2 mb-4 px-3.5 py-2.5 rounded-xl border border-[#22222b] bg-[#141419] text-[12.5px] text-[#9c9ca7] hover:border-accent-500/40 hover:text-white transition-colors"
-          >
-            <UserRound className="h-4 w-4 text-accent-400 shrink-0" />
-            Your votes are building <span className="font-semibold text-white">your rankings board</span> — view it anytime.
-          </Link>
-        )
+      {/* Onboarding-only chrome: while seeding, a slim progress meter nudges the
+          first 15 votes so the board looks personal on first share. Logged-out
+          gets a one-line account CTA. In the steady signed-in state there's NO
+          banner — the board link folds into the meta row below, keeping the page
+          as clean and compact as the rest of the app. */}
+      {seeding && user && username ? (
+        <div className="mb-4 flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl border border-accent-500/25 bg-accent-500/[0.06]">
+          <Sparkles className="h-4 w-4 text-accent-400 shrink-0" />
+          <span className="text-[12.5px] text-[#c4c4cd] min-w-0 flex-1 truncate">
+            <span className="font-semibold text-white">Make the board yours</span> — rank the stars to set your takes apart.
+          </span>
+          <span className="shrink-0 font-display font-bold text-accent-400 tabular-nums text-[12.5px]">
+            {Math.min(totalVotes, SEED_TARGET)}/{SEED_TARGET}
+          </span>
+        </div>
       ) : !user ? (
         <button
           onClick={() => navigate('/welcome')}
-          className="flex w-full items-center gap-2 mb-4 px-3.5 py-2.5 rounded-xl border border-[#22222b] bg-[#141419] text-[12.5px] text-[#9c9ca7] hover:border-accent-500/40 hover:text-white transition-colors text-left"
+          className="flex w-full items-center gap-2 mb-4 px-3.5 h-10 rounded-xl border border-line bg-surface text-[12.5px] text-muted hover:border-accent-500/40 hover:text-white transition-colors text-left"
         >
           <UserRound className="h-4 w-4 text-accent-400 shrink-0" />
-          <span>
-            <span className="font-semibold text-white">Create an account</span> and every vote builds your own
-            shareable player rankings.
-          </span>
+          <span className="min-w-0 flex-1 truncate"><span className="font-semibold text-white">Create an account</span> — every vote builds your own rankings.</span>
+          <span className="text-accent-500 shrink-0">→</span>
         </button>
       ) : null}
 
       {/* Matchup filter — the app's canonical pill row (same Segmented as the
           Ranking and trade tools). Narrow to a position or Picks to rank that
           group deliberately; changing it draws a fresh matchup from that pool. */}
-      <div className="mb-4">
+      <div className="mb-3">
         <Segmented<PosFilter>
           options={filterOptions}
           value={posFilter}
@@ -293,12 +274,16 @@ export function RankEmPanel() {
         />
       </div>
 
-      <div className="flex items-center justify-between text-[13px] text-muted mb-4">
-        <span>{votes} {votes === 1 ? 'vote' : 'votes'} this session</span>
+      {/* One slim meta line: session progress · board access (signed-in) · skip. */}
+      <div className="flex items-center gap-3 text-[12.5px] mb-4">
+        <span className="text-faint">{votes} {votes === 1 ? 'vote' : 'votes'} this session</span>
+        {user && username && !seeding && (
+          <Link to={`/u/${username}`} className="text-muted hover:text-accent-400 transition-colors">Your board →</Link>
+        )}
         <button
           onClick={nextPair}
           disabled={pending}
-          className="text-accent-500 hover:text-accent-400 disabled:opacity-40"
+          className="ml-auto font-medium text-accent-500 hover:text-accent-400 disabled:opacity-40"
         >
           Skip →
         </button>
@@ -320,11 +305,6 @@ export function RankEmPanel() {
           onPick={(i) => (i === 0 ? vote(pair[0], pair[1]) : vote(pair[1], pair[0]))}
         />
       )}
-
-      <p className="mt-8 text-center text-[12px] text-muted leading-relaxed max-w-md mx-auto">
-        Values come from the community — real trades, trade-calculator checks, and
-        votes like these — not from any outside site.
-      </p>
     </div>
   );
 }
