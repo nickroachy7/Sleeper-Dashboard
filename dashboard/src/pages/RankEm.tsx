@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Sparkles, UserRound } from 'lucide-react';
 import { PlayerVersus, type CompareSide } from '../components/PlayerVersus';
-import { usePlayers, usePlayerValuesList, usePickValues } from '../hooks/queries';
+import { usePlayers, usePlayerValuesList, usePickValues, fetchAllRows } from '../hooks/queries';
 import { useMyBoard } from '../hooks/useMyBoard';
 import { usePairDetails, type AssetDetail } from '../hooks/usePairDetails';
 import { recordPairwiseVote } from '../lib/community-events';
@@ -73,11 +73,21 @@ export function RankEmPanel() {
     queryKey: ['board-size', user?.id],
     enabled: !!user,
     queryFn: async () => {
-      const { data } = await supabase
-        .from('user_player_ratings')
-        .select('wins, losses')
-        .eq('user_id', user!.id);
-      return (data ?? []).reduce((sum, r) => sum + r.wins + r.losses, 0) / 2;
+      // Only rows the user actually voted on carry wins/losses; a materialized
+      // board is otherwise thousands of untouched (0-0) rows. Filter to voted
+      // rows so the sum is both correct and small — an unfiltered read would hit
+      // PostgREST's 1,000-row cap and could miss moved rows entirely, undercount
+      // the total, and wrongly strand the user in seeding mode. Paginate to stay
+      // correct even for a prolific voter.
+      const rows = await fetchAllRows<{ wins: number; losses: number }>((from, to) =>
+        supabase
+          .from('user_player_ratings')
+          .select('wins, losses')
+          .eq('user_id', user!.id)
+          .or('wins.gt.0,losses.gt.0')
+          .range(from, to)
+      );
+      return rows.reduce((sum, r) => sum + r.wins + r.losses, 0) / 2;
     },
   });
   const totalVotes = (boardVotes ?? 0) + votes;

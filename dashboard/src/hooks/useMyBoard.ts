@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
+import { fetchAllRows } from './queries';
 import { blendedValue, type RatingRow } from '../lib/board';
 
 export interface MyBoardRow extends RatingRow {
@@ -26,12 +27,17 @@ export function useMyBoard(userId: string | null | undefined) {
     enabled: !!userId,
     staleTime: 60_000,
     queryFn: async (): Promise<MyBoardRow[]> => {
-      const { data } = await supabase
-        .from('user_player_ratings')
-        .select('player_id, rating, wins, losses, baseline_value')
-        .eq('user_id', userId!)
-        .limit(6000);
-      const rows = (data ?? []) as (RatingRow & { wins: number; losses: number })[];
+      // Page through the whole board: PostgREST caps a single response at 1,000
+      // rows, so a lone `.limit(6000)` silently drops most of a materialized
+      // board (2,500+ rows) — and with it many high-value players the catered
+      // pool should draw from. fetchAllRows walks every page.
+      const rows = await fetchAllRows<RatingRow & { wins: number; losses: number }>((from, to) =>
+        supabase
+          .from('user_player_ratings')
+          .select('player_id, rating, wins, losses, baseline_value')
+          .eq('user_id', userId!)
+          .range(from, to)
+      );
       return rows
         .map((r) => ({
           ...r,
