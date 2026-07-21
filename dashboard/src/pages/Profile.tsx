@@ -7,7 +7,7 @@ import type { DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { restrictToVerticalAxis } from '@dnd-kit/modifiers';
 import { CSS } from '@dnd-kit/utilities';
-import { UserRound, Share2, Check, Swords, TrendingUp, ChevronLeft, ChevronUp, ChevronDown, GripVertical, Pencil, RotateCcw, X } from 'lucide-react';
+import { UserRound, Share2, Check, Swords, TrendingUp, ChevronLeft, ChevronUp, ChevronDown, GripVertical, Pencil, RotateCcw, X, ListOrdered, Users, Medal } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
 import { usePlayerMap } from '../hooks/useLeagueData';
@@ -15,6 +15,7 @@ import { usePlayerValuesList } from '../hooks/queries';
 import { PlayerRow } from '../components/PlayerRow';
 import { FilterPills } from '../components/FilterBar';
 import { SearchInput, FilterSheet, FilterSheetGroup } from '../components/ui';
+import { TabBar } from '../components/TabBar';
 import { Pagination } from '../components/Pagination';
 import { useShowIdp } from '../lib/idp-store';
 import { isIdp, matchesPositionFilter, IDP_FILTER_GROUPS } from '../lib/positions';
@@ -38,6 +39,15 @@ import { isPickAsset, pickLabel } from '../lib/vote-assets';
 
 const POSITIONS = ['ALL', 'QB', 'RB', 'WR', 'TE'] as const;
 const PAGE_SIZE = 50;
+
+// Profile sections. Board is live; Leagues + Badges are scaffolded placeholders
+// to be built out later.
+type ProfileTab = 'board' | 'leagues' | 'badges';
+const PROFILE_TABS = [
+  { id: 'board' as const, label: 'Board', icon: ListOrdered },
+  { id: 'leagues' as const, label: 'Leagues', icon: Users },
+  { id: 'badges' as const, label: 'Badges', icon: Medal },
+];
 
 interface BoardRow {
   player_id: string;
@@ -76,6 +86,17 @@ function DraggableRow({ id, children }: { id: string; children: ReactNode }) {
   );
 }
 
+// Placeholder panel for profile sections not yet built (Leagues, Badges).
+function ComingSoon({ icon: Icon, label, hint }: { icon: typeof Users; label: string; hint: string }) {
+  return (
+    <section className="rounded-2xl border border-line bg-surface p-10 text-center">
+      <Icon className="h-8 w-8 text-[#3a3a44] mx-auto mb-3" />
+      <p className="text-[14px] font-semibold text-white">{label}</p>
+      <p className="text-[12px] text-faint mt-1 max-w-xs mx-auto leading-snug">{hint}</p>
+    </section>
+  );
+}
+
 export default function Profile() {
   const { username = '' } = useParams<{ username: string }>();
   const { user } = useAuth();
@@ -83,6 +104,7 @@ export default function Profile() {
   const { data: playersMap } = usePlayerMap();
   const { data: communityValues } = usePlayerValuesList();
   const showIdp = useShowIdp();
+  const [profileTab, setProfileTab] = useState<ProfileTab>('board');
   const [pos, setPos] = useState<string>('ALL');
   const [boardQuery, setBoardQuery] = useState('');
   const [copied, setCopied] = useState(false);
@@ -385,20 +407,17 @@ export default function Profile() {
           </div>
         </section>
 
+        {/* ── Section tabs (Board · Leagues · Badges) ── */}
+        <TabBar tabs={PROFILE_TABS} active={profileTab} onChange={setProfileTab} />
+
         {/* ── Board ── */}
+        {profileTab === 'board' && (
         <section className="rounded-2xl border border-line bg-surface overflow-hidden">
-          <div className="px-4 sm:px-5 py-3.5 border-b border-line-subtle space-y-2.5">
-            <div>
-              <p className="text-[11px] font-bold text-accent-500 tracking-[0.18em] uppercase">The board</p>
-              <p className="text-[11px] text-faint mt-0.5 leading-snug">
-                {editing
-                  ? 'Tap ▲▼ to nudge, or tap a rank number to type a new spot.'
-                  : `Community rankings, reshaped by ${isMe ? 'your' : `${profile.username}'s`} votes — ▲▼ marks the disagreements.`}
-              </p>
-            </div>
+          <div className="px-4 sm:px-5 py-3.5 border-b border-line-subtle">
             {/* One compact control line (matches the Ranking page): search grows,
                 a filter sheet holds the position filter, and — for the owner —
-                Adjust-ranks is the trailing action (an icon toggle). */}
+                Adjust-ranks is the trailing action (an icon toggle). Edit mode
+                shows its hint inline so we keep the row to a single line. */}
             <div className="flex items-center gap-2">
               <div className="flex-1 min-w-0">
                 <SearchInput value={boardQuery} onChange={setBoardQuery} placeholder="Search the board…" />
@@ -430,6 +449,11 @@ export default function Profile() {
                 </button>
               )}
             </div>
+            {editing && (
+              <p className="text-[11px] text-faint mt-2 leading-snug">
+                Tap ▲▼ to nudge a player, or tap a rank number to type an exact spot.
+              </p>
+            )}
           </div>
 
           {boardLoading || rows.length === 0 ? (
@@ -562,9 +586,10 @@ export default function Profile() {
             </div>
           )}
         </section>
+        )}
 
         {/* Owner nudge: an untouched board is just the community's — make it yours */}
-        {isMe && (
+        {profileTab === 'board' && isMe && (
           <Link
             to="/trade?tab=rank"
             className="flex items-center justify-center gap-2 h-11 rounded-xl border border-accent-500/25 bg-accent-500/[0.06] text-[14px] font-semibold text-accent-400 hover:bg-accent-500/[0.1] transition-colors"
@@ -573,6 +598,12 @@ export default function Profile() {
             {movedCount === 0 ? 'This is the crowd’s board — start voting to make it yours' : 'Keep ranking — every vote sharpens your board'}
           </Link>
         )}
+
+        {/* ── Leagues (placeholder) ── */}
+        {profileTab === 'leagues' && <ComingSoon icon={Users} label="Leagues" hint="The leagues this manager plays in — coming soon." />}
+
+        {/* ── Badges (placeholder) ── */}
+        {profileTab === 'badges' && <ComingSoon icon={Medal} label="Badges" hint="Achievements earned from votes, trades, and league finishes — coming soon." />}
       </div>
     </div>
   );
