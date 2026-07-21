@@ -128,12 +128,6 @@ function MinisGrid({
   const items = MINIS.filter((m) => m.kind === activeKind);
   return (
     <div className="space-y-4">
-      <div>
-        <p className="text-[11px] font-bold text-accent-500 tracking-[0.2em] uppercase mb-1">Minis</p>
-        <h1 className="font-display text-xl font-bold text-white tracking-tight">Games &amp; tools</h1>
-        <p className="text-[13px] text-faint mt-1">Quick games that sharpen the community values, and tools for working trades.</p>
-      </div>
-
       <TabBar
         tabs={SECTIONS.map(({ kind, label, icon }) => ({ id: kind, label, icon }))}
         active={activeKind}
