@@ -35,6 +35,7 @@ import { TradeCard, type TradeSide as TradeCardSide } from '../components/TradeC
 import { AssetRow } from '../components/AssetRow';
 import { LeaguePicker } from '../components/LeaguePicker';
 import { NoLeagueState } from '../components/NoLeagueState';
+import { Segmented } from '../components/ui';
 import { useActiveLeague } from '../lib/active-league';
 
 // ── Types ──────────────────────────────────────────────────────────
@@ -601,6 +602,40 @@ export function TradeFinder() {
     }, 100);
   }, [rosters, myRoster, targetRoster, selectedAssets, selectedValueInfo, tolerance, tradeMode, assetPreference, maxPieces, positionFilters, sortMode, getPlayersOwnedByRoster, getPicksOwnedByRoster]);
 
+  // Switch the sort mode and re-order the existing scenarios in place (no
+  // re-search). Extracted from the inline handler so the control can be the
+  // shared Segmented.
+  const changeSort = useCallback((key: SortMode) => {
+    setSortMode(key);
+    setScenarios((prev) => {
+      if (prev.length === 0) return prev;
+      const resorted = [...prev];
+      // Fresh maxDiff / maxAssetValue frame so scores stay comparable.
+      let maxDiff = 1, maxPossible = 1;
+      for (const s of resorted) {
+        const d = Math.abs(s.adjustedDifference);
+        if (d > maxDiff) maxDiff = d;
+        const returnCombo = tradeMode === 'dump' ? s.get : s.give;
+        for (const a of returnCombo) if (a.value > maxPossible) maxPossible = a.value;
+      }
+      const score = (s: TradeScenario) => {
+        const returnCombo = tradeMode === 'dump' ? s.get : s.give;
+        const fairnessScore = 100 - (Math.abs(s.adjustedDifference) / maxDiff) * 100;
+        let maxAssetValue = 0;
+        for (const a of returnCombo) if (a.value > maxAssetValue) maxAssetValue = a.value;
+        const qualityScore = (maxAssetValue / maxPossible) * 100;
+        const concenScore = (1 / returnCombo.length) * 100;
+        const fitScore = (s.userFit + 100) / 2;
+        if (key === 'fairness') return fairnessScore;
+        if (key === 'quality') return qualityScore;
+        if (key === 'fit') return fitScore;
+        return (fairnessScore * 0.30) + (qualityScore * 0.25) + (concenScore * 0.15) + (fitScore * 0.30);
+      };
+      resorted.sort((a, b) => score(b) - score(a));
+      return resorted;
+    });
+  }, [tradeMode]);
+
   const isLoading = dataLoading;
   const canSearch = tradeMode === 'dump'
     ? myRoster && selectedAssetIds.length > 0
@@ -656,30 +691,15 @@ export function TradeFinder() {
             <span className="text-[11px] text-faint">Finder</span>
           </div>
           {/* Mode Toggle */}
-          <div className="flex items-center gap-1 bg-elevated rounded-lg p-0.5">
-            <button
-              onClick={() => setTradeMode('dump')}
-              className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all ${
-                tradeMode === 'dump'
-                  ? 'bg-overlay text-white'
-                  : 'text-faint hover:text-muted'
-              }`}
-            >
-              <ArrowUp className="h-3 w-3" />
-              Away
-            </button>
-            <button
-              onClick={() => setTradeMode('acquire')}
-              className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all ${
-                tradeMode === 'acquire'
-                  ? 'bg-overlay text-white'
-                  : 'text-faint hover:text-muted'
-              }`}
-            >
-              <ArrowDown className="h-3 w-3" />
-              Acquire
-            </button>
-          </div>
+          <Segmented<TradeMode>
+            size="sm"
+            value={tradeMode}
+            onChange={setTradeMode}
+            options={[
+              { value: 'dump', label: <span className="inline-flex items-center gap-1"><ArrowUp className="h-3 w-3" /> Away</span> },
+              { value: 'acquire', label: <span className="inline-flex items-center gap-1"><ArrowDown className="h-3 w-3" /> Acquire</span> },
+            ]}
+          />
         </div>
 
         {/* Side 1: Your Team (dump) or Trade With (acquire) */}
@@ -819,21 +839,18 @@ export function TradeFinder() {
                   <span className="text-[10px] font-semibold text-faint uppercase tracking-wider block mb-1.5">
                     Max Return Pieces
                   </span>
-                  <div className="flex gap-1">
-                    {([0, 1, 2, 3] as MaxPieces[]).map(n => (
-                      <button
-                        key={n}
-                        onClick={() => setMaxPieces(n)}
-                        className={`flex-1 py-1.5 px-2 rounded-md text-xs font-medium transition-all ${
-                          maxPieces === n
-                            ? 'bg-accent-500/15 text-accent-400'
-                            : 'text-faint hover:text-muted hover:bg-elevated'
-                        }`}
-                      >
-                        {n === 0 ? 'Any' : `${n}`}
-                      </button>
-                    ))}
-                  </div>
+                  <Segmented
+                    size="sm"
+                    layout="fill"
+                    value={String(maxPieces)}
+                    onChange={(v) => setMaxPieces(Number(v) as MaxPieces)}
+                    options={[
+                      { value: '0', label: 'Any' },
+                      { value: '1', label: '1' },
+                      { value: '2', label: '2' },
+                      { value: '3', label: '3' },
+                    ]}
+                  />
                 </div>
 
                 <div className="sm:w-40">
@@ -900,21 +917,17 @@ export function TradeFinder() {
                   <span className="text-[10px] font-semibold text-faint uppercase tracking-wider block mb-1.5">
                     {tradeMode === 'dump' ? 'Prefer to receive' : 'Prefer to give up'}
                   </span>
-                  <div className="flex gap-1">
-                    {(['all', 'players', 'picks'] as AssetPreference[]).map(pref => (
-                      <button
-                        key={pref}
-                        onClick={() => setAssetPreference(pref)}
-                        className={`flex-1 py-1.5 px-2 rounded-md text-xs font-medium transition-all ${
-                          assetPreference === pref
-                            ? 'bg-accent-500/15 text-accent-400'
-                            : 'text-faint hover:text-muted hover:bg-elevated'
-                        }`}
-                      >
-                        {pref === 'all' ? 'Any' : pref === 'players' ? 'Plyr' : 'Pick'}
-                      </button>
-                    ))}
-                  </div>
+                  <Segmented<AssetPreference>
+                    size="sm"
+                    layout="fill"
+                    value={assetPreference}
+                    onChange={setAssetPreference}
+                    options={[
+                      { value: 'all', label: 'Any' },
+                      { value: 'players', label: 'Plyr' },
+                      { value: 'picks', label: 'Pick' },
+                    ]}
+                  />
                 </div>
               </div>
             </div>
@@ -958,56 +971,19 @@ export function TradeFinder() {
           </div>
 
           {/* Sort controls */}
-          <div className="flex items-center gap-1.5 mb-3 bg-surface rounded-lg p-1 w-fit">
-            <span className="text-[10px] text-faint font-semibold uppercase tracking-wider px-2">Sort</span>
-            {([
-              { key: 'balanced', label: 'Balanced' },
-              { key: 'fairness', label: 'Fairness' },
-              { key: 'quality', label: 'Quality' },
-              { key: 'fit', label: 'Roster Fit' },
-            ] as const).map(({ key, label }) => (
-              <button
-                key={key}
-                onClick={() => {
-                  setSortMode(key);
-                  // Re-sort existing scenarios in place without re-searching
-                  setScenarios(prev => {
-                    if (prev.length === 0) return prev;
-                    const resorted = [...prev];
-                    // Build a fresh maxDiff / maxAssetValue frame so scores stay comparable
-                    let maxDiff = 1, maxPossible = 1;
-                    for (const s of resorted) {
-                      const d = Math.abs(s.adjustedDifference);
-                      if (d > maxDiff) maxDiff = d;
-                      const returnCombo = tradeMode === 'dump' ? s.get : s.give;
-                      for (const a of returnCombo) if (a.value > maxPossible) maxPossible = a.value;
-                    }
-                    const score = (s: TradeScenario) => {
-                      const returnCombo = tradeMode === 'dump' ? s.get : s.give;
-                      const fairnessScore = 100 - (Math.abs(s.adjustedDifference) / maxDiff) * 100;
-                      let maxAssetValue = 0;
-                      for (const a of returnCombo) if (a.value > maxAssetValue) maxAssetValue = a.value;
-                      const qualityScore = (maxAssetValue / maxPossible) * 100;
-                      const concenScore = (1 / returnCombo.length) * 100;
-                      const fitScore = (s.userFit + 100) / 2;
-                      if (key === 'fairness') return fairnessScore;
-                      if (key === 'quality') return qualityScore;
-                      if (key === 'fit') return fitScore;
-                      return (fairnessScore * 0.30) + (qualityScore * 0.25) + (concenScore * 0.15) + (fitScore * 0.30);
-                    };
-                    resorted.sort((a, b) => score(b) - score(a));
-                    return resorted;
-                  });
-                }}
-                className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all ${
-                  sortMode === key
-                    ? 'bg-accent-500/15 text-accent-400'
-                    : 'text-faint hover:text-ink-soft'
-                }`}
-              >
-                {label}
-              </button>
-            ))}
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-[10px] text-faint font-semibold uppercase tracking-wider shrink-0">Sort</span>
+            <Segmented<SortMode>
+              size="sm"
+              value={sortMode}
+              onChange={changeSort}
+              options={[
+                { value: 'balanced', label: 'Balanced' },
+                { value: 'fairness', label: 'Fairness' },
+                { value: 'quality', label: 'Quality' },
+                { value: 'fit', label: 'Roster Fit' },
+              ]}
+            />
           </div>
 
           <div className="space-y-3">
