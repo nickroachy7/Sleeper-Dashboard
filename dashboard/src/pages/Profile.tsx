@@ -412,50 +412,48 @@ export default function Profile() {
 
         {/* ── Board ── */}
         {profileTab === 'board' && (
-        <section className="rounded-2xl border border-line bg-surface overflow-hidden">
-          <div className="px-4 sm:px-5 py-3.5 border-b border-line-subtle">
-            {/* One compact control line (matches the Ranking page): search grows,
-                a filter sheet holds the position filter, and — for the owner —
-                Adjust-ranks is the trailing action (an icon toggle). Edit mode
-                shows its hint inline so we keep the row to a single line. */}
-            <div className="flex items-center gap-2">
-              <div className="flex-1 min-w-0">
-                <SearchInput value={boardQuery} onChange={setBoardQuery} placeholder="Search the board…" />
-              </div>
-              <FilterSheet activeCount={pos !== 'ALL' ? 1 : 0}>
-                <FilterSheetGroup label="Position">
-                  <FilterPills
-                    options={[
-                      ...POSITIONS.map((p) => ({ value: p as string, label: p === 'ALL' ? 'All' : p })),
-                      ...(showIdp ? IDP_FILTER_GROUPS.map(({ value, label }) => ({ value, label })) : []),
-                    ]}
-                    selected={pos}
-                    onChange={(v) => setPos(v)}
-                  />
-                </FilterSheetGroup>
-              </FilterSheet>
-              {isMe && (
-                <button
-                  onClick={() => { setEditing((e) => !e); setRankDraft(null); }}
-                  title={editing ? 'Done adjusting' : 'Adjust ranks'}
-                  aria-label={editing ? 'Done adjusting' : 'Adjust ranks'}
-                  className={`shrink-0 h-9 w-9 flex items-center justify-center rounded-lg border transition-colors ${
-                    editing
-                      ? 'bg-accent-500 border-accent-500 text-[#06110a] hover:bg-accent-400'
-                      : 'bg-surface border-line text-muted hover:text-white hover:border-line-strong'
-                  }`}
-                >
-                  {editing ? <X className="h-4 w-4" /> : <Pencil className="h-4 w-4" />}
-                </button>
-              )}
+        <>
+          {/* Controls float above the list card (matches the Ranking page):
+              search grows, a filter sheet holds the position filter, and — for
+              the owner — Adjust-ranks is the trailing action (an icon toggle). */}
+          <div className="flex items-center gap-2">
+            <div className="flex-1 min-w-0">
+              <SearchInput value={boardQuery} onChange={setBoardQuery} placeholder="Search the board…" />
             </div>
-            {editing && (
-              <p className="text-[11px] text-faint mt-2 leading-snug">
-                Tap ▲▼ to nudge a player, or tap a rank number to type an exact spot.
-              </p>
+            <FilterSheet activeCount={pos !== 'ALL' ? 1 : 0}>
+              <FilterSheetGroup label="Position">
+                <FilterPills
+                  options={[
+                    ...POSITIONS.map((p) => ({ value: p as string, label: p === 'ALL' ? 'All' : p })),
+                    ...(showIdp ? IDP_FILTER_GROUPS.map(({ value, label }) => ({ value, label })) : []),
+                  ]}
+                  selected={pos}
+                  onChange={(v) => setPos(v)}
+                />
+              </FilterSheetGroup>
+            </FilterSheet>
+            {isMe && (
+              <button
+                onClick={() => { setEditing((e) => !e); setRankDraft(null); }}
+                title={editing ? 'Done adjusting' : 'Adjust ranks'}
+                aria-label={editing ? 'Done adjusting' : 'Adjust ranks'}
+                className={`shrink-0 h-9 w-9 flex items-center justify-center rounded-lg border transition-colors ${
+                  editing
+                    ? 'bg-accent-500 border-accent-500 text-[#06110a] hover:bg-accent-400'
+                    : 'bg-surface border-line text-muted hover:text-white hover:border-line-strong'
+                }`}
+              >
+                {editing ? <X className="h-4 w-4" /> : <Pencil className="h-4 w-4" />}
+              </button>
             )}
           </div>
+          {editing && (
+            <p className="text-[11px] text-faint leading-snug">
+              Tap ▲▼ to nudge a player, or tap a rank number to type an exact spot.
+            </p>
+          )}
 
+          <section className="rounded-2xl border border-line bg-surface overflow-hidden">
           {boardLoading || rows.length === 0 ? (
             <div className="p-4 space-y-2">
               {Array.from({ length: 8 }).map((_, i) => <div key={i} className="skeleton h-11 w-full rounded-lg" />)}
@@ -585,7 +583,8 @@ export default function Profile() {
               />
             </div>
           )}
-        </section>
+          </section>
+        </>
         )}
 
         {/* Owner nudge: an untouched board is just the community's — make it yours */}
