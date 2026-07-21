@@ -54,7 +54,7 @@ function fmtMonth(iso: string): string {
 }
 
 function CombinedChart({
-  seriesA, seriesB, height = 176,
+  seriesA, seriesB, height = 128,
 }: {
   seriesA: { date: string; value: number }[];
   seriesB: { date: string; value: number }[];
@@ -172,7 +172,7 @@ function Row({
     </span>
   );
   return (
-    <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 py-2 border-t border-line-subtle first:border-t-0">
+    <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 py-1.5 border-t border-line-subtle first:border-t-0">
       <div className="min-w-0 text-left">{cell(a, winner === 0)}</div>
       <span className="text-[9px] font-bold uppercase tracking-[0.1em] text-faint text-center whitespace-nowrap px-1">{label}</span>
       <div className="min-w-0 text-right">{cell(b, winner === 1)}</div>
@@ -193,25 +193,6 @@ function TrendCell({ delta }: { delta: number | null | undefined }) {
   );
 }
 
-/** One-line contextual read — a light "what's the story", not a projection. */
-function quickRead(side: CompareSide): string {
-  const { detail, player } = side;
-  if (isPickAsset(player.player_id)) return 'Future rookie capital.';
-  const age = detail?.age ?? null;
-  const t = detail?.trend30 ?? null;
-  const bits: string[] = [];
-  if (t != null && Math.abs(t) >= 50) bits.push(t > 0 ? 'rising' : 'slipping');
-  if (age != null) {
-    if (age <= 23) bits.push('young');
-    else if (age >= 29 && player.position === 'RB') bits.push('RB age risk');
-    else if (age >= 30) bits.push('aging');
-  }
-  const inj = detail?.injury_status;
-  if (inj && !['na', 'active', 'healthy'].includes(inj.toLowerCase())) bits.push(inj.toLowerCase());
-  if (!bits.length) return 'Settled value.';
-  return bits.join(' · ').replace(/^./, (c) => c.toUpperCase());
-}
-
 function Header({
   side, color, variant, highlighted, disabled, onPick,
 }: {
@@ -225,31 +206,36 @@ function Header({
   const { player } = side;
   const inner = (
     <div className="min-w-0 flex flex-col items-center text-center gap-1.5">
-      <AssetAvatar id={player.player_id} alt={player.full_name} size={64} />
+      <AssetAvatar id={player.player_id} alt={player.full_name} size={48} />
       <div className="min-w-0 w-full">
-        <p className="text-[14px] font-semibold text-white truncate leading-tight">{player.full_name}</p>
+        {/* Small color dot ties this player to their line on the chart below.
+            The name gets its own min-w-0 truncating span (truncate on the flex
+            row itself won't clip a long name). */}
+        <p className="text-[13px] font-semibold text-white leading-tight flex items-center justify-center gap-1.5">
+          <span className="h-2 w-2 rounded-full shrink-0" style={{ background: color }} />
+          <span className="truncate min-w-0">{player.full_name}</span>
+        </p>
         <span className="mt-1 inline-flex items-center gap-1.5">
           <PositionBadge position={player.position} />
           {player.team && <span className="text-[11px] text-faint">{player.team}</span>}
         </span>
       </div>
-      {/* Color key tying this player to their chart line. */}
-      <span className="inline-flex items-center gap-1.5 text-[10px] text-faint">
-        <span className="h-2 w-2 rounded-full" style={{ background: color }} />
-        {quickRead(side)}
-      </span>
     </div>
   );
-  // Borderless — the parent card supplies the frame. A ring + tint marks the
-  // just-picked side in vote mode.
-  const base = `rounded-xl p-3 transition-all ${highlighted ? 'bg-accent-500/10 ring-1 ring-accent-500' : ''}`;
+  // Each header is an outlined card so it's obvious where to tap to vote. Hover
+  // brightens the border; the just-picked side gets an accent ring + tint.
+  const base = `rounded-xl border p-2.5 transition-all ${
+    highlighted
+      ? 'border-accent-500 bg-accent-500/10 ring-1 ring-accent-500'
+      : 'border-line'
+  }`;
   if (variant === 'vote') {
     return (
       <button
         type="button"
         onClick={onPick}
         disabled={disabled}
-        className={`${base} hover:bg-elevated disabled:cursor-default`}
+        className={`${base} ${highlighted ? '' : 'hover:border-accent-500 hover:bg-elevated'} disabled:cursor-default`}
       >
         {inner}
       </button>
