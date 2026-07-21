@@ -5,17 +5,17 @@ import { usePlayerMap } from '../hooks/useLeagueData';
 import { usePlayerValuesList, usePickValues } from '../hooks/queries';
 import { useMultiLeagueFeed, type MultiLeagueFeedData } from '../hooks/useMultiLeagueFeed';
 import { useVoteMatchups } from '../hooks/useVoteMatchups';
+import { usePairDetails, type AssetDetail } from '../hooks/usePairDetails';
 import { recordPairwiseVote } from '../lib/community-events';
 import { TradeCard as SharedTradeCard, type TradeSide } from './TradeCard';
 import { PlayerRow } from './PlayerRow';
-import { PositionBadge } from './PositionBadge';
+import { PlayerVersus, type CompareSide } from './PlayerVersus';
 import { analyzeTrade } from '../lib/trade-value-adjustment';
 import {
   lookupPickValue,
   formatResolvedPick,
   playerMoves,
   txDraftPicks,
-  getPlayerImageUrl,
   type TxDraftPick,
 } from '../lib/trade-shared';
 import type { Player, Fairness, TradeAsset } from '../types/domain';
@@ -92,6 +92,37 @@ export function LeagueFeed() {
   const getPlayerValue = useCallback(
     (pid: string): number => (playerValues instanceof Map ? playerValues.get(pid) : 0) || 0,
     [playerValues]
+  );
+
+  // Community-value order → overall + per-position ranks, so the vote CTAs can
+  // render the full PlayerVersus (same "#12 · WR4" context as Rank 'Em). Built
+  // from the shared value list (the market), matching RankEm's derivation.
+  const { overallRank, positionRank } = useMemo(() => {
+    const overall = new Map<string, number>();
+    const posRank = new Map<string, number>();
+    if (!(playerValues instanceof Map) || !(players instanceof Map)) return { overallRank: overall, positionRank: posRank };
+    const posCount = new Map<string, number>();
+    [...playerValues.entries()]
+      .sort((a, b) => (b[1] ?? 0) - (a[1] ?? 0))
+      .forEach(([pid], i) => {
+        overall.set(pid, i + 1);
+        const pos = players.get(pid)?.position;
+        if (pos) { const n = (posCount.get(pos) ?? 0) + 1; posCount.set(pos, n); posRank.set(pid, n); }
+      });
+    return { overallRank: overall, positionRank: posRank };
+  }, [playerValues, players]);
+
+  // A CompareSide for the PlayerVersus vote cards — the market number + ranks
+  // the component shows alongside each player.
+  const compareSide = useCallback(
+    (p: Player, detail: AssetDetail | undefined): CompareSide => ({
+      player: p,
+      value: getPlayerValue(p.player_id) || null,
+      overallRank: overallRank.get(p.player_id) ?? null,
+      positionRank: positionRank.get(p.player_id) ?? null,
+      detail,
+    }),
+    [getPlayerValue, overallRank, positionRank]
   );
 
   const resolvePickDisplay = useCallback((pick: TxDraftPick, leagueId: string) => {
@@ -228,7 +259,7 @@ export function LeagueFeed() {
 
   return (
     <div className="space-y-3">
-      {feed.map((item) => <FeedItemView key={`${item.kind}-${item.id}`} item={item} showBadge={badges} getPlayer={getPlayer} getPlayerValue={getPlayerValue} teamAvatar={feedData?.teamAvatar} />)}
+      {feed.map((item) => <FeedItemView key={`${item.kind}-${item.id}`} item={item} showBadge={badges} getPlayer={getPlayer} getPlayerValue={getPlayerValue} teamAvatar={feedData?.teamAvatar} compareSide={compareSide} />)}
     </div>
   );
 }
@@ -244,12 +275,13 @@ function LeagueBadge({ name }: { name: string }) {
   );
 }
 
-function FeedItemView({ item, showBadge, getPlayer, getPlayerValue, teamAvatar }: {
+function FeedItemView({ item, showBadge, getPlayer, getPlayerValue, teamAvatar, compareSide }: {
   item: FeedItem;
   showBadge: boolean;
   getPlayer: (pid: string) => { full_name: string; position: string; team: string | null } | undefined;
   getPlayerValue: (pid: string) => number;
   teamAvatar: MultiLeagueFeedData['teamAvatar'] | undefined;
+  compareSide: (p: Player, detail: AssetDetail | undefined) => CompareSide;
 }) {
   if (item.kind === 'trade') {
     return (
@@ -263,7 +295,7 @@ function FeedItemView({ item, showBadge, getPlayer, getPlayerValue, teamAvatar }
   }
 
   if (item.kind === 'vote') {
-    return <VoteFeedCard a={item.a} b={item.b} />;
+    return <VoteFeedCard a={item.a} b={item.b} compareSide={compareSide} />;
   }
 
   const label = item.moveType === 'free_agent' ? 'FREE AGENT' : item.moveType === 'waiver' ? 'WAIVER' : item.moveType.toUpperCase();
@@ -305,70 +337,56 @@ function FeedItemView({ item, showBadge, getPlayer, getPlayerValue, teamAvatar }
 // ── Vote CTA card ─────────────────────────────────────────────────
 // An inline "who'd you rather keep?" that records one pairwise value event —
 // the same signal as the Rank 'Em page — so the feed feeds the community values
-// (and keeps a quiet/offseason feed alive). Once voted, it shows a thank-you.
+// (and keeps a quiet/offseason feed alive). It renders the SAME PlayerVersus
+// head-to-head as Rank 'Em (outlined tap targets, aligned stats, combined value
+// chart) wrapped in the feed's CTA chrome; once voted it shows a thank-you.
 
-function VoteFeedCard({ a, b }: { a: Player; b: Player }) {
-  const [picked, setPicked] = useState<string | null>(null);
+function VoteFeedCard({ a, b, compareSide }: {
+  a: Player;
+  b: Player;
+  compareSide: (p: Player, detail: AssetDetail | undefined) => CompareSide;
+}) {
+  const [pickedIndex, setPickedIndex] = useState<0 | 1 | null>(null);
   const [pending, setPending] = useState(false);
+  // Same enriched detail (age, trend, value history) the Rank 'Em matchup uses
+  // to fill the stat rows + combined chart.
+  const { data: details } = usePairDetails(a.player_id, b.player_id);
 
-  const vote = async (winner: Player, loser: Player) => {
-    if (pending || picked) return;
+  const vote = async (sideIndex: 0 | 1) => {
+    if (pending || pickedIndex !== null) return;
+    const winner = sideIndex === 0 ? a : b;
+    const loser = sideIndex === 0 ? b : a;
     setPending(true);
-    setPicked(winner.player_id);
+    setPickedIndex(sideIndex);
     try {
       await recordPairwiseVote({ winnerId: winner.player_id, loserId: loser.player_id });
     } catch {
-      setPicked(null); // let them try again on failure
+      setPickedIndex(null); // let them try again on failure
     } finally {
       setPending(false);
     }
   };
 
-  const side = (p: Player, other: Player) => {
-    const chosen = picked === p.player_id;
-    const dimmed = picked && !chosen;
-    return (
-      <button
-        onClick={() => vote(p, other)}
-        disabled={!!picked || pending}
-        className={`group flex-1 min-w-0 flex flex-col items-center rounded-xl border p-3 transition-all disabled:cursor-default ${
-          chosen ? 'border-accent-500 bg-accent-500/10'
-          : dimmed ? 'border-[#1b1b22] bg-[#101015] opacity-50'
-          : 'border-[#22222b] bg-[#141419] hover:border-accent-500/60 hover:bg-[#1b1b22]'
-        }`}
-      >
-        <img
-          src={getPlayerImageUrl(p.player_id)}
-          alt={p.full_name}
-          loading="lazy"
-          className="h-14 w-14 rounded-full object-cover object-top bg-[#101015] mb-2"
-        />
-        <span className="text-[13px] font-semibold text-white text-center leading-tight truncate max-w-full">{p.full_name}</span>
-        <span className="mt-1 flex items-center gap-1.5">
-          <PositionBadge position={p.position} />
-          {p.team && <span className="text-[11px] text-[#75757f]">{p.team}</span>}
-        </span>
-      </button>
-    );
-  };
-
   return (
-    <div className="rounded-2xl border border-accent-500/20 bg-accent-500/[0.04] p-3">
-      <div className="flex items-center justify-between gap-2 mb-2.5 px-0.5">
+    <div className="rounded-2xl border border-accent-500/20 bg-accent-500/[0.04] p-2.5">
+      <div className="flex items-center justify-between gap-2 mb-2.5 px-1">
         <span className="flex items-center gap-1.5 text-[11px] font-bold tracking-[0.14em] uppercase text-accent-400">
           <Swords className="h-3.5 w-3.5" /> Who'd you rather keep?
         </span>
-        {picked ? (
+        {pickedIndex !== null ? (
           <span className="flex items-center gap-1 text-[11px] text-[#75757f]"><Check className="h-3.5 w-3.5 text-accent-500" /> Thanks — that trains the values</span>
         ) : (
           <Link to="/trade?tab=rank" className="text-[11px] text-[#75757f] hover:text-accent-400 transition-colors">More →</Link>
         )}
       </div>
-      <div className="flex items-stretch gap-2.5">
-        {side(a, b)}
-        <div className="flex items-center text-[11px] font-medium uppercase tracking-widest text-[#4c4c56]">or</div>
-        {side(b, a)}
-      </div>
+      <PlayerVersus
+        a={compareSide(a, details?.a)}
+        b={compareSide(b, details?.b)}
+        variant="vote"
+        pickedIndex={pickedIndex}
+        disabled={pending || pickedIndex !== null}
+        onPick={vote}
+      />
     </div>
   );
 }

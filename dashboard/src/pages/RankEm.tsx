@@ -10,8 +10,9 @@ import { recordPairwiseVote } from '../lib/community-events';
 import { useAuth } from '../lib/auth';
 import { supabase } from '../lib/supabase';
 import { useShowIdp } from '../lib/idp-store';
-import { isVisiblePosition } from '../lib/positions';
+import { isVisiblePosition, matchesPositionFilter, IDP_FILTER_GROUPS } from '../lib/positions';
 import { pickAssetId, pickLabel } from '../lib/vote-assets';
+import { Segmented, type SegmentedOption } from '../components/ui';
 import type { Player } from '../types/domain';
 
 // Starter mode: boards begin as a copy of the community rankings; votes create
@@ -26,6 +27,10 @@ const SEED_POOL = 30;     // draw early matchups from the top N by value
 // players so the tail of the board keeps getting refined and never goes stale.
 const CATER_TOP_N = 350;    // "their tier" — top ~7 pages of the personal board
 const CATER_SHARE = 0.8;    // ~80% of matchups anchored in that top tier
+
+// Top-of-panel matchup filter: narrow the pool to one position (or picks) so a
+// user can deliberately "rank the RBs" etc. rather than only the mixed stream.
+type PosFilter = 'ALL' | 'QB' | 'RB' | 'WR' | 'TE' | 'DL' | 'LB' | 'DB' | 'PICK';
 
 /**
  * Pairwise value voting — "who'd you rather keep?". Each tap records one
@@ -50,6 +55,7 @@ export function RankEmPanel() {
   const [votes, setVotes] = useState(0);
   const [pending, setPending] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
+  const [posFilter, setPosFilter] = useState<PosFilter>('ALL');
 
   // How many attributed votes this account has ever cast (wins+losses double-
   // count each vote, so halve). Drives starter mode; session votes advance the
@@ -130,20 +136,23 @@ export function RankEmPanel() {
   // are mixed in by value alongside players, so matchups can be player-vs-pick.
   const pool = useMemo(() => {
     if (!players || !valueMap) return [];
+    // Top-of-panel filter: 'ALL' keeps the mixed stream; anything else narrows
+    // to that position (or picks) so the user can rank one group deliberately.
+    const inFilter = (p: Player) => posFilter === 'ALL' || matchesPositionFilter(p.position, posFilter);
     // Personal-board order when we have a materialized board with real opinions
     // (the board already contains pick rows once seeded, so picks come along).
     const boardOrder =
       myBoard && myBoard.some((r) => r.moved)
         ? myBoard
             .map((r) => byId.get(r.player_id))
-            .filter((p): p is Player => !!p && isVisiblePosition(p.position, showIdp) && valueMap.has(p.player_id))
+            .filter((p): p is Player => !!p && isVisiblePosition(p.position, showIdp) && inFilter(p) && valueMap.has(p.player_id))
         : null;
     if (boardOrder && boardOrder.length >= 2) return boardOrder;
     // Fallback: community value order across players + picks.
     return [...players, ...pickAssets]
-      .filter((p) => isVisiblePosition(p.position, showIdp) && valueMap.has(p.player_id))
+      .filter((p) => isVisiblePosition(p.position, showIdp) && inFilter(p) && valueMap.has(p.player_id))
       .sort((a, b) => (valueMap.get(b.player_id) ?? 0) - (valueMap.get(a.player_id) ?? 0));
-  }, [players, pickAssets, valueMap, showIdp, myBoard, byId]);
+  }, [players, pickAssets, valueMap, showIdp, myBoard, byId, posFilter]);
 
   // Pick an anchor, then a nearby-in-ranking opponent (a genuine coin-flip
   // teaches the model more than a blowout). Seeding: draw from the top stars.
@@ -195,6 +204,21 @@ export function RankEmPanel() {
     }),
     [valueMap, overallRank, positionRank]
   );
+
+  // Position/asset filter pills. Offense always; IDP groups only when opted in;
+  // Picks last. Changing the filter redraws a matchup from the narrowed pool.
+  const filterOptions = useMemo<SegmentedOption<PosFilter>[]>(() => {
+    const opts: SegmentedOption<PosFilter>[] = [
+      { value: 'ALL', label: 'All' },
+      { value: 'QB', label: 'QB' },
+      { value: 'RB', label: 'RB' },
+      { value: 'WR', label: 'WR' },
+      { value: 'TE', label: 'TE' },
+    ];
+    if (showIdp) for (const g of IDP_FILTER_GROUPS) opts.push({ value: g.value as PosFilter, label: g.label });
+    opts.push({ value: 'PICK', label: 'Picks' });
+    return opts;
+  }, [showIdp]);
 
   const vote = async (winner: Player, loser: Player) => {
     if (pending) return;
@@ -258,6 +282,17 @@ export function RankEmPanel() {
         </button>
       ) : null}
 
+      {/* Matchup filter — the app's canonical pill row (same Segmented as the
+          Ranking and trade tools). Narrow to a position or Picks to rank that
+          group deliberately; changing it draws a fresh matchup from that pool. */}
+      <div className="mb-4">
+        <Segmented<PosFilter>
+          options={filterOptions}
+          value={posFilter}
+          onChange={(v) => { setPosFilter(v); setPair(null); }}
+        />
+      </div>
+
       <div className="flex items-center justify-between text-[13px] text-muted mb-4">
         <span>{votes} {votes === 1 ? 'vote' : 'votes'} this session</span>
         <button
@@ -269,7 +304,11 @@ export function RankEmPanel() {
         </button>
       </div>
 
-      {!pair ? (
+      {pool.length < 2 ? (
+        <div className="text-center text-faint py-20 text-[14px]">
+          Not enough {posFilter === 'PICK' ? 'picks' : `${posFilter} players`} to compare right now.
+        </div>
+      ) : !pair ? (
         <div className="text-center text-muted py-20 text-[14px]">Loading matchup…</div>
       ) : (
         <PlayerVersus
