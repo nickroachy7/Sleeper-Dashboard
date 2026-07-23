@@ -1018,18 +1018,21 @@ export type Database = {
         Row: {
           avatar_url: string | null
           created_at: string
+          sleeper_user_id: string | null
           user_id: string
           username: string
         }
         Insert: {
           avatar_url?: string | null
           created_at?: string
+          sleeper_user_id?: string | null
           user_id: string
           username: string
         }
         Update: {
           avatar_url?: string | null
           created_at?: string
+          sleeper_user_id?: string | null
           user_id?: string
           username?: string
         }

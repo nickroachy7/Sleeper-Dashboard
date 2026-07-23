@@ -75,18 +75,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const healUserId = user?.id ?? null;
   const healUsername = typeof user?.user_metadata?.username === 'string' ? user.user_metadata.username : null;
   const healAvatar = typeof user?.user_metadata?.avatar_url === 'string' ? user.user_metadata.avatar_url : null;
+  // Sleeper link lives in auth metadata for every account that onboarded via
+  // the league connect step; mirror it onto the public profile so trophies can
+  // resolve the manager's league history on any shared /u/<username>.
+  const healSleeper = typeof user?.user_metadata?.sleeper_user_id === 'string' ? user.user_metadata.sleeper_user_id : null;
   useEffect(() => {
     if (!healUserId || !healUsername) return;
+    // Only send identity fields we actually have — a null from missing metadata
+    // must never clobber a value already backfilled onto the public profile.
+    const row = { user_id: healUserId, username: healUsername } as {
+      user_id: string; username: string; avatar_url?: string; sleeper_user_id?: string;
+    };
+    if (healAvatar) row.avatar_url = healAvatar;
+    if (healSleeper) row.sleeper_user_id = healSleeper;
     supabase
       .from('profiles')
-      .upsert(
-        { user_id: healUserId, username: healUsername, avatar_url: healAvatar },
-        { onConflict: 'user_id' }
-      )
+      .upsert(row, { onConflict: 'user_id' })
       .then(({ error }) => {
         if (error) console.warn('profile self-heal failed:', error.message);
       });
-  }, [healUserId, healUsername, healAvatar]);
+  }, [healUserId, healUsername, healAvatar, healSleeper]);
 
   const value: AuthValue = {
     user,
@@ -154,9 +162,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (Object.keys(data).length === 0) return;
       const { error } = await supabase.auth.updateUser({ data });
       if (error) console.warn('profile update failed:', error.message);
-      // Mirror the avatar onto the public profile (/u/<username>).
-      if ('avatarUrl' in fields && user) {
-        await supabase.from('profiles').update({ avatar_url: fields.avatarUrl }).eq('user_id', user.id);
+      // Mirror display + identity fields onto the PUBLIC profile (/u/<username>)
+      // so a shared profile can render trophies from the manager's league
+      // history. sleeper_user_id is the bridge from account → Sleeper owner_id;
+      // it's an already-public identifier (visible in every league API response).
+      if (user) {
+        const pub: { avatar_url?: string | null; sleeper_user_id?: string } = {};
+        if ('avatarUrl' in fields) pub.avatar_url = fields.avatarUrl;
+        if (fields.sleeperUserId) pub.sleeper_user_id = fields.sleeperUserId;
+        if (Object.keys(pub).length > 0) {
+          await supabase.from('profiles').update(pub).eq('user_id', user.id);
+        }
       }
     },
   };
