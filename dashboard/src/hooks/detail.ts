@@ -1137,14 +1137,19 @@ export function useTeamMoves(rosterId: number | undefined) {
     queryKey: ['team-moves', rosterId, chain.join(',') || 'none'],
     enabled: rosterId !== undefined,
     queryFn: async () => {
-      const { data } = await supabase
-        .from('transactions')
-        .select('*')
-        .in('league_id', chain)
-        .neq('type', 'trade')
-        .contains('roster_ids', [rosterId!])
-        .order('created', { ascending: false });
-      return (data || []) as TransactionRow[];
+      // Waiver/FA moves for a hyperactive manager across a multi-season chain can
+      // approach PostgREST's 1000-row cap; page through so the tail isn't dropped.
+      const data = await fetchAllRows<TransactionRow>((from, to) =>
+        supabase
+          .from('transactions')
+          .select('*')
+          .in('league_id', chain)
+          .neq('type', 'trade')
+          .contains('roster_ids', [rosterId!])
+          .order('created', { ascending: false })
+          .range(from, to)
+      );
+      return data;
     },
   });
 }

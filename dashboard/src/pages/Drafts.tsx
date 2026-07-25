@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
-import { useLeagueIds } from '../hooks/queries';
+import { useLeagueIds, fetchAllRows } from '../hooks/queries';
 import { usePlayerMap } from '../hooks/useLeagueData';
 import {
   FileText,
@@ -89,11 +89,16 @@ export function DraftsPanel() {
       // draft_picks are keyed by draft_id (no league_id), so scope by the
       // chain's draft ids.
       const draftIds = (drafts || []).map((d) => d.draft_id);
-      let draftPicks: any[] = [];
+      let draftPicks: DraftPickRow[] = [];
       if (draftIds.length) {
-        const { data: dp } = await supabase
-          .from('draft_picks').select('*').in('draft_id', draftIds).order('pick_no', { ascending: true });
-        draftPicks = dp || [];
+        // A long startup dynasty (big rosters × many seasons + rookie drafts) can
+        // push one chain's picks past PostgREST's 1000-row cap, which would
+        // silently truncate the draft board. Page through in 1000s.
+        draftPicks = await fetchAllRows<DraftPickRow>((from, to) =>
+          supabase
+            .from('draft_picks').select('*').in('draft_id', draftIds)
+            .order('pick_no', { ascending: true }).range(from, to)
+        );
       }
 
       return {

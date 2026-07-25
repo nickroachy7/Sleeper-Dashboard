@@ -117,13 +117,17 @@ async function buildCareer(ownerId: string): Promise<ManagerCareer> {
   if (!leagueIds.length) return empty;
 
   // 2. Everything for those leagues (all publicly readable).
-  const [{ data: leagues }, { data: rostersRaw }, matchups, { data: tradesRaw }] = await Promise.all([
+  const [{ data: leagues }, { data: rostersRaw }, matchups, tradesRaw] = await Promise.all([
     supabase.from('leagues').select('league_id, season, name').in('league_id', leagueIds),
     supabase.from('rosters').select('league_id, roster_id, owner_id, wins, losses, ties, fpts').in('league_id', leagueIds),
     fetchAllRows<MatchRow>((from, to) =>
       supabase.from('matchups').select('league_id, week, matchup_id, roster_id, points').in('league_id', leagueIds).range(from, to)
     ),
-    supabase.from('transactions').select('league_id, roster_ids').eq('type', 'trade').eq('status', 'complete').in('league_id', leagueIds),
+    // Trades across every league a manager has ever been in can exceed the
+    // 1000-row cap; page through so rivalry tallies don't silently undercount.
+    fetchAllRows<{ league_id: string; roster_ids: number[] | null }>((from, to) =>
+      supabase.from('transactions').select('league_id, roster_ids').eq('type', 'trade').eq('status', 'complete').in('league_id', leagueIds).range(from, to)
+    ),
   ]);
 
   const leagueById = new Map<string, LeagueRow>((leagues ?? []).map((l) => [l.league_id, l as LeagueRow]));

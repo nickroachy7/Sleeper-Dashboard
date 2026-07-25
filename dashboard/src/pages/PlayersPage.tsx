@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { TrendingUp, Layers } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { fetchAllRows } from '../hooks/queries';
 import { useUrlState } from '../hooks/useUrlState';
 import { TabBar } from '../components/TabBar';
 import { VALUE_SOURCE } from '../lib/value-source';
@@ -75,20 +76,27 @@ interface UnifiedValue {
 }
 
 async function fetchPlayerValues(): Promise<PlayerValueDetailed[]> {
-  const { data, error } = await supabase
-    .from('player_values')
-    .select(`
-      id, player_id, value, rank, position_rank, tier, trend, superflex, fetched_at,
-      player:players(full_name, position, team, age, injury_status)
-    `)
-    .eq('source', VALUE_SOURCE)
-    .order('rank', { ascending: true });
+  // PostgREST caps every response at 1000 rows, and the community board is well
+  // past that (~2500 players). A single .select() silently dropped everyone
+  // ranked beyond ~1000, so the tail of the rankings board never rendered. Page
+  // through in 1000s. superflex is pinned so a future 1QB row can't shadow the
+  // SF value the rest of the app reads (see queries.ts value hooks).
+  const data = await fetchAllRows<Record<string, unknown>>((from, to) =>
+    supabase
+      .from('player_values')
+      .select(`
+        id, player_id, value, rank, position_rank, tier, trend, superflex, fetched_at,
+        player:players(full_name, position, team, age, injury_status)
+      `)
+      .eq('source', VALUE_SOURCE)
+      .eq('superflex', true)
+      .order('rank', { ascending: true })
+      .range(from, to)
+  );
 
-  if (error) throw error;
-
-  return (data || []).map(pv => {
+  return data.map(pv => {
     const player = Array.isArray(pv.player) ? pv.player[0] : pv.player;
-    return { ...pv, player: player as PlayerValueDetailed['player'] };
+    return { ...pv, player: player as PlayerValueDetailed['player'] } as PlayerValueDetailed;
   });
 }
 

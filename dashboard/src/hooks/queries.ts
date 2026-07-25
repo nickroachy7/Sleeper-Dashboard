@@ -304,9 +304,15 @@ export function useRosters(leagueId: string | null | undefined, previousLeagueId
         .select('*')
         .eq('league_id', leagueId!);
       const { data: users } = await supabase.from('users').select('*');
+      // Scope league_users to THIS league. Reading every league's rows and then
+      // .find()-ing by user_id alone returned whichever league happened to sort
+      // first, so a manager in multiple leagues could render another league's
+      // team name (most managers here are in several leagues). Match within the
+      // league the roster actually belongs to.
       const { data: leagueUsers } = await supabase
         .from('league_users')
-        .select('user_id, team_name, display_name');
+        .select('user_id, team_name, display_name')
+        .eq('league_id', leagueId!);
       if (!rostersData?.length) return [];
 
       // Check if current season has started (all zeros = offseason)
