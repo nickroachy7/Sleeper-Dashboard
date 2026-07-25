@@ -9,6 +9,7 @@ import { HomeSplash } from '../components/HomeSplash';
 import { BiggestMovers } from '../components/BiggestMovers';
 import { LeagueFeed } from '../components/LeagueFeed';
 import { WhatsNewStrip } from '../components/WhatsNewStrip';
+import { DailyFive } from '../components/DailyFive';
 import { useGlobalMovers } from '../hooks/useGlobalMovers';
 
 // Buttons for a logged-out visitor — only tools that work WITHOUT a league.
@@ -58,6 +59,7 @@ export default function Home() {
             actions={GLOBAL_ACTIONS}
             addLeagueCta
           />
+          <DailyFive />
           <BiggestMovers risers={globalMovers.risers} fallers={globalMovers.fallers} windowLabel="30d" loading={globalMovers.loading} />
           <ValueWatch players={globalRankings} />
         </div>
@@ -89,8 +91,9 @@ export default function Home() {
           </div>
         )}
 
-        {/* The return hook: how the crowd moved on your takes since last visit.
-            Self-manages (renders nothing for guests / first visit / no moves). */}
+        {/* The daily habit ritual + the return hook. Both self-hide when not
+            relevant (goal met / dismissed, no board / first visit). */}
+        <DailyFive />
         <WhatsNewStrip />
 
         {/* Cross-league activity feed */}
