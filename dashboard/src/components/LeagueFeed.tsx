@@ -308,20 +308,20 @@ function FeedItemView({ item, showBadge, getPlayer, getPlayerValue, teamAvatar, 
 
   return (
     <div>
-      <div className="flex items-center gap-2 px-1.5 pb-2 text-[11px] text-[#75757f]">
-        <span className="px-1.5 py-0.5 bg-[#1b1b22] text-[#9c9ca7] text-[9px] font-bold tracking-[1px] rounded">{label}</span>
+      <div className="flex items-center gap-2 px-1.5 pb-2 text-[11px] text-faint">
+        <span className="px-1.5 py-0.5 bg-elevated text-muted text-[9px] font-bold tracking-[1px] rounded-md">{label}</span>
         <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{item.date}</span>
         {showBadge && <span className="ml-auto"><LeagueBadge name={item.leagueName} /></span>}
       </div>
-      <div className="bg-[#141419] rounded-2xl overflow-hidden border border-[#22222b] card-hover">
-        <div className="flex items-center gap-2.5 px-4 py-2.5 bg-[#1b1b22]">
+      <div className="yap-card yap-card-interactive overflow-hidden">
+        <div className="flex items-center gap-2.5 px-4 py-2.5 bg-white/[0.03] border-b border-line-subtle">
           {avatar ? (
-            <img src={avatar} alt="" className="w-7 h-7 rounded-full bg-[#22222b] shrink-0 ring-1 ring-inset ring-white/10 object-cover" onError={(e) => { (e.target as HTMLImageElement).style.visibility = 'hidden'; }} />
+            <img src={avatar} alt="" className="w-7 h-7 rounded-full bg-overlay shrink-0 ring-1 ring-inset ring-white/10 object-cover" onError={(e) => { (e.target as HTMLImageElement).style.visibility = 'hidden'; }} />
           ) : (
-            <div className="w-7 h-7 rounded-full bg-[#22222b] shrink-0 ring-1 ring-inset ring-white/10 flex items-center justify-center"><Users className="h-3.5 w-3.5 text-[#60606a]" /></div>
+            <div className="w-7 h-7 rounded-full bg-overlay shrink-0 ring-1 ring-inset ring-white/10 flex items-center justify-center"><Users className="h-3.5 w-3.5 text-ghost" /></div>
           )}
           <span className="font-display text-sm font-bold text-white truncate">{item.team?.teamName || 'Unknown'}</span>
-          <span className="text-[10px] text-[#60606a]">{total} move{total !== 1 ? 's' : ''}</span>
+          <span className="text-[10px] text-ghost">{total} move{total !== 1 ? 's' : ''}</span>
         </div>
         <div className="py-1">
           {item.adds.map((pid) => {

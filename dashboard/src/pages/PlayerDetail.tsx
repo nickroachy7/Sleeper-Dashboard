@@ -428,7 +428,7 @@ export default function PlayerDetail() {
 
   if (isLoading || !data) {
     return (
-      <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto space-y-4">
+      <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto space-y-4">
         <div className="skeleton h-32 w-full rounded-2xl" />
         <div className="skeleton h-64 w-full rounded-2xl" />
         <div className="skeleton h-40 w-full rounded-2xl" />
@@ -438,7 +438,7 @@ export default function PlayerDetail() {
 
   if (!data.player) {
     return (
-      <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto text-center py-16">
+      <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto text-center py-16">
         <p className="text-sm text-muted">Player not found.</p>
         <Link to="/" className="text-xs text-accent-400 mt-2 inline-block">Back to Home</Link>
       </div>
@@ -452,7 +452,7 @@ export default function PlayerDetail() {
     new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto space-y-4">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto space-y-4">
       {/* ── Header ── */}
       <section className="relative overflow-hidden rounded-2xl border border-line bg-gradient-to-br from-[#16161c] via-[#141419] to-[#111116]">
         <div className="pointer-events-none absolute -top-20 -right-12 h-48 w-48 rounded-full bg-accent-500/10 blur-3xl" />

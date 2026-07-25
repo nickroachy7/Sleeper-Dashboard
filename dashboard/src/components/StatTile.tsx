@@ -22,16 +22,16 @@ interface StatTileProps {
 export function StatTile({ label, children, sub, foot, hint, valueClassName, className }: StatTileProps) {
   return (
     <div
-      className={`rounded-xl border border-[#22222b] bg-[#101015]/60 px-3 py-1.5 ${hint ? 'cursor-help' : ''} ${className ?? ''}`}
+      className={`rounded-xl border border-line bg-base/40 px-3.5 py-2.5 ${hint ? 'cursor-help' : ''} ${className ?? ''}`}
       title={hint}
     >
-      <p className="text-[9px] text-[#75757f] uppercase tracking-[0.08em] font-bold truncate">
+      <p className="text-[9px] text-faint uppercase tracking-[0.1em] font-bold truncate">
         {label}{hint ? ' ⓘ' : ''}
       </p>
-      <div className="flex items-baseline gap-1.5 min-w-0">
-        <p className={`font-display text-xl font-bold tabular-nums truncate ${valueClassName ?? 'text-white'}`}>
+      <div className="flex items-baseline gap-1.5 min-w-0 mt-1">
+        <p className={`font-display text-[22px] leading-none font-bold tabular-nums truncate ${valueClassName ?? 'text-white'}`}>
           {children}
-          {sub != null && <span className="text-[11px] text-[#75757f] ml-1.5 font-sans font-semibold">{sub}</span>}
+          {sub != null && <span className="text-[11px] text-faint ml-1.5 font-sans font-semibold">{sub}</span>}
         </p>
         {foot != null && <div className="shrink-0 self-center">{foot}</div>}
       </div>

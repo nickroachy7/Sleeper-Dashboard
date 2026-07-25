@@ -18,23 +18,29 @@ interface SectionCardProps {
 }
 
 /**
- * The canonical dashboard section card. One consistent header treatment (accent
- * label + muted sub, optional right slot) wrapping any content, so every section
- * on the player and team pages reads as one system.
+ * The canonical dashboard section card. One consistent header treatment — an
+ * accent tick + uppercase eyebrow label + muted sub, optional right slot —
+ * wrapping any content on a raised, softly-shadowed panel (see `.yap-card`), so
+ * every section across the app reads as one elevated system.
  */
 export function SectionCard({ label, sub, right, children, className, bodyClassName, flush }: SectionCardProps) {
   return (
-    <section className={`bg-[#141419] rounded-2xl border border-[#22222b] ${flush ? 'overflow-hidden' : 'p-4 sm:p-5'} ${className ?? ''}`}>
+    <section className={`yap-card ${flush ? 'overflow-hidden' : 'p-4 sm:p-5'} ${className ?? ''}`}>
       <div className={flush ? 'px-4 sm:px-5 pt-4' : ''}>
         <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-[11px] font-bold text-accent-500 tracking-[0.18em] uppercase">{label}</p>
-            {sub != null && <p className="text-[10px] text-[#75757f] mt-0.5">{sub}</p>}
+          <div className="min-w-0 flex items-start gap-2.5">
+            {/* Accent tick — a small vertical bar anchoring the eyebrow, for a
+                deliberate editorial start to every section header. */}
+            <span className="mt-0.5 h-3.5 w-1 rounded-full bg-accent-500 shrink-0" aria-hidden />
+            <div className="min-w-0">
+              <p className="yap-eyebrow">{label}</p>
+              {sub != null && <p className="text-[11px] text-faint mt-1 leading-snug">{sub}</p>}
+            </div>
           </div>
           {right}
         </div>
       </div>
-      <div className={`${flush ? 'mt-3' : 'mt-3'} ${bodyClassName ?? ''}`}>{children}</div>
+      <div className={`mt-3 ${bodyClassName ?? ''}`}>{children}</div>
     </section>
   );
 }

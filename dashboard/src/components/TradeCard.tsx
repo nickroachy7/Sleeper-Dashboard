@@ -77,14 +77,14 @@ export function TradeCard({
       {/* Meta sits ABOVE the card for separation — type + date only, no trailing label */}
       {showHeader && (
         <div className="flex items-center px-1.5 pb-2">
-          <div className="flex items-center gap-2 text-[11px] text-[#75757f]">
-            <span className="px-1.5 py-0.5 bg-[#1b1b22] text-[#9c9ca7] text-[9px] font-bold tracking-[1px] rounded">TRADE</span>
+          <div className="flex items-center gap-2 text-[11px] text-faint">
+            <span className="px-1.5 py-0.5 bg-elevated text-muted text-[9px] font-bold tracking-[1px] rounded-md">TRADE</span>
             {date && <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{date}</span>}
           </div>
         </div>
       )}
 
-      <div className="bg-[#141419] rounded-2xl overflow-hidden border border-[#22222b] card-hover">
+      <div className="yap-card yap-card-interactive overflow-hidden">
         {sides.map((side, idx) => {
           const sideVal = side.totalValue; // raw sum of rows shown in header
           const avatar = avatarUrl(side.rosterId);
@@ -93,18 +93,18 @@ export function TradeCard({
           return (
             <div key={idx}>
               {/* Team header — tinted band separates it from the player rows */}
-              <div className={`flex items-center gap-2.5 px-4 py-2.5 bg-[#1b1b22] ${idx > 0 ? 'border-t border-[#22222b]' : ''}`}>
+              <div className={`flex items-center gap-2.5 px-4 py-2.5 bg-white/[0.03] ${idx > 0 ? 'border-t border-line-subtle' : ''}`}>
                 {avatar ? (
-                  <img src={avatar} alt="" className="w-7 h-7 rounded-full bg-[#22222b] shrink-0 ring-1 ring-inset ring-white/10 object-cover" onError={(e) => { (e.target as HTMLImageElement).style.visibility = 'hidden'; }} />
+                  <img src={avatar} alt="" className="w-7 h-7 rounded-full bg-overlay shrink-0 ring-1 ring-inset ring-white/10 object-cover" onError={(e) => { (e.target as HTMLImageElement).style.visibility = 'hidden'; }} />
                 ) : (
-                  <div className="w-7 h-7 rounded-full bg-[#22222b] shrink-0 ring-1 ring-inset ring-white/10 flex items-center justify-center">
-                    <Users className="h-3.5 w-3.5 text-[#60606a]" />
+                  <div className="w-7 h-7 rounded-full bg-overlay shrink-0 ring-1 ring-inset ring-white/10 flex items-center justify-center">
+                    <Users className="h-3.5 w-3.5 text-ghost" />
                   </div>
                 )}
                 <span className="font-display text-sm font-bold text-white truncate flex-1 min-w-0">{side.teamName}</span>
                 <span className="font-display text-sm font-bold text-white tabular-nums shrink-0">{sideVal.toLocaleString()}</span>
-                <span className={`w-5 h-5 rounded flex items-center justify-center text-[11px] font-extrabold shrink-0 ${
-                  result === 'W' ? 'bg-accent-500/15 text-accent-400' : result === 'L' ? 'bg-red-500/15 text-red-400' : 'bg-white/5 text-[#75757f]'
+                <span className={`w-5 h-5 rounded-md flex items-center justify-center text-[11px] font-extrabold shrink-0 ${
+                  result === 'W' ? 'bg-accent-500/15 text-accent-400' : result === 'L' ? 'bg-red-500/15 text-red-400' : 'bg-white/5 text-faint'
                 }`}>{result}</span>
               </div>
 

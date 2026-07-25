@@ -75,7 +75,7 @@ export default function Home() {
 
   return (
     <div className="min-h-dvh">
-      <div className="p-4 sm:p-6 lg:p-8 max-w-2xl mx-auto space-y-4">
+      <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto space-y-4">
         {/* Sample-preview banner */}
         {isPreview && (
           <div className="flex flex-col sm:flex-row sm:items-center gap-3 rounded-xl bg-accent-500/10 border border-accent-500/25 px-4 py-3">
@@ -91,20 +91,25 @@ export default function Home() {
           </div>
         )}
 
-        {/* The daily habit ritual + the return hook. Both self-hide when not
-            relevant (goal met / dismissed, no board / first visit). */}
-        <DailyFive />
-        <WhatsNewStrip />
+        {/* Two-column social layout on desktop: the Wire leads in the main
+            column, the daily ritual + return hook ride a sticky side rail. On
+            mobile everything stacks (rail first, so the CTAs stay above the fold).
+            Both rail cards self-hide when not relevant. */}
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-6 lg:items-start">
+          {/* Side rail — order-first on mobile, right column on desktop. */}
+          <aside className="order-1 lg:order-2 space-y-4 lg:sticky lg:top-6">
+            <DailyFive />
+            <WhatsNewStrip />
+          </aside>
 
-        {/* Cross-league activity feed */}
-        <div>
-          <div className="flex items-baseline justify-between mb-3 px-0.5">
-            <p className="text-[11px] font-bold text-accent-500 tracking-[0.2em] uppercase">
-              The Wire
-            </p>
-            <span className="text-[11px] text-faint">Across your leagues</span>
+          {/* The Wire */}
+          <div className="order-2 lg:order-1 min-w-0">
+            <div className="flex items-baseline justify-between mb-3 px-0.5">
+              <p className="yap-eyebrow">The Wire</p>
+              <span className="text-[11px] text-faint">Across your leagues</span>
+            </div>
+            <LeagueFeed />
           </div>
-          <LeagueFeed />
         </div>
       </div>
     </div>

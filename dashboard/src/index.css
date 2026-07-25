@@ -42,16 +42,20 @@
      instead of the ad-hoc hex values that had drifted across pages. Values
      mirror the :root ramp below; keep the two in sync. */
 
-  /* Surfaces (dark → light) */
-  --color-base: #0d0d11;        /* app background */
-  --color-surface: #141419;     /* cards, controls */
-  --color-elevated: #1b1b22;    /* hover / raised */
-  --color-overlay: #22222b;     /* popovers, chips */
+  /* Surfaces (dark → light). The ramp is intentionally cool-tinted with real
+     step-to-step separation so cards lift off the base without shadows doing all
+     the work. `card` sits just above `surface` for the premium raised-panel look;
+     `elevated`/`overlay` are hover + popover layers. */
+  --color-base: #0b0b0f;        /* app background (deepest) */
+  --color-surface: #141419;     /* default card / control */
+  --color-card: #17171e;        /* raised content panel (a hair brighter) */
+  --color-elevated: #1e1e26;    /* hover / raised */
+  --color-overlay: #24242e;     /* popovers, chips */
 
   /* Lines */
-  --color-line: #22222b;        /* default control/card border */
-  --color-line-subtle: #1f1f27; /* faint dividers */
-  --color-line-strong: #363641; /* hover / emphasis border */
+  --color-line: #24242e;        /* default control/card border */
+  --color-line-subtle: #1c1c24; /* faint dividers */
+  --color-line-strong: #383843; /* hover / emphasis border */
 
   /* Text scale (bright → faint) */
   --color-ink: #ffffff;         /* primary text */
@@ -91,7 +95,7 @@ body {
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: #0d0d11;
+  background-color: #0b0b0f;
   color: #ffffff;
   /* No sideways scroll on mobile even if a child misbehaves */
   overflow-x: hidden;
@@ -114,25 +118,31 @@ body {
 
 /* Graphite surface ramp — cool-tinted neutrals with real separation */
 :root {
-  --bg-base: #0d0d11;
+  --bg-base: #0b0b0f;
   --bg-surface: #141419;
-  --bg-elevated: #1b1b22;
-  --bg-overlay: #22222b;
-  --bg-interactive: #26262f;
+  --bg-card: #17171e;
+  --bg-elevated: #1e1e26;
+  --bg-overlay: #24242e;
+  --bg-interactive: #2a2a34;
 
   /* Legacy aliases (keep for existing code) */
-  --bg-primary: #0d0d11;
+  --bg-primary: #0b0b0f;
   --bg-secondary: #141419;
-  --bg-tertiary: #1b1b22;
-  --bg-card: #141419;
-  --bg-card-hover: #1b1b22;
+  --bg-tertiary: #1e1e26;
+  --bg-card-hover: #1e1e26;
 
   /* Borders */
-  --border-default: #2a2a34;
-  --border-subtle: #1f1f27;
-  --border-emphasis: #363641;
-  --border-primary: #2a2a34;
-  --border-secondary: #1f1f27;
+  --border-default: #24242e;
+  --border-subtle: #1c1c24;
+  --border-emphasis: #383843;
+  --border-primary: #24242e;
+  --border-secondary: #1c1c24;
+
+  /* Elevation shadows — soft, layered, tuned for the dark base. Depth is what
+     lifts a card off the page in the premium sports-media look. */
+  --shadow-card: 0 1px 2px rgba(0,0,0,0.4), 0 2px 8px rgba(0,0,0,0.25);
+  --shadow-raised: 0 2px 6px rgba(0,0,0,0.45), 0 8px 24px rgba(0,0,0,0.35);
+  --shadow-pop: 0 8px 32px rgba(0,0,0,0.55), 0 2px 8px rgba(0,0,0,0.4);
 
   /* Text */
   --text-primary: #ffffff;
@@ -264,6 +274,46 @@ select:focus-visible {
 
 .card-hover:hover {
   border-color: #363641;
+}
+
+/* ── Premium card system ──────────────────────────────────────────────────
+   The elevated content panel of the sports-media look: a raised surface, a
+   hairline top-highlight for a "lit-from-above" edge, and a soft layered
+   shadow so the card reads as a physical object on the deep base. Use
+   `.yap-card` for standard sections; add `.yap-card-interactive` for hover lift
+   on clickable cards (feed items, mini cards, leaderboard rows). */
+.yap-card {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-default);
+  border-radius: 1rem;
+  box-shadow: var(--shadow-card);
+  /* Subtle top-edge highlight: reads as light catching the panel's lip. */
+  background-image: linear-gradient(to bottom, rgba(255,255,255,0.025), rgba(255,255,255,0) 40%);
+}
+
+.yap-card-interactive {
+  transition: border-color 180ms ease-out, box-shadow 180ms ease-out, transform 180ms ease-out, background-color 180ms ease-out;
+}
+.yap-card-interactive:hover {
+  border-color: var(--border-emphasis);
+  box-shadow: var(--shadow-raised);
+  transform: translateY(-1px);
+}
+
+/* Section eyebrow: the small accent label that heads every card/section. */
+.yap-eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--color-accent-500, #22c55e);
+}
+
+/* A faint accent wash for hero/first-of-kind cards (identity headers, CTAs). */
+.yap-accent-wash {
+  background-image:
+    radial-gradient(120% 140% at 100% 0%, rgba(34,197,94,0.06), transparent 55%),
+    linear-gradient(to bottom, rgba(255,255,255,0.025), rgba(255,255,255,0) 40%);
 }
 
 /* Horizontal filter rails: scroll on mobile without a visible scrollbar */

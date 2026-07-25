@@ -445,7 +445,7 @@ function ValuesTab({ kind, leagueFilterId, leagues, onLeagueFilterChange }: {
         ) : undefined}
       />
 
-      <div className="bg-surface rounded-2xl overflow-hidden border border-line">
+      <div className="yap-card overflow-hidden">
         {paginatedValues.length === 0 && (
           <p className="px-4 py-10 text-center text-[13px] text-faint">
             {isMoverSort
@@ -472,15 +472,15 @@ function ValuesTab({ kind, leagueFilterId, leagues, onLeagueFilterChange }: {
             <Fragment key={`${item.type}-${item.id}`}>
               {showTierHeader && (
                 <div
-                  className="px-4 py-2.5 bg-[#17171d] border-b border-line-subtle sticky top-0 z-[5]"
-                  style={{ borderLeft: `3px solid ${tierAccents[item.tier!] || '#333'}` }}
+                  className="flex items-center gap-2 px-4 py-2.5 bg-base/50 border-y border-line-subtle sticky top-0 z-[5] backdrop-blur-sm"
                 >
-                  <span className="text-xs font-bold text-muted">
+                  <span className="h-3.5 w-1 rounded-full shrink-0" style={{ backgroundColor: tierAccents[item.tier!] || '#333' }} />
+                  <span className="text-[11px] font-bold text-white uppercase tracking-[0.12em]">
                     Tier {item.tier}
                   </span>
                   {tierDescriptions[item.tier!] && (
-                    <span className="text-xs text-faint ml-2">
-                      — {tierDescriptions[item.tier!]}
+                    <span className="text-[11px] text-faint">
+                      {tierDescriptions[item.tier!]}
                     </span>
                   )}
                 </div>
@@ -494,11 +494,7 @@ function ValuesTab({ kind, leagueFilterId, leagues, onLeagueFilterChange }: {
                 delta={isMoverSort && item.delta != null ? item.delta : undefined}
                 size="sm"
                 divided
-                lead={
-                  <span className="text-xs font-medium text-[#80808c] w-6 text-right tabular-nums">
-                    {globalRank}
-                  </span>
-                }
+                rank={globalRank}
                 meta={item.pickTier ? (
                   <span className={`px-1 py-0.5 text-[9px] rounded font-bold leading-none ${
                     item.pickTier === 'Early' ? 'bg-emerald-500/20 text-emerald-400' :
@@ -568,7 +564,7 @@ export function PlayersPage() {
   const [leagueFilterId, setLeagueFilterId] = useState<string | null>(null);
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto space-y-4">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto space-y-4">
       {/* Tabs (the nav already names the page "Ranking"). The league filter used
           to lead the page in its own row; it now lives inside the Players tab's
           filter sheet (⚙ beside the search box) so the top stays clean. */}

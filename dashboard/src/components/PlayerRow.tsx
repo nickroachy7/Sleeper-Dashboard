@@ -76,42 +76,50 @@ export function PlayerRow({
 }: PlayerRowProps) {
   const isPick = !playerId;
   const isSm = size === 'sm';
-  const avatar = isSm ? 'w-8 h-8' : 'w-9 h-9';
-  const nameColor = dim ? 'text-[#9c9ca7]' : 'text-white';
-  const valueColor = dim ? 'text-[#9c9ca7]' : 'text-white';
+  const avatar = isSm ? 'w-9 h-9' : 'w-11 h-11';
+  const nameColor = dim ? 'text-muted' : 'text-white';
+  const valueColor = dim ? 'text-muted' : 'text-white';
 
   const target = to === undefined ? (playerId ? `/players/${playerId}` : null) : to;
   const interactive = Boolean(target || onClick);
 
   const showDelta = delta !== undefined;
   const up = (delta ?? 0) >= 0;
+  const isMedal = rank !== undefined && rank <= 3;
 
-  const base = `flex items-center gap-3 px-3 ${isSm ? 'py-2' : 'py-2.5'} text-left w-full ${
-    divided ? 'border-b border-[#1b1b22] last:border-b-0' : ''
-  } ${interactive ? 'group hover:bg-[#1b1b22] active:bg-[#22222b] transition-colors cursor-pointer' : ''} ${className}`;
+  const base = `flex items-center gap-3 px-3 sm:px-4 ${isSm ? 'py-2.5' : 'py-3'} text-left w-full relative ${
+    divided ? 'border-b border-line-subtle last:border-b-0' : ''
+  } ${interactive ? 'group hover:bg-elevated active:bg-overlay transition-colors cursor-pointer' : ''} ${className}`;
 
   const inner = (
     <>
       {lead !== undefined ? (
         <div className="shrink-0">{lead}</div>
       ) : rank !== undefined ? (
-        <span
-          className="font-display text-[13px] font-bold tabular-nums w-5 text-center shrink-0"
-          style={{ color: rankMedalColors[rank] || '#60606a' }}
-        >
-          {rank}
-        </span>
+        isMedal ? (
+          // Top-3 get a filled medal chip — the podium reads instantly.
+          <span
+            className="font-display text-[12px] font-extrabold tabular-nums w-6 h-6 rounded-lg flex items-center justify-center shrink-0"
+            style={{ color: '#0b0b0f', backgroundColor: rankMedalColors[rank] }}
+          >
+            {rank}
+          </span>
+        ) : (
+          <span className="font-display text-[13px] font-bold tabular-nums w-6 text-center shrink-0 text-faint">
+            {rank}
+          </span>
+        )
       ) : null}
 
       {/* Avatar */}
       {isPick ? (
         <div
-          className={`${avatar} rounded-full bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center shrink-0`}
+          className={`${avatar} rounded-xl bg-pos-pick/10 border border-pos-pick/25 flex items-center justify-center shrink-0`}
         >
-          <span className="text-[9px] font-bold text-cyan-400/70">PK</span>
+          <span className="text-[10px] font-extrabold text-pos-pick/80">PK</span>
         </div>
       ) : (
-        <div className={`${avatar} rounded-full overflow-hidden bg-[#22222b] shrink-0 ring-1 ring-inset ring-white/5`}>
+        <div className={`${avatar} rounded-xl overflow-hidden bg-overlay shrink-0 ring-1 ring-inset ring-white/10`}>
           <img
             src={getPlayerImageUrl(playerId!)}
             alt=""
@@ -128,11 +136,11 @@ export function PlayerRow({
         <div className="flex items-baseline justify-between gap-2">
           <span className="flex items-center gap-1.5 min-w-0">
             {prefix}
-            <span className={`text-[14px] font-medium truncate group-hover:text-accent-400 transition-colors ${nameColor}`}>
+            <span className={`text-[14px] font-semibold truncate group-hover:text-accent-400 transition-colors ${nameColor}`}>
               {name}
             </span>
             {injuryStatus && (
-              <span className="px-1 py-0.5 text-[9px] bg-red-500/20 text-red-400 rounded font-bold leading-none shrink-0">
+              <span className="px-1.5 py-0.5 text-[9px] bg-red-500/15 text-red-400 rounded-md font-bold leading-none shrink-0 ring-1 ring-inset ring-red-500/20">
                 {injuryStatus}
               </span>
             )}
@@ -140,14 +148,14 @@ export function PlayerRow({
 
           {showDelta ? (
             <span
-              className={`text-[12px] font-bold tabular-nums shrink-0 ${up ? 'text-accent-500' : 'text-[#ef4444]'}`}
+              className={`text-[12px] font-bold tabular-nums shrink-0 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md ${up ? 'text-accent-400 bg-accent-500/10' : 'text-red-400 bg-red-500/10'}`}
             >
-              {up ? '+' : '−'}
+              {up ? '↑' : '↓'}
               {Math.abs(delta!).toLocaleString()}
             </span>
           ) : value !== undefined ? (
             <span className="shrink-0 flex flex-col items-end leading-tight">
-              <span className={`font-display text-[14px] font-bold tabular-nums ${valueColor}`}>
+              <span className={`font-display text-[15px] font-bold tabular-nums ${valueColor}`}>
                 {value > 0 ? value.toLocaleString() : '—'}
               </span>
               {subValue != null && subValue !== '' && (
@@ -160,17 +168,17 @@ export function PlayerRow({
         {(position || team || meta || (showDelta && value !== undefined)) && (
           <div className="flex items-center gap-1.5 mt-1">
             {position && <PositionBadge position={position} size="xs" />}
-            {team && <span className="text-[11px] text-[#9c9ca7] font-medium">{team}</span>}
+            {team && <span className="text-[11px] text-muted font-semibold">{team}</span>}
             {meta !== undefined && meta !== null && meta !== '' && (
               <>
-                {(position || team) && <span className="text-[#4c4c56]">·</span>}
-                <span className="text-[11px] text-[#9c9ca7] truncate">{meta}</span>
+                {(position || team) && <span className="text-line-strong">·</span>}
+                <span className="text-[11px] text-muted truncate">{meta}</span>
               </>
             )}
             {showDelta && value !== undefined && (
               <>
-                <span className="text-[#4c4c56]">·</span>
-                <span className="text-[10px] text-[#60606a] tabular-nums">{value.toLocaleString()}</span>
+                <span className="text-line-strong">·</span>
+                <span className="text-[10px] text-faint tabular-nums">{value.toLocaleString()}</span>
               </>
             )}
           </div>

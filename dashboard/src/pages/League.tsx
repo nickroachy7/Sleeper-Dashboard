@@ -242,7 +242,7 @@ export default function League() {
 
   if (!hasLeague) {
     return (
-      <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto">
+      <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto">
         <NoLeagueState heading="Add your league to see the league hub"
           sub="Standings, weekly scoreboards, an all-time record book, and league history — for any Sleeper dynasty." compact />
       </div>
@@ -251,7 +251,7 @@ export default function League() {
 
   if (isLoading || !directory) {
     return (
-      <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto space-y-4">
+      <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto space-y-4">
         <div className="skeleton h-24 w-full rounded-2xl" />
         <div className="skeleton h-12 w-full rounded-xl" />
         <div className="skeleton h-96 w-full rounded-2xl" />
@@ -273,7 +273,7 @@ export default function League() {
   );
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto space-y-4">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto space-y-4">
       {/* ── League identity + switcher. This is the ONE place to switch leagues
           — the app chrome is league-neutral, so everything league-specific
           (including "which league am I viewing") lives on this page. ── */}
