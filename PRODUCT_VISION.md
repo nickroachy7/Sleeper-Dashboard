@@ -159,6 +159,12 @@ league). Rough sizing is relative, not calendar.
 *Thesis: people vote more when they can see their opinion matter. Today the loop
 is invisible after the tap.*
 
+> **STATUS (2026-07-25): 1a, 1b, 1c SHIPPED to main and verified live.** 1d
+> (Daily-5) not started. See commits 488e474 (take-vs-crowd), 5009bf9 (value
+> receipts + staged count RPC — migration NOT yet deployed), 4ed83c2 (Since you
+> were away). All three verified against prod with a seeded test account +
+> Playwright.
+
 - **1a. "Your take vs the crowd" everywhere.** Every player row/detail shows the
   gap between the viewer's board and consensus ("You: WR4 · Crowd: WR9"). Turns
   passive rankings into a running argument. *Builds on the board + deltas already
