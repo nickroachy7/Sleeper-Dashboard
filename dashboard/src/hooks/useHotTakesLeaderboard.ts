@@ -30,6 +30,10 @@ export function useHotTakesLeaderboard(limit = 25): HotTakesResult {
   const { data, isLoading } = useQuery({
     queryKey: ['hot-takes-leaderboard', limit],
     staleTime: 10 * 60_000,
+    // The queryFn swallows errors into { available: false }, so a missing RPC is
+    // a normal result, not a failure — never retry (retries would spin the
+    // network and delay first paint before the migration ships).
+    retry: false,
     queryFn: async (): Promise<{ leaders: HotTakeLeader[]; available: boolean }> => {
       try {
         // Untyped call — the RPC isn't in the generated Database types until it
