@@ -12,6 +12,7 @@ import TradeDetail from './pages/TradeDetail';
 import Feedback from './pages/Feedback';
 import Welcome from './pages/Welcome';
 import Profile from './pages/Profile';
+import HotTakes from './pages/HotTakes';
 import { AuthModal } from './components/AuthModal';
 
 function App() {
@@ -31,6 +32,7 @@ function App() {
         <Route path="trade" element={<TradeTools />} />
         <Route path="players" element={<PlayersPage />} />
         <Route path="players/:playerId" element={<PlayerDetail />} />
+        <Route path="leaders" element={<HotTakes />} />
         <Route path="teams/:rosterId" element={<TeamDetail />} />
         <Route path="trades/:transactionId" element={<TradeDetail />} />
         <Route path="settings" element={<Settings />} />
