@@ -8,6 +8,7 @@ import { useVoteMatchups } from '../hooks/useVoteMatchups';
 import { usePairDetails, type AssetDetail } from '../hooks/usePairDetails';
 import { recordPairwiseVote } from '../lib/community-events';
 import { TradeCard as SharedTradeCard, type TradeSide } from './TradeCard';
+import { CallItBar } from './CallItBar';
 import { PlayerRow } from './PlayerRow';
 import { PlayerVersus, type CompareSide } from './PlayerVersus';
 import { analyzeTrade } from '../lib/trade-value-adjustment';
@@ -290,6 +291,9 @@ function FeedItemView({ item, showBadge, getPlayer, getPlayerValue, teamAvatar, 
         <Link to={`/trades/${item.id}`} className="block">
           <SharedTradeCard sides={item.sides} date={item.date} fairness={item.fairness} />
         </Link>
+        {/* Opinion-native reaction: who won? Records a calculator vote — the
+            feed's human heartbeat. Outside the Link so calls don't navigate. */}
+        <CallItBar tradeId={item.id} sides={item.sides} />
       </div>
     );
   }
