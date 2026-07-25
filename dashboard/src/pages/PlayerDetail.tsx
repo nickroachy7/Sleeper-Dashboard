@@ -10,7 +10,9 @@ import { Stat, StatStrip } from '../components/StatStrip';
 import { TabBar } from '../components/TabBar';
 import { Segmented } from '../components/ui';
 import { PlayerRow } from '../components/PlayerRow';
+import { TakeChip } from '../components/TakeChip';
 import { usePlayerDetail, useLeagueDirectory, usePlayerFacts, usePlayerLeagueWeeks } from '../hooks/detail';
+import { useTakeVsCrowd } from '../hooks/useTakeVsCrowd';
 import { usePlayers, usePlayerValuesList, useTrending } from '../hooks/queries';
 import { useUrlState } from '../hooks/useUrlState';
 import { useActiveLeague } from '../lib/active-league';
@@ -165,6 +167,10 @@ export default function PlayerDetail() {
   const buzz = playerId && trending ? trending.lookup(playerId) : null;
   const { data: allPlayers } = usePlayers();
   const { data: playerValues } = usePlayerValuesList();
+  // "Your take vs the crowd" — the signed-in user's own ranking of this player
+  // against the community's. Null for guests / off-board players.
+  const takeVsCrowd = useTakeVsCrowd();
+  const take = playerId ? takeVsCrowd.lookup(playerId) : null;
 
   // Only in-league seasons that have actually kicked off — a season whose league
   // has no games on record (offseason/future) is dropped so the pills don't
@@ -518,6 +524,20 @@ export default function PlayerDetail() {
               )}
             </StatTile>
           </div>
+
+          {/* Your take vs the crowd — the spine made visible. Only for a
+              signed-in user whose board has this player; a divergence links to
+              the board, agreement is shown quietly. */}
+          {take && (
+            <div className="mt-3 flex items-center gap-2">
+              <TakeChip take={take} variant="full" showAgree />
+              {take.posRankDelta !== 0 && (
+                <Link to="/trade?tab=rank" className="text-[11px] font-medium text-accent-400 hover:text-accent-300 transition-colors">
+                  {take.posRankDelta > 0 ? 'You’re higher than the field' : 'You’re lower than the field'} · keep ranking
+                </Link>
+              )}
+            </div>
+          )}
         </div>
       </section>
 

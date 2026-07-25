@@ -11,6 +11,8 @@ import { Pagination } from '../components/Pagination';
 import { FilterBar, SearchInput, FilterPills, SortSelect } from '../components/FilterBar';
 import { MetaText, FilterSheet, FilterSheetGroup } from '../components/ui';
 import { PlayerRow } from '../components/PlayerRow';
+import { TakeChip } from '../components/TakeChip';
+import { useTakeVsCrowd } from '../hooks/useTakeVsCrowd';
 import { LeaguePicker } from '../components/LeaguePicker';
 import { IdpToggle } from '../components/IdpToggle';
 import { useValueMovers } from '../hooks/detail';
@@ -166,6 +168,9 @@ function ValuesTab({ kind, leagueFilterId, leagues, onLeagueFilterChange }: {
   // it — but on the GLOBAL value scale, so ranks read as "where my league's
   // players sit in the community" rather than a renumbered 1..N board.
   const { data: rosterSet } = useLeagueRoster(kind === 'player' ? leagueFilterId ?? null : null);
+
+  // Your-take-vs-crowd overlay for player rows (no-op for guests / picks).
+  const takeVsCrowd = useTakeVsCrowd();
 
   const { data: playerValues, isLoading: playersLoading, error: playersError } = useQuery({
     queryKey: ['playerValues', 'detailed'],
@@ -502,7 +507,13 @@ function ValuesTab({ kind, leagueFilterId, leagues, onLeagueFilterChange }: {
                   }`}>
                     {item.pickTier}
                   </span>
-                ) : undefined}
+                ) : (
+                  // Your-take-vs-crowd chip on player rows where you diverge
+                  // from the community (hidden when you agree or aren't signed in).
+                  item.type === 'player' && item.playerId
+                    ? <TakeChip take={takeVsCrowd.lookup(item.playerId)} variant="inline" />
+                    : undefined
+                )}
               />
             </Fragment>
           );
