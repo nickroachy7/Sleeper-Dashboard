@@ -62,13 +62,21 @@ async function main() {
     if (!sleeperByKey.has(k)) sleeperByKey.set(k, s.player_id);
   }
 
-  // gsis_id → sleeper player_id, via name+position. When several nflverse
-  // players collide onto one Sleeper player, keep the most recent (highest
-  // rookie_season) — that's almost always the currently-active player.
+  // gsis_id → sleeper player_id, via name+position. nflverse's display_name is
+  // often the SHORT/common name ("Josh Palmer") while first_name is the legal
+  // name ("Joshua"); Sleeper stores the legal name. So try the display_name
+  // first, then fall back to the raw first+last — both EXACT normalized matches
+  // (no fuzzy/initial matching, which mis-joins different players who share a
+  // last name + initial). When several nflverse players collide onto one Sleeper
+  // player, keep the most recent (highest rookie_season) — almost always the
+  // currently-active player.
   const gsisToSleeper = new Map<string, string>();
   const claimedBy = new Map<string, { gsis: string; rookie: number }>();
   for (const p of players.values()) {
-    const sid = sleeperByKey.get(key(p.full_name, p.position));
+    let sid = sleeperByKey.get(key(p.full_name, p.position));
+    if (!sid && p.first_name && p.last_name) {
+      sid = sleeperByKey.get(key(`${p.first_name} ${p.last_name}`, p.position));
+    }
     if (!sid) continue;
     const rookie = p.rookie_season ?? 0;
     const prior = claimedBy.get(sid);

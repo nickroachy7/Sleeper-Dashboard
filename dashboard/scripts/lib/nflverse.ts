@@ -89,6 +89,10 @@ export function ageAtSeason(birthDate: string | undefined, season: number): numb
 export interface NflversePlayer {
   gsis_id: string;
   full_name: string;
+  /** Raw first/last name, kept for the last-name+initial join fallback (the
+   *  display_name is often a short/common name — "Josh" vs Sleeper's "Joshua"). */
+  first_name: string;
+  last_name: string;
   position: string;
   birth_date: string | null;
   draft_pick: number | null;     // overall pick, null = undrafted
@@ -116,6 +120,8 @@ export async function loadPlayers(): Promise<Map<string, NflversePlayer>> {
     byGsis.set(gsis, {
       gsis_id: gsis,
       full_name: r.display_name || r.full_name || '',
+      first_name: r.first_name || '',
+      last_name: r.last_name || '',
       position: r.position || r.position_group || '',
       birth_date: r.birth_date || null,
       draft_pick: pick,
