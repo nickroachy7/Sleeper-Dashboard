@@ -5,6 +5,7 @@ import { TabBar } from '../components/TabBar';
 import { SectionCard } from '../components/SectionCard';
 import { Segmented } from '../components/ui';
 import { MyTeamPicker } from '../components/MyTeamCard';
+import { RankTheLeague } from '../components/RankTheLeague';
 import { NoLeagueState } from '../components/NoLeagueState';
 import { LeagueSwitcher } from '../components/LeagueSwitcher';
 import { HistoryPanel } from '../components/HistoryPanel';
@@ -213,6 +214,29 @@ export default function League() {
   // the standings are showing the current season.
   const showPower = selectedLeagueId === directory?.currentLeagueId && teamStrength.size > 0;
 
+  // Teams for "Rank the League" — the CURRENT-season rosters with their
+  // consensus (value-based) power rank as the field to rank against. Uses the
+  // current league's rosters directly (not `standings`, which follows the
+  // selected/displayed season) so it works in the offseason too, when standings
+  // default to the last played season.
+  const rankTeams = useMemo(() => {
+    if (!directory || teamStrength.size === 0) return [];
+    const currentId = directory.currentLeagueId;
+    const rosters = (directory.rosters as DirRoster[]).filter((r) => r.league_id === currentId);
+    return rosters
+      .map((r) => {
+        const strength = teamStrength.get(r.roster_id);
+        if (!strength) return null;
+        return {
+          rosterId: r.roster_id,
+          name: directory.teamName(r.roster_id, currentId),
+          avatar: directory.teamAvatar(r.roster_id, currentId),
+          consensusRank: strength.rank,
+        };
+      })
+      .filter((t): t is NonNullable<typeof t> => t !== null);
+  }, [directory, teamStrength]);
+
 
   // ── Render ───────────────────────────────────────────────────────
 
@@ -356,6 +380,15 @@ export default function League() {
             </div>
           )}
         </SectionCard>
+      )}
+
+      {/* Rank the League — your power order vs the value-based consensus. Keyed
+          to the CURRENT league (rosters are current-season), shown on the
+          Standings tab regardless of which season's standings are displayed. */}
+      {activeTab === 'standings' && directory?.currentLeagueId && rankTeams.length > 1 && (
+        <div className="mt-4">
+          <RankTheLeague leagueId={directory.currentLeagueId} teams={rankTeams} />
+        </div>
       )}
 
       {/* ═══ TRANSACTIONS ═══ */}
