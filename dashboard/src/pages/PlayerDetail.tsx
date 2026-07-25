@@ -16,6 +16,7 @@ import { usePlayerDetail, useLeagueDirectory, usePlayerFacts, usePlayerLeagueWee
 import { useTakeVsCrowd } from '../hooks/useTakeVsCrowd';
 import { useValueReceipt } from '../hooks/useValueReceipt';
 import { watchlist, useIsWatched } from '../lib/watchlist';
+import { useComparableTrades } from '../hooks/useComparableTrades';
 import { usePlayers, usePlayerValuesList, useTrending } from '../hooks/queries';
 import { useUrlState } from '../hooks/useUrlState';
 import { useActiveLeague } from '../lib/active-league';
@@ -179,6 +180,8 @@ export default function PlayerDetail() {
   const { data: receipt } = useValueReceipt(playerId);
   // Watchlist toggle — track this player's market moves (localStorage).
   const watched = useIsWatched(playerId);
+  // Real comparable trades — what this player has actually fetched, cross-league.
+  const comparableTrades = useComparableTrades(playerId, 5);
 
   // Only in-league seasons that have actually kicked off — a season whose league
   // has no games on record (offseason/future) is dropped so the pills don't
@@ -592,6 +595,39 @@ export default function PlayerDetail() {
                   divided
                 />
               ))}
+            </div>
+          </SectionCard>
+        )}
+
+        {/* Real comparable trades — what this player has actually fetched across
+            every synced league. Grounds the value in real deals, not the model. */}
+        {comparableTrades.length > 0 && (
+          <SectionCard
+            label="Traded for"
+            sub={`Real deals ${player.full_name} was moved in — what came back the other way`}
+            flush
+          >
+            <div className="divide-y divide-[#17171d]">
+              {comparableTrades.map((t) => {
+                const top = t.returned[0];
+                const extra = t.returned.length - 1;
+                return (
+                  <Link
+                    key={t.transactionId}
+                    to={`/trades/${t.transactionId}`}
+                    className="flex items-center gap-3 px-4 py-2.5 hover:bg-white/[0.03] transition-colors"
+                  >
+                    <ArrowRightLeft className="h-3.5 w-3.5 text-faint shrink-0" />
+                    <span className="flex-1 min-w-0 text-[13px] text-white truncate">
+                      {top?.label}
+                      {extra > 0 && <span className="text-faint"> +{extra} more</span>}
+                    </span>
+                    <span className="text-[13px] font-semibold text-ink-soft tabular-nums shrink-0">
+                      {t.returnValue.toLocaleString()}
+                    </span>
+                  </Link>
+                );
+              })}
             </div>
           </SectionCard>
         )}
