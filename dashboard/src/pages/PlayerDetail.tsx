@@ -11,8 +11,10 @@ import { TabBar } from '../components/TabBar';
 import { Segmented } from '../components/ui';
 import { PlayerRow } from '../components/PlayerRow';
 import { TakeChip } from '../components/TakeChip';
+import { ValueReceipt } from '../components/ValueReceipt';
 import { usePlayerDetail, useLeagueDirectory, usePlayerFacts, usePlayerLeagueWeeks } from '../hooks/detail';
 import { useTakeVsCrowd } from '../hooks/useTakeVsCrowd';
+import { useValueReceipt } from '../hooks/useValueReceipt';
 import { usePlayers, usePlayerValuesList, useTrending } from '../hooks/queries';
 import { useUrlState } from '../hooks/useUrlState';
 import { useActiveLeague } from '../lib/active-league';
@@ -171,6 +173,9 @@ export default function PlayerDetail() {
   // against the community's. Null for guests / off-board players.
   const takeVsCrowd = useTakeVsCrowd();
   const take = playerId ? takeVsCrowd.lookup(playerId) : null;
+  // "Why the value moved" receipt — public value history (the what) + an
+  // optional count-only RPC (the why). Renders nothing if the value is flat.
+  const { data: receipt } = useValueReceipt(playerId);
 
   // Only in-league seasons that have actually kicked off — a season whose league
   // has no games on record (offseason/future) is dropped so the pills don't
@@ -546,6 +551,7 @@ export default function PlayerDetail() {
 
       {/* ═══ OVERVIEW: outlook, market value trajectory, comparables ═══ */}
       {activeTab === 'overview' && (<>
+        <ValueReceipt receipt={receipt ?? null} />
         {outlook && <OutlookCard blurb={outlook} />}
         <SectionCard label="Value History" sub="YAP Value · seeded from prior seasons, updated by trades & votes">
           <ValueChart data={history} height={240} />
