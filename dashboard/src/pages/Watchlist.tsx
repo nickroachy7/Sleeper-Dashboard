@@ -28,8 +28,8 @@ export default function Watchlist() {
 
   return (
     <div className="min-h-dvh">
-      <div className="p-4 sm:p-6 lg:p-8 max-w-2xl mx-auto space-y-4">
-        <section className="relative overflow-hidden rounded-2xl border border-line bg-gradient-to-br from-[#16161c] via-[#141419] to-[#111116]">
+      <div className="p-4 sm:p-6 lg:p-8 max-w-3xl mx-auto space-y-4">
+        <section className="relative overflow-hidden yap-card yap-accent-wash">
           <div className="pointer-events-none absolute -top-16 -right-10 h-40 w-40 rounded-full bg-accent-500/10 blur-3xl" />
           <div className="relative p-4 sm:p-5">
             <p className="text-[11px] font-bold text-accent-500 tracking-[0.18em] uppercase flex items-center gap-1.5">
@@ -45,7 +45,7 @@ export default function Watchlist() {
         {loading ? (
           <div className="space-y-2">{Array.from({ length: 5 }).map((_, i) => <div key={i} className="skeleton h-12 w-full rounded-xl" />)}</div>
         ) : count === 0 ? (
-          <section className="rounded-2xl border border-line bg-surface p-10 text-center">
+          <section className="yap-card p-10 text-center">
             <Eye className="h-8 w-8 text-[#3a3a44] mx-auto mb-3" />
             <p className="text-[14px] font-semibold text-white">Nothing on watch yet</p>
             <p className="text-[12px] text-faint mt-1 max-w-xs mx-auto leading-snug">
@@ -56,7 +56,7 @@ export default function Watchlist() {
             </Link>
           </section>
         ) : (
-          <section className="rounded-2xl border border-line bg-surface overflow-hidden divide-y divide-[#17171d]">
+          <section className="yap-card overflow-hidden divide-y divide-line-subtle">
             {rows.map((r) => (
               <PlayerRow
                 key={r.id}

@@ -337,7 +337,16 @@ export default function League() {
                     return (
                       <tr key={s.rosterId} className={`group border-b border-line-subtle last:border-0 hover:bg-elevated transition-colors ${isMine ? 'bg-accent-500/[0.06]' : ''} ${playoffLine ? 'shadow-[inset_0_-1px_0_rgba(34,197,94,0.25)]' : ''}`}>
                         <td className="py-2.5 pl-4 sm:pl-5 pr-2">
-                          <span className={`font-display text-[13px] font-bold tabular-nums ${isMine ? 'text-accent-400' : 'text-faint'}`}>{s.rank}</span>
+                          {s.rank <= 3 ? (
+                            <span
+                              className="font-display text-[11px] font-extrabold tabular-nums w-6 h-6 rounded-lg flex items-center justify-center"
+                              style={{ color: '#0b0b0f', backgroundColor: s.rank === 1 ? '#ffd700' : s.rank === 2 ? '#c0c0c0' : '#cd7f32' }}
+                            >
+                              {s.rank}
+                            </span>
+                          ) : (
+                            <span className={`font-display text-[13px] font-bold tabular-nums ${isMine ? 'text-accent-400' : 'text-faint'}`}>{s.rank}</span>
+                          )}
                         </td>
                         <td className="py-2.5 px-2">
                           <Link to={`/teams/${s.rosterId}`} className="flex items-center gap-2.5 min-w-0">

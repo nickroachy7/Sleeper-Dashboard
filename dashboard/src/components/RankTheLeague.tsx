@@ -116,7 +116,7 @@ export function RankTheLeague({ leagueId, teams }: { leagueId: string; teams: Le
   const hasCustom = !!saved;
 
   return (
-    <section className="rounded-2xl border border-line bg-surface overflow-hidden">
+    <section className="yap-card overflow-hidden">
       <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-line-subtle">
         <div className="flex items-center gap-1.5 min-w-0">
           <ListOrdered className="h-3.5 w-3.5 text-accent-500 shrink-0" />
@@ -152,7 +152,7 @@ export function RankTheLeague({ leagueId, teams }: { leagueId: string; teams: Le
       ) : (
         <DndContext sensors={sensors} collisionDetection={closestCenter} modifiers={[restrictToVerticalAxis]} onDragEnd={onDragEnd}>
           <SortableContext items={order} strategy={verticalListSortingStrategy}>
-            <div className="divide-y divide-[#17171d]">
+            <div className="divide-y divide-line-subtle">
               {rows.map((r, i) => {
                 const inner = (
                   <div className="flex items-center gap-3 px-3 py-2.5">

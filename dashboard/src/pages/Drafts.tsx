@@ -310,7 +310,7 @@ export function DraftsPanel() {
 
                     {isExpanded && (
                       <div className="border-t border-line-subtle">
-                        <div className="divide-y divide-[#17171d]">
+                        <div className="divide-y divide-line-subtle">
                           {picks.map((pick) => {
                             const player = pick.player_id ? getPlayer(pick.player_id) : undefined;
                             const pickDisplay = `${round}.${String(pick.pick_no - (round - 1) * teamsInDraft).padStart(2, '0')}`;

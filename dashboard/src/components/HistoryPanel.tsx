@@ -38,7 +38,7 @@ export function HistoryPanel({ initialView }: { initialView?: 'drafts' }) {
           so pick history isn't buried under the record book. */}
       <button
         onClick={() => set('view', 'drafts')}
-        className="w-full flex items-center gap-3 rounded-2xl border border-line bg-surface px-4 py-3.5 text-left hover:border-line-strong transition-colors group"
+        className="w-full flex items-center gap-3 yap-card px-4 py-3.5 text-left hover:border-line-strong transition-colors group"
       >
         <span className="w-9 h-9 rounded-lg bg-elevated flex items-center justify-center shrink-0">
           <Layers className="h-4 w-4 text-accent-400" />

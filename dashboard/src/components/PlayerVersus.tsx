@@ -264,7 +264,7 @@ export function PlayerVersus({ a, b, variant = 'vote', pickedIndex = null, disab
   return (
     <div>
       {/* One unified card: headers → stats → chart, split by hairline dividers. */}
-      <div className="rounded-2xl border border-line bg-surface overflow-hidden">
+      <div className="yap-card overflow-hidden">
         {/* Section 1 — two tappable player headers, straddled by an OR badge. */}
         <div className="relative grid grid-cols-2 gap-2 items-stretch p-1.5">
           <Header side={a} color={COLOR_A} variant={variant} highlighted={pickedIndex === 0} disabled={disabled} onPick={() => onPick?.(0)} />

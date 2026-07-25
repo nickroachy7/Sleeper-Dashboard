@@ -673,7 +673,7 @@ export function TradeFinder() {
   // (or to add a league if the user follows none) instead of the finder UI.
   if (!toolLeagueId) {
     return leagues.length > 0 ? (
-      <div className="rounded-2xl border border-line bg-surface p-8 text-center">
+      <div className="yap-card p-8 text-center">
         <p className="text-[15px] font-semibold text-white">Pick a league to find trades</p>
         <p className="text-[13px] text-faint mt-1 mb-4 max-w-sm mx-auto leading-snug">
           Trade Finder scans a league's rosters for fair deals. Choose which one to search.

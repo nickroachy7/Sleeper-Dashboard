@@ -454,7 +454,7 @@ export default function PlayerDetail() {
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto space-y-4">
       {/* ── Header ── */}
-      <section className="relative overflow-hidden rounded-2xl border border-line bg-gradient-to-br from-[#16161c] via-[#141419] to-[#111116]">
+      <section className="relative overflow-hidden yap-card yap-accent-wash">
         <div className="pointer-events-none absolute -top-20 -right-12 h-48 w-48 rounded-full bg-accent-500/10 blur-3xl" />
         <div className="relative p-4 sm:p-6">
           {/* Floated so the text column below can use the full card width. */}
@@ -607,7 +607,7 @@ export default function PlayerDetail() {
             sub={`Real deals ${player.full_name} was moved in — what came back the other way`}
             flush
           >
-            <div className="divide-y divide-[#17171d]">
+            <div className="divide-y divide-line-subtle">
               {comparableTrades.map((t) => {
                 const top = t.returned[0];
                 const extra = t.returned.length - 1;

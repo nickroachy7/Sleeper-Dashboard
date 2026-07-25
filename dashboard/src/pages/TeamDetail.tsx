@@ -369,7 +369,7 @@ export default function TeamDetail() {
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto space-y-4">
       {/* ── Header ── */}
-      <section className="relative overflow-hidden rounded-2xl border border-line bg-gradient-to-br from-[#16161c] via-[#141419] to-[#111116]">
+      <section className="relative overflow-hidden yap-card yap-accent-wash">
         <div className="pointer-events-none absolute -top-20 -right-12 h-48 w-48 rounded-full bg-accent-500/10 blur-3xl" />
         <div className="relative p-4 sm:p-6">
           <div className="flex items-start gap-4">

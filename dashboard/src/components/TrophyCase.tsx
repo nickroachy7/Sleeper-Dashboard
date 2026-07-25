@@ -125,7 +125,7 @@ function TrophyDetail({ trophy, onClose }: { trophy: TrophyDef; onClose: () => v
         role="dialog"
         aria-label={trophy.name}
         className="absolute inset-x-0 bottom-0 sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 sm:bottom-auto sm:top-28 sm:w-[360px]
-                   rounded-t-2xl sm:rounded-2xl border border-line bg-surface shadow-2xl
+                   rounded-t-2xl sm:yap-card shadow-2xl
                    pb-[env(safe-area-inset-bottom)] animate-menu-drop"
       >
         <div className="flex items-center justify-end px-3 pt-3">
@@ -203,7 +203,7 @@ export function TrophyCase({ trophies, loading, notLinked, noLeagues, isMe }: Tr
 
   if (loading) {
     return (
-      <section className="rounded-2xl border border-line bg-surface p-5">
+      <section className="yap-card p-5">
         <div className="grid grid-cols-3 gap-x-3 gap-y-6">
           {Array.from({ length: 9 }).map((_, i) => (
             <div key={i} className="flex flex-col items-center gap-2">
@@ -218,7 +218,7 @@ export function TrophyCase({ trophies, loading, notLinked, noLeagues, isMe }: Tr
 
   if (notLinked) {
     return (
-      <section className="rounded-2xl border border-line bg-surface p-10 text-center">
+      <section className="yap-card p-10 text-center">
         <Trophy className="h-8 w-8 text-[#3a3a44] mx-auto mb-3" />
         <p className="text-[14px] font-semibold text-white">No trophies yet</p>
         <p className="text-[12px] text-faint mt-1 max-w-xs mx-auto leading-snug">
@@ -232,7 +232,7 @@ export function TrophyCase({ trophies, loading, notLinked, noLeagues, isMe }: Tr
 
   if (noLeagues) {
     return (
-      <section className="rounded-2xl border border-line bg-surface p-10 text-center">
+      <section className="yap-card p-10 text-center">
         <Trophy className="h-8 w-8 text-[#3a3a44] mx-auto mb-3" />
         <p className="text-[14px] font-semibold text-white">No league history yet</p>
         <p className="text-[12px] text-faint mt-1 max-w-xs mx-auto leading-snug">
@@ -244,7 +244,7 @@ export function TrophyCase({ trophies, loading, notLinked, noLeagues, isMe }: Tr
 
   return (
     <>
-      <section className="rounded-2xl border border-line bg-surface overflow-hidden">
+      <section className="yap-card overflow-hidden">
         <div className="flex items-center justify-between px-5 pt-4 pb-3 border-b border-line-subtle">
           <p className="text-[11px] font-bold text-accent-500 tracking-[0.18em] uppercase">Trophy Case</p>
           <span className="text-[12px] text-faint tabular-nums">

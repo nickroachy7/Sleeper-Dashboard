@@ -87,7 +87,7 @@ export function DashboardHero({
   }
 
   return (
-    <section className="relative overflow-hidden rounded-2xl border border-[#22222b] bg-gradient-to-br from-[#16161c] via-[#141419] to-[#111116]">
+    <section className="relative overflow-hidden yap-card yap-accent-wash">
       {/* Ambient accent glow */}
       <div className="pointer-events-none absolute -top-24 -right-16 h-56 w-56 rounded-full bg-accent-500/10 blur-3xl" />
 

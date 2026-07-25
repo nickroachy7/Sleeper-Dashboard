@@ -134,16 +134,16 @@ function MinisGrid({
           <button
             key={m.id}
             onClick={() => onOpen(m.id)}
-            className="group flex items-center gap-3.5 text-left rounded-2xl border border-line bg-surface p-4 hover:border-accent-500/40 hover:bg-[#17171d] transition-colors"
+            className="group flex items-center gap-3.5 text-left yap-card yap-card-interactive p-4"
           >
-            <span className="w-11 h-11 rounded-xl bg-accent-500/10 flex items-center justify-center shrink-0 group-hover:bg-accent-500/15 transition-colors">
+            <span className="w-12 h-12 rounded-2xl bg-accent-500/10 ring-1 ring-inset ring-accent-500/20 flex items-center justify-center shrink-0 group-hover:bg-accent-500/15 transition-colors">
               <m.icon className="h-5 w-5 text-accent-400" />
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block text-[14px] font-semibold text-white">{m.label}</span>
+              <span className="block text-[15px] font-semibold text-white">{m.label}</span>
               <span className="block text-[12px] text-faint leading-snug mt-0.5">{m.blurb}</span>
             </span>
-            <ChevronRight className="h-4 w-4 text-[#4c4c56] group-hover:text-accent-400 shrink-0 transition-colors" />
+            <ChevronRight className="h-4 w-4 text-ghost group-hover:text-accent-400 group-hover:translate-x-0.5 shrink-0 transition-all" />
           </button>
         ))}
       </div>

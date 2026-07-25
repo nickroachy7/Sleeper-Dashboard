@@ -33,7 +33,7 @@ export function ValueReceipt({ receipt }: { receipt: Receipt_t | null }) {
   const climbed = rankMoved && rankPast! > rankNow!;
 
   return (
-    <section className="rounded-2xl border border-line bg-surface p-4 sm:p-5">
+    <section className="yap-card p-4 sm:p-5">
       <div className="flex items-center gap-1.5 mb-3">
         <Receipt className="h-3.5 w-3.5 text-accent-500" />
         <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-accent-500">Why the value moved</p>
