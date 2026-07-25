@@ -190,6 +190,13 @@ trust (1b).
 *Thesis: opinions are inherently competitive and communal. Right now you yap into
 the void.*
 
+> **STATUS (2026-07-25): 2a (per-profile "Called it" + global leaderboard UI),
+> 2b (compare boards), 2c (Call it on feed trades) SHIPPED to main and verified
+> live.** The global Hot-Takes scoring RPC is STAGED (migration
+> 20260725010000), not deployed — the /leaders page shows a graceful "coming
+> soon" until it ships. 2d (league takes) not started. Commits: 31615bf (Call
+> it), 4f7f556 (Called it), c004b41 (compare boards), aa7137c (leaderboard).
+
 - **2a. Hot Takes leaderboard.** Global + per-league boards of the spiciest
   defensible takes (biggest vs-crowd deltas that the market later *agreed* with =
   "called it"). Turns the board delta into status. *Raw signal exists per-user;

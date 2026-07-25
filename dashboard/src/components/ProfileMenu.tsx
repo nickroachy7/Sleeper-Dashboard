@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LogOut, MessageSquarePlus, Plus, Settings, UserRound } from 'lucide-react';
+import { LogOut, MessageSquarePlus, Plus, Settings, UserRound, Eye, Flame } from 'lucide-react';
 import { useAuth } from '../lib/auth';
 import { openAddLeague } from '../lib/add-league-modal';
 import { openAuth } from '../lib/auth-modal';
@@ -125,6 +125,20 @@ export function ProfileMenu({ compact = false }: { compact?: boolean }) {
             className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-[13px] text-accent-400 hover:bg-[#1b1b22] transition-colors font-medium border-t border-[#22222b]"
           >
             <Plus className="h-4 w-4" /> Add a league
+          </button>
+          <button
+            role="menuitem"
+            onClick={() => go(() => navigate('/watchlist'))}
+            className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-[13px] text-[#9c9ca7] hover:bg-[#1b1b22] transition-colors border-t border-[#22222b]"
+          >
+            <Eye className="h-4 w-4" /> Watchlist
+          </button>
+          <button
+            role="menuitem"
+            onClick={() => go(() => navigate('/leaders'))}
+            className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-[13px] text-[#9c9ca7] hover:bg-[#1b1b22] transition-colors"
+          >
+            <Flame className="h-4 w-4" /> Hot Takes
           </button>
           <button
             role="menuitem"

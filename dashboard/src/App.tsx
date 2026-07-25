@@ -13,6 +13,7 @@ import Feedback from './pages/Feedback';
 import Welcome from './pages/Welcome';
 import Profile from './pages/Profile';
 import HotTakes from './pages/HotTakes';
+import Watchlist from './pages/Watchlist';
 import { AuthModal } from './components/AuthModal';
 
 function App() {
@@ -33,6 +34,7 @@ function App() {
         <Route path="players" element={<PlayersPage />} />
         <Route path="players/:playerId" element={<PlayerDetail />} />
         <Route path="leaders" element={<HotTakes />} />
+        <Route path="watchlist" element={<Watchlist />} />
         <Route path="teams/:rosterId" element={<TeamDetail />} />
         <Route path="trades/:transactionId" element={<TradeDetail />} />
         <Route path="settings" element={<Settings />} />

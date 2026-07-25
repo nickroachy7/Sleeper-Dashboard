@@ -1,6 +1,6 @@
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useMemo, useState } from 'react';
-import { TrendingUp, TrendingDown, ChevronRight, Flame, Snowflake, BarChart3, Activity, ListChecks, ArrowRightLeft } from 'lucide-react';
+import { TrendingUp, TrendingDown, ChevronRight, Flame, Snowflake, BarChart3, Activity, ListChecks, ArrowRightLeft, Eye } from 'lucide-react';
 import { ValueChart } from '../components/charts/ValueChart';
 import { ProductionChart } from '../components/charts/ProductionChart';
 import { PositionBadge } from '../components/PositionBadge';
@@ -15,6 +15,7 @@ import { ValueReceipt } from '../components/ValueReceipt';
 import { usePlayerDetail, useLeagueDirectory, usePlayerFacts, usePlayerLeagueWeeks } from '../hooks/detail';
 import { useTakeVsCrowd } from '../hooks/useTakeVsCrowd';
 import { useValueReceipt } from '../hooks/useValueReceipt';
+import { watchlist, useIsWatched } from '../lib/watchlist';
 import { usePlayers, usePlayerValuesList, useTrending } from '../hooks/queries';
 import { useUrlState } from '../hooks/useUrlState';
 import { useActiveLeague } from '../lib/active-league';
@@ -176,6 +177,8 @@ export default function PlayerDetail() {
   // "Why the value moved" receipt — public value history (the what) + an
   // optional count-only RPC (the why). Renders nothing if the value is flat.
   const { data: receipt } = useValueReceipt(playerId);
+  // Watchlist toggle — track this player's market moves (localStorage).
+  const watched = useIsWatched(playerId);
 
   // Only in-league seasons that have actually kicked off — a season whose league
   // has no games on record (offseason/future) is dropped so the pills don't
@@ -452,12 +455,27 @@ export default function PlayerDetail() {
         <div className="pointer-events-none absolute -top-20 -right-12 h-48 w-48 rounded-full bg-accent-500/10 blur-3xl" />
         <div className="relative p-4 sm:p-6">
           {/* Floated so the text column below can use the full card width. */}
-          <button
-            onClick={openTrade}
-            className="absolute top-4 right-4 sm:top-6 sm:right-6 inline-flex items-center gap-1.5 rounded-lg bg-accent-500 hover:bg-accent-400 active:bg-accent-600 text-white text-[12px] font-semibold px-3 h-9 shadow-[0_0_10px_rgba(34,197,94,0.2)] transition-colors"
-          >
-            <ArrowRightLeft className="h-4 w-4" /> Trade
-          </button>
+          <div className="absolute top-4 right-4 sm:top-6 sm:right-6 flex items-center gap-2">
+            <button
+              onClick={() => playerId && watchlist.toggle(playerId)}
+              aria-label={watched ? 'Remove from watchlist' : 'Add to watchlist'}
+              title={watched ? 'Watching — tap to stop' : 'Watch this player'}
+              className={`inline-flex items-center gap-1.5 rounded-lg border text-[12px] font-semibold px-3 h-9 transition-colors ${
+                watched
+                  ? 'border-accent-500/50 bg-accent-500/10 text-accent-400 hover:bg-accent-500/15'
+                  : 'border-line-strong bg-surface text-muted hover:text-white hover:border-accent-500/40'
+              }`}
+            >
+              <Eye className="h-4 w-4" />
+              {watched ? 'Watching' : 'Watch'}
+            </button>
+            <button
+              onClick={openTrade}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-accent-500 hover:bg-accent-400 active:bg-accent-600 text-white text-[12px] font-semibold px-3 h-9 shadow-[0_0_10px_rgba(34,197,94,0.2)] transition-colors"
+            >
+              <ArrowRightLeft className="h-4 w-4" /> Trade
+            </button>
+          </div>
           <div className="flex items-start gap-4">
             <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full overflow-hidden bg-overlay shrink-0 ring-1 ring-inset ring-white/10">
               <img
