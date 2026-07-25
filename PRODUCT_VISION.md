@@ -219,6 +219,12 @@ and the commissioner + casual users specifically.
 
 *Thesis: the trade tools are terminal calculators. Make them part of the loop.*
 
+> **STATUS (2026-07-25): 3a (watchlist + value-move tracking) SHIPPED** to main
+> and verified live — localStorage watchlist, Watch toggle on PlayerDetail,
+> /watchlist targets board with 7d/30d moves. Value alerts (push) await the
+> notifications primitive. 3b (trade proposals) and 3c (real comparables) not
+> started. Commit: 9293310.
+
 - **3a. Watchlist + value alerts.** Watch players/picks; get a resolve-notif when
   a target moves into trade range. Ties Phase 1c to the trade tools.
 - **3b. Trade proposals.** "Open in Evaluator" exists; add "send to leaguemate"
