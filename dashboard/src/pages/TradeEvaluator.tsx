@@ -10,6 +10,8 @@ import {
   Info,
   TrendingUp,
   TrendingDown,
+  Share2,
+  Check,
 } from 'lucide-react';
 import {
   analyzeTrade,
@@ -32,6 +34,7 @@ import { TeamDropdown } from '../components/TeamDropdown';
 import { AssetRow } from '../components/AssetRow';
 import { LeaguePicker } from '../components/LeaguePicker';
 import { useActiveLeague } from '../lib/active-league';
+import { buildShareUrl, decodeSide, hasSharedTrade, SHARE_PARAM_A, SHARE_PARAM_B } from '../lib/trade-share';
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -190,6 +193,48 @@ export function TradeEvaluator({ initialSides }: TradeEvaluatorProps = {}) {
     );
     setActiveDropdown(null);
   }, []);
+
+  // ── Shareable trades ──────────────────────────────────────────────
+  // Seed from a shared link (?a=…&b=…) ONCE, after the global pools load. A
+  // shared link crosses leagues, so it resolves against the global pools. This
+  // is a genuine external-sync (async data → state), which is exactly what an
+  // effect is for; a state flag guards it to a single application so it never
+  // fights the user's later edits.
+  const [shareCopied, setShareCopied] = useState(false);
+  const [urlSeedApplied, setUrlSeedApplied] = useState(false);
+  /* eslint-disable react-hooks/set-state-in-effect --
+     Genuine external-sync: resolve a shared-link trade once the async global
+     pools are available, applied a single time (urlSeedApplied guard) so it
+     never fights the user's later edits. This is what an effect is for. */
+  useEffect(() => {
+    if (urlSeedApplied || initialSides) return;
+    // Wait for the pools to FINISH loading — the player value Map (2,500+ rows)
+    // paginates in slower than the pick list, so applying on first non-empty
+    // render would latch before players exist and drop the player side.
+    if (dataLoading) return;
+    setUrlSeedApplied(true);
+    if (!hasSharedTrade(window.location.search)) return;
+    const pool = new Map<string, TradeAsset>();
+    for (const a of globalPlayers) pool.set(a.id, a);
+    for (const a of globalPicks) pool.set(a.id, a);
+    const params = new URLSearchParams(window.location.search);
+    const a = decodeSide(params.get(SHARE_PARAM_A), pool);
+    const b = decodeSide(params.get(SHARE_PARAM_B), pool);
+    if (a.length || b.length) setTradeSides([{ rosterId: 1, assets: a }, { rosterId: 2, assets: b }]);
+  }, [globalPlayers, globalPicks, initialSides, urlSeedApplied, dataLoading]);
+  /* eslint-enable react-hooks/set-state-in-effect */
+
+  const shareTrade = useCallback(async () => {
+    const url = buildShareUrl(tradeSides[0].assets, tradeSides[1].assets);
+    try {
+      if (navigator.share) { await navigator.share({ title: 'Trade — YAP', url }); return; }
+    } catch { /* fall through to clipboard */ }
+    try {
+      await navigator.clipboard.writeText(url);
+      setShareCopied(true);
+      setTimeout(() => setShareCopied(false), 2000);
+    } catch { /* ignore */ }
+  }, [tradeSides]);
 
   const totals = useMemo(() => {
     return tradeSides.map((side) => calculateSideValue(side.assets as ValueAdjustmentAsset[]));
@@ -397,13 +442,23 @@ export function TradeEvaluator({ initialSides }: TradeEvaluatorProps = {}) {
             />
           )}
           {hasAssets && (
-            <button
-              onClick={resetTrade}
-              className="flex items-center gap-1.5 px-3 h-8 text-faint hover:text-white hover:bg-elevated rounded-lg text-xs font-medium transition-colors"
-            >
-              <RotateCcw className="h-3.5 w-3.5" />
-              Reset
-            </button>
+            <>
+              <button
+                onClick={shareTrade}
+                className="flex items-center gap-1.5 px-3 h-8 text-faint hover:text-white hover:bg-elevated rounded-lg text-xs font-medium transition-colors"
+                title="Copy a shareable link to this trade"
+              >
+                {shareCopied ? <Check className="h-3.5 w-3.5 text-accent-400" /> : <Share2 className="h-3.5 w-3.5" />}
+                {shareCopied ? 'Copied!' : 'Share'}
+              </button>
+              <button
+                onClick={resetTrade}
+                className="flex items-center gap-1.5 px-3 h-8 text-faint hover:text-white hover:bg-elevated rounded-lg text-xs font-medium transition-colors"
+              >
+                <RotateCcw className="h-3.5 w-3.5" />
+                Reset
+              </button>
+            </>
           )}
         </div>
       </div>
