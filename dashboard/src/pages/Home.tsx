@@ -8,6 +8,7 @@ import { ValueWatch } from '../components/ValueWatch';
 import { HomeSplash } from '../components/HomeSplash';
 import { BiggestMovers } from '../components/BiggestMovers';
 import { LeagueFeed } from '../components/LeagueFeed';
+import { WhatsNewStrip } from '../components/WhatsNewStrip';
 import { useGlobalMovers } from '../hooks/useGlobalMovers';
 
 // Buttons for a logged-out visitor — only tools that work WITHOUT a league.
@@ -87,6 +88,10 @@ export default function Home() {
             </button>
           </div>
         )}
+
+        {/* The return hook: how the crowd moved on your takes since last visit.
+            Self-manages (renders nothing for guests / first visit / no moves). */}
+        <WhatsNewStrip />
 
         {/* Cross-league activity feed */}
         <div>
