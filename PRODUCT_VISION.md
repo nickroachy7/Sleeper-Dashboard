@@ -194,8 +194,9 @@ the void.*
 > 2b (compare boards), 2c (Call it on feed trades) SHIPPED to main and verified
 > live.** The global Hot-Takes scoring RPC is STAGED (migration
 > 20260725010000), not deployed — the /leaders page shows a graceful "coming
-> soon" until it ships. 2d (league takes) not started. Commits: 31615bf (Call
-> it), 4f7f556 (Called it), c004b41 (compare boards), aa7137c (leaderboard).
+> soon" until it ships. **2d ("Rank the League") SHIPPED (7e9996c).** Commits:
+> 31615bf (Call it), 4f7f556 (Called it), c004b41 (compare boards), aa7137c
+> (leaderboard), 7e9996c (Rank the League).
 
 - **2a. Hot Takes leaderboard.** Global + per-league boards of the spiciest
   defensible takes (biggest vs-crowd deltas that the market later *agreed* with =
@@ -219,11 +220,11 @@ and the commissioner + casual users specifically.
 
 *Thesis: the trade tools are terminal calculators. Make them part of the loop.*
 
-> **STATUS (2026-07-25): 3a (watchlist + value-move tracking) SHIPPED** to main
-> and verified live — localStorage watchlist, Watch toggle on PlayerDetail,
-> /watchlist targets board with 7d/30d moves. Value alerts (push) await the
-> notifications primitive. 3b (trade proposals) and 3c (real comparables) not
-> started. Commit: 9293310.
+> **STATUS (2026-07-25): 3a, 3b, 3c ALL SHIPPED** to main and verified live.
+> 3a watchlist + value-move tracking (9293310). 3b trade share links —
+> ?a=…&b=… seeds the Evaluator, Share button copies/shares (f41ece8). 3c real
+> comparable trades on PlayerDetail — "Traded for", cross-league (2e5d7d3).
+> Value alerts (push) still await the notifications primitive.
 
 - **3a. Watchlist + value alerts.** Watch players/picks; get a resolve-notif when
   a target moves into trade range. Ties Phase 1c to the trade tools.
