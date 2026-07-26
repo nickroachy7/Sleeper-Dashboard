@@ -279,7 +279,7 @@ export function LookupSearch() {
                 <Section label="Players">
                   {playerResults.map((r) => (
                     <div key={r.id} onPointerEnter={() => setActiveIdx(idxOf(r))}>
-                      <PlayerRow playerId={r.playerId} name={r.name} position={r.position} team={r.team} value={r.value} size="sm" onClick={() => closeLookup()} className={`rounded-xl ${activeClass(r)}`} />
+                      <PlayerRow playerId={r.playerId} name={r.name} position={r.position} team={r.team} value={r.value} size="sm" rail={false} onClick={() => closeLookup()} className={`rounded-xl ${activeClass(r)}`} />
                     </div>
                   ))}
                 </Section>

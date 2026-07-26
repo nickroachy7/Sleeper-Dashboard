@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { PositionBadge } from './PositionBadge';
 import { getPlayerImageUrl } from '../lib/trade-shared';
+import { positionHue } from '../lib/positions';
 
 const rankMedalColors: Record<number, string> = {
   1: '#ffd700',
@@ -45,6 +46,13 @@ export interface PlayerRowProps {
   divided?: boolean;
   /** Dim the name/value (secondary rows, e.g. under a brighter team header). */
   dim?: boolean;
+  /** Show the position-hue left accent rail (the rebuilt list identity cue).
+   *  On by default; pass false for compact/secondary rows (trade packages,
+   *  search results) where the rail would be visual noise. */
+  rail?: boolean;
+  /** 0–100 "value vs the #1 asset" — renders a thin position-hue meter under
+   *  the meta line (ranking boards). Omit to hide. */
+  meter?: number;
   className?: string;
 }
 
@@ -72,13 +80,19 @@ export function PlayerRow({
   size = 'md',
   divided = false,
   dim = false,
+  rail,
+  meter,
   className = '',
 }: PlayerRowProps) {
   const isPick = !playerId;
   const isSm = size === 'sm';
-  const avatar = isSm ? 'w-9 h-9' : 'w-11 h-11';
+  const avatar = isSm ? 'w-10 h-10' : 'w-12 h-12';
   const nameColor = dim ? 'text-muted' : 'text-white';
   const valueColor = dim ? 'text-muted' : 'text-white';
+  const hue = positionHue(isPick ? 'PICK' : position);
+  // Rail shows by default on PRIMARY standalone rows; auto-off on `dim`
+  // secondary rows (trade packages, feed moves) and where explicitly disabled.
+  const showRail = (rail ?? !dim) && (isPick || !!position);
 
   const target = to === undefined ? (playerId ? `/players/${playerId}` : null) : to;
   const interactive = Boolean(target || onClick);
@@ -87,12 +101,22 @@ export function PlayerRow({
   const up = (delta ?? 0) >= 0;
   const isMedal = rank !== undefined && rank <= 3;
 
-  const base = `flex items-center gap-3 px-3 sm:px-4 ${isSm ? 'py-2.5' : 'py-3'} text-left w-full relative ${
+  const base = `flex items-center gap-3 ${showRail ? 'pl-3.5' : 'pl-3'} pr-3 sm:pr-4 ${isSm ? 'py-2.5' : 'py-3'} text-left w-full relative ${
     divided ? 'border-b border-line-subtle last:border-b-0' : ''
   } ${interactive ? 'group hover:bg-elevated active:bg-overlay transition-colors cursor-pointer' : ''} ${className}`;
 
   const inner = (
     <>
+      {/* Position-hue accent rail — the rebuilt list identity cue. Sits flush to
+          the left edge of the row; a soft glow so it reads as lit, not painted. */}
+      {showRail && (
+        <span
+          className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-full"
+          style={{ backgroundColor: hue, boxShadow: `0 0 8px ${hue}55` }}
+          aria-hidden
+        />
+      )}
+
       {lead !== undefined ? (
         <div className="shrink-0">{lead}</div>
       ) : rank !== undefined ? (
@@ -114,16 +138,17 @@ export function PlayerRow({
       {/* Avatar */}
       {isPick ? (
         <div
-          className={`${avatar} rounded-xl bg-pos-pick/10 border border-pos-pick/25 flex items-center justify-center shrink-0`}
+          className={`${avatar} rounded-xl flex items-center justify-center shrink-0 ring-1 ring-inset`}
+          style={{ backgroundColor: `${hue}1a`, borderColor: `${hue}40`, color: hue }}
         >
-          <span className="text-[10px] font-extrabold text-pos-pick/80">PK</span>
+          <span className="text-[10px] font-extrabold">PK</span>
         </div>
       ) : (
         <div className={`${avatar} rounded-xl overflow-hidden bg-overlay shrink-0 ring-1 ring-inset ring-white/10`}>
           <img
             src={getPlayerImageUrl(playerId!)}
             alt=""
-            className="w-full h-full object-cover"
+            className="w-full h-full object-cover object-top"
             onError={(e) => {
               (e.target as HTMLImageElement).style.visibility = 'hidden';
             }}
@@ -155,7 +180,7 @@ export function PlayerRow({
             </span>
           ) : value !== undefined ? (
             <span className="shrink-0 flex flex-col items-end leading-tight">
-              <span className={`font-display text-[15px] font-bold tabular-nums ${valueColor}`}>
+              <span className={`font-display text-[16px] font-bold tabular-nums ${valueColor}`}>
                 {value > 0 ? value.toLocaleString() : '—'}
               </span>
               {subValue != null && subValue !== '' && (
@@ -181,6 +206,17 @@ export function PlayerRow({
                 <span className="text-[10px] text-faint tabular-nums">{value.toLocaleString()}</span>
               </>
             )}
+          </div>
+        )}
+
+        {/* Value-vs-#1 meter (ranking boards) — a thin position-hue bar that
+            fills the name column, so it reads as the player's share of the top. */}
+        {meter !== undefined && (
+          <div className="mt-1.5 h-[3px] w-full rounded-full bg-white/[0.06] overflow-hidden">
+            <div
+              className="h-full rounded-full"
+              style={{ width: `${Math.max(2, Math.min(100, meter))}%`, backgroundColor: hue, opacity: 0.75 }}
+            />
           </div>
         )}
       </div>

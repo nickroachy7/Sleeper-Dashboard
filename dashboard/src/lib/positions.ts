@@ -37,6 +37,34 @@ export function isIdp(position: string | null | undefined): boolean {
   return !!position && IDP_POSITIONS.has(position);
 }
 
+// ── Position hues ─────────────────────────────────────────────────
+// The single accent color a position carries across the rebuilt UI — the
+// left rail on a player row, the position chip, and the value meter fill. This
+// is the ONE place color enters the otherwise-monochrome design, so it lives in
+// one map. Muted, desaturated tones (not neon) so a long board reads calm.
+const POSITION_HUES: Record<string, string> = {
+  QB: '#f26d6d',   // muted red
+  RB: '#5b9df0',   // muted blue
+  WR: '#e8b055',   // muted amber
+  TE: '#3fbfae',   // muted teal
+  K: '#d4b74a',
+  DEF: '#9b87e0',
+  PICK: '#4cc4d6', // cyan — draft picks
+  // IDP families share one hue per slot group (matches the badge grouping).
+  DL: '#e08a4c', DE: '#e08a4c', DT: '#e08a4c', NT: '#e08a4c', EDGE: '#e08a4c',
+  LB: '#93c05a', ILB: '#93c05a', OLB: '#93c05a', MLB: '#93c05a',
+  DB: '#5aa9d6', CB: '#5aa9d6', S: '#5aa9d6', SS: '#5aa9d6', FS: '#5aa9d6',
+};
+
+const NEUTRAL_HUE = '#8a8a95';
+
+/** The accent hue for a position (rail / chip / meter). Neutral grey when the
+ *  position is unknown or a plain pick placeholder. */
+export function positionHue(position: string | null | undefined): string {
+  if (!position) return NEUTRAL_HUE;
+  return POSITION_HUES[position.toUpperCase()] ?? NEUTRAL_HUE;
+}
+
 /**
  * Whether a player is eligible to appear / be voted on, given the viewer's
  * IDP preference. Offense is always eligible; IDP only when opted in. This is

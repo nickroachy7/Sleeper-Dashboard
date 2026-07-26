@@ -17,6 +17,7 @@ import { useTakeVsCrowd } from '../hooks/useTakeVsCrowd';
 import { useValueReceipt } from '../hooks/useValueReceipt';
 import { watchlist, useIsWatched } from '../lib/watchlist';
 import { useComparableTrades } from '../hooks/useComparableTrades';
+import { positionHue } from '../lib/positions';
 import { usePlayers, usePlayerValuesList, useTrending } from '../hooks/queries';
 import { useUrlState } from '../hooks/useUrlState';
 import { useActiveLeague } from '../lib/active-league';
@@ -447,50 +448,37 @@ export default function PlayerDetail() {
 
   const { player, value, history } = data;
   const trend = value?.trend || 0;
+  const heroHue = positionHue(player.position);
 
   const dateStr = (ts: number) =>
     new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto space-y-4">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto space-y-4">
       {/* ── Header ── */}
-      <section className="relative overflow-hidden yap-card yap-accent-wash">
-        <div className="pointer-events-none absolute -top-20 -right-12 h-48 w-48 rounded-full bg-accent-500/10 blur-3xl" />
+      <section className="relative overflow-hidden yap-card">
+        {/* Position-hue accent: a top edge + a soft top-left glow tinted to the
+            player's position — the rebuilt identity cue, subtle over graphite. */}
+        <span className="absolute inset-x-0 top-0 h-[3px]" style={{ backgroundColor: heroHue }} aria-hidden />
+        <div className="pointer-events-none absolute -top-20 -left-12 h-48 w-48 rounded-full blur-3xl" style={{ backgroundColor: `${heroHue}1f` }} />
         <div className="relative p-4 sm:p-6">
-          {/* Floated so the text column below can use the full card width. */}
-          <div className="absolute top-4 right-4 sm:top-6 sm:right-6 flex items-center gap-2">
-            <button
-              onClick={() => playerId && watchlist.toggle(playerId)}
-              aria-label={watched ? 'Remove from watchlist' : 'Add to watchlist'}
-              title={watched ? 'Watching — tap to stop' : 'Watch this player'}
-              className={`inline-flex items-center gap-1.5 rounded-lg border text-[12px] font-semibold px-3 h-9 transition-colors ${
-                watched
-                  ? 'border-accent-500/50 bg-accent-500/10 text-accent-400 hover:bg-accent-500/15'
-                  : 'border-line-strong bg-surface text-muted hover:text-white hover:border-accent-500/40'
-              }`}
+          {/* Responsive header: identity + actions in one flex row that wraps the
+              actions below the name on narrow screens (no absolute overlap). */}
+          <div className="flex flex-col sm:flex-row sm:items-start gap-4">
+            <div
+              className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden bg-overlay shrink-0 ring-1 ring-inset"
+              style={{ borderColor: `${heroHue}55` }}
             >
-              <Eye className="h-4 w-4" />
-              {watched ? 'Watching' : 'Watch'}
-            </button>
-            <button
-              onClick={openTrade}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-accent-500 hover:bg-accent-400 active:bg-accent-600 text-white text-[12px] font-semibold px-3 h-9 shadow-[0_0_10px_rgba(34,197,94,0.2)] transition-colors"
-            >
-              <ArrowRightLeft className="h-4 w-4" /> Trade
-            </button>
-          </div>
-          <div className="flex items-start gap-4">
-            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full overflow-hidden bg-overlay shrink-0 ring-1 ring-inset ring-white/10">
               <img
                 src={getPlayerImageUrl(player.player_id)}
                 alt=""
-                className="w-full h-full object-cover"
+                className="w-full h-full object-cover object-top"
                 onError={(e) => { (e.target as HTMLImageElement).style.visibility = 'hidden'; }}
               />
             </div>
             <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2 flex-wrap pr-24">
-                <h1 className="font-display text-xl sm:text-3xl font-bold text-white tracking-tight truncate">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="font-display text-2xl sm:text-3xl font-bold text-white tracking-tight">
                   {player.full_name}
                 </h1>
                 <PositionBadge position={player.position || '?'} size="sm" />
@@ -527,6 +515,28 @@ export default function PlayerDetail() {
                   </span>
                 )
               )}
+            </div>
+            {/* Actions — inline top-right on desktop, full-width row on mobile. */}
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                onClick={() => playerId && watchlist.toggle(playerId)}
+                aria-label={watched ? 'Remove from watchlist' : 'Add to watchlist'}
+                title={watched ? 'Watching — tap to stop' : 'Watch this player'}
+                className={`flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 rounded-xl border text-[13px] font-semibold px-3.5 h-10 transition-colors ${
+                  watched
+                    ? 'border-accent-500/50 bg-accent-500/10 text-accent-400 hover:bg-accent-500/15'
+                    : 'border-line-strong bg-surface text-muted hover:text-white hover:border-accent-500/40'
+                }`}
+              >
+                <Eye className="h-4 w-4" />
+                {watched ? 'Watching' : 'Watch'}
+              </button>
+              <button
+                onClick={openTrade}
+                className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 rounded-xl bg-accent-500 hover:bg-accent-400 active:bg-accent-600 text-white text-[13px] font-semibold px-3.5 h-10 shadow-[0_0_10px_rgba(34,197,94,0.2)] transition-colors"
+              >
+                <ArrowRightLeft className="h-4 w-4" /> Trade
+              </button>
             </div>
           </div>
 

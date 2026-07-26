@@ -495,6 +495,9 @@ function ValuesTab({ kind, leagueFilterId, leagues, onLeagueFilterChange }: {
                 size="sm"
                 divided
                 rank={globalRank}
+                // Value-vs-#1 meter (players, non-mover view). Values sit on the
+                // shared 0–9999 curve, so #1 ≈ 9999 is the natural denominator.
+                meter={!isMoverSort && item.type === 'player' && item.value > 0 ? (item.value / 9999) * 100 : undefined}
                 meta={item.pickTier ? (
                   <span className={`px-1 py-0.5 text-[9px] rounded font-bold leading-none ${
                     item.pickTier === 'Early' ? 'bg-emerald-500/20 text-emerald-400' :
@@ -564,7 +567,7 @@ export function PlayersPage() {
   const [leagueFilterId, setLeagueFilterId] = useState<string | null>(null);
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto space-y-4">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-3xl mx-auto space-y-4">
       {/* Tabs (the nav already names the page "Ranking"). The league filter used
           to lead the page in its own row; it now lives inside the Players tab's
           filter sheet (⚙ beside the search box) so the top stays clean. */}
