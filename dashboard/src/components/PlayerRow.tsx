@@ -90,9 +90,9 @@ export function PlayerRow({
   const nameColor = dim ? 'text-muted' : 'text-white';
   const valueColor = dim ? 'text-muted' : 'text-white';
   const hue = positionHue(isPick ? 'PICK' : position);
-  // Rail shows by default on PRIMARY standalone rows; auto-off on `dim`
-  // secondary rows (trade packages, feed moves) and where explicitly disabled.
-  const showRail = (rail ?? !dim) && (isPick || !!position);
+  // Rail is OPT-IN and off by default — keep rows minimal/clean. Only surfaces
+  // that explicitly pass `rail` (never `dim` secondary rows) get the accent.
+  const showRail = rail === true && (isPick || !!position);
 
   const target = to === undefined ? (playerId ? `/players/${playerId}` : null) : to;
   const interactive = Boolean(target || onClick);
@@ -137,11 +137,8 @@ export function PlayerRow({
 
       {/* Avatar */}
       {isPick ? (
-        <div
-          className={`${avatar} rounded-xl flex items-center justify-center shrink-0 ring-1 ring-inset`}
-          style={{ backgroundColor: `${hue}1a`, borderColor: `${hue}40`, color: hue }}
-        >
-          <span className="text-[10px] font-extrabold">PK</span>
+        <div className={`${avatar} rounded-xl flex items-center justify-center shrink-0 bg-overlay ring-1 ring-inset ring-white/10`}>
+          <span className="text-[10px] font-extrabold text-faint">PK</span>
         </div>
       ) : (
         <div className={`${avatar} rounded-xl overflow-hidden bg-overlay shrink-0 ring-1 ring-inset ring-white/10`}>

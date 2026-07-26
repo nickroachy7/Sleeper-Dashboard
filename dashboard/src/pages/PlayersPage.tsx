@@ -487,25 +487,20 @@ function ValuesTab({ kind, leagueFilterId, leagues, onLeagueFilterChange }: {
               )}
               <PlayerRow
                 playerId={item.type === 'player' ? item.playerId : undefined}
+                // Picks don't need the redundant "PICK" position chip on a
+                // picks-only board — the row already reads as a pick.
                 name={item.name || 'Unknown'}
-                position={item.position || undefined}
+                position={item.type === 'pick' ? undefined : (item.position || undefined)}
                 team={item.team}
                 value={item.value}
                 delta={isMoverSort && item.delta != null ? item.delta : undefined}
                 size="sm"
                 divided
                 rank={globalRank}
-                // Value-vs-#1 meter (players, non-mover view). Values sit on the
-                // shared 0–9999 curve, so #1 ≈ 9999 is the natural denominator.
-                meter={!isMoverSort && item.type === 'player' && item.value > 0 ? (item.value / 9999) * 100 : undefined}
                 meta={item.pickTier ? (
-                  <span className={`px-1 py-0.5 text-[9px] rounded font-bold leading-none ${
-                    item.pickTier === 'Early' ? 'bg-emerald-500/20 text-emerald-400' :
-                    item.pickTier === 'Mid' ? 'bg-yellow-500/20 text-yellow-400' :
-                    'bg-red-500/20 text-red-400'
-                  }`}>
-                    {item.pickTier}
-                  </span>
+                  // Tier is the meaningful distinction on the picks board — a
+                  // quiet grey label, no colored fill (minimal by design).
+                  <span className="text-[11px] text-muted font-medium">{item.pickTier}</span>
                 ) : (
                   // Your-take-vs-crowd chip on player rows where you diverge
                   // from the community (hidden when you agree or aren't signed in).
