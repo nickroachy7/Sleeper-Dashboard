@@ -237,6 +237,23 @@ select:focus-visible {
   transform-origin: top center;
 }
 
+/* Assistant drawer (desktop) — slides in from the right edge. Mobile keeps the
+   palette's drop-in, so the slide is scoped to the sm breakpoint and up. */
+@keyframes chat-drawer-in {
+  from { opacity: 0; transform: translateX(24px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+.animate-chat-drawer {
+  animation: palette-in 200ms cubic-bezier(0.16, 1, 0.3, 1);
+  transform-origin: top center;
+}
+@media (min-width: 640px) {
+  .animate-chat-drawer {
+    animation: chat-drawer-in 240ms cubic-bezier(0.16, 1, 0.3, 1);
+    transform-origin: right center;
+  }
+}
+
 @keyframes rise-in {
   from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: translateY(0); }
@@ -248,6 +265,7 @@ select:focus-visible {
 /* Respect reduced-motion */
 @media (prefers-reduced-motion: reduce) {
   .animate-palette-in,
+  .animate-chat-drawer,
   .animate-rise-in,
   .animate-menu-drop,
   .animate-menu-fade { animation: none; }

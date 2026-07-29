@@ -192,19 +192,35 @@ export function LookupSearch() {
   const idxOf = (r: Result) => flat.indexOf(r);
   const activeClass = (r: Result) => (idxOf(r) === activeIdx ? 'bg-[#1b1b22]' : '');
 
+  // Desktop geometry differs by mode: SEARCH is the classic centered palette,
+  // CHAT is a full-height drawer pinned to the right edge (the assistant is a
+  // side-by-side companion to the page you're on, not a modal that buries it).
+  // Mobile is identical for both — the panel under the header — so every
+  // override below is `sm:`-scoped.
+  const isDrawer = mode === 'chat';
+
   return (
     <div
       // Mobile: a panel BELOW the persistent header (starts at the header's
       // bottom edge) filling to the screen bottom — the header (with its X)
       // stays visible and owns closing. The input sits at the top of the panel;
       // the keyboard rises normally over the lower results (like iMessage/Safari
-      // search) rather than fighting to dock the input above it. Desktop: the
-      // classic centered command-palette modal with a dim backdrop.
-      className="fixed left-0 right-0 bottom-0 z-[75] top-[calc(104px+env(safe-area-inset-top))] sm:inset-0 sm:top-0 sm:z-[90] sm:bg-black/70 sm:backdrop-blur-sm sm:flex sm:items-start sm:justify-center sm:pt-[10vh] sm:px-4"
+      // search) rather than fighting to dock the input above it.
+      className={`fixed left-0 right-0 bottom-0 z-[75] top-[calc(104px+env(safe-area-inset-top))] sm:inset-0 sm:top-0 sm:z-[90] sm:backdrop-blur-sm sm:flex ${
+        isDrawer
+          // Drawer: lighter scrim (the page behind stays legible next to the
+          // thread) and the panel stretched flush to the right edge.
+          ? 'sm:bg-black/45 sm:items-stretch sm:justify-end'
+          : 'sm:bg-black/70 sm:items-start sm:justify-center sm:pt-[10vh] sm:px-4'
+      }`}
       onClick={() => closeLookup()}
     >
       <div
-        className="flex flex-col w-full h-full sm:h-auto sm:max-h-[80vh] sm:max-w-xl bg-[#141419] sm:border sm:border-[#2a2a34] sm:rounded-2xl overflow-hidden sm:shadow-2xl sm:ring-1 sm:ring-black/40 animate-palette-in"
+        className={`flex flex-col w-full h-full bg-[#141419] overflow-hidden sm:shadow-2xl ${
+          isDrawer
+            ? 'sm:w-[420px] lg:w-[440px] sm:max-w-full sm:border-l sm:border-[#2a2a34] animate-chat-drawer'
+            : 'sm:h-auto sm:max-h-[80vh] sm:max-w-xl sm:border sm:border-[#2a2a34] sm:rounded-2xl sm:ring-1 sm:ring-black/40 animate-palette-in'
+        }`}
         onClick={(e) => e.stopPropagation()}
       >
         {mode === 'search' ? (
