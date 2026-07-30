@@ -11,6 +11,7 @@ import { Pagination } from '../components/Pagination';
 import { FilterBar, SearchInput, FilterPills, SortSelect } from '../components/FilterBar';
 import { MetaText, FilterSheet, FilterSheetGroup } from '../components/ui';
 import { PlayerRow } from '../components/PlayerRow';
+import { RankingsRail } from '../components/RankingsRail';
 import { TakeChip } from '../components/TakeChip';
 import { useTakeVsCrowd } from '../hooks/useTakeVsCrowd';
 import { LeaguePicker } from '../components/LeaguePicker';
@@ -562,7 +563,7 @@ export function PlayersPage() {
   const [leagueFilterId, setLeagueFilterId] = useState<string | null>(null);
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto space-y-4">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto space-y-4">
       {/* Tabs (the nav already names the page "Ranking"). The league filter used
           to lead the page in its own row; it now lives inside the Players tab's
           filter sheet (⚙ beside the search box) so the top stays clean. */}
@@ -572,16 +573,22 @@ export function PlayersPage() {
         onChange={(id) => setMany({ tab: id === 'players' ? null : id, page: null, pos: null })}
       />
 
-      <div>
-        {activeTab === 'picks' ? <ValuesTab kind="pick" />
-          : (
-            <ValuesTab
-              kind="player"
-              leagueFilterId={leagueFilterId}
-              leagues={leagues}
-              onLeagueFilterChange={(id) => { setLeagueFilterId(id); setMany({ page: null }); }}
-            />
-          )}
+      {/* Two-column on desktop: the values list leads, a contextual rail (biggest
+          movers + the community-values explainer) fills the space a lone list
+          would waste. On mobile everything stacks to one column (rail hidden). */}
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-6 lg:items-start">
+        <div className="min-w-0">
+          {activeTab === 'picks' ? <ValuesTab kind="pick" />
+            : (
+              <ValuesTab
+                kind="player"
+                leagueFilterId={leagueFilterId}
+                leagues={leagues}
+                onLeagueFilterChange={(id) => { setLeagueFilterId(id); setMany({ page: null }); }}
+              />
+            )}
+        </div>
+        <RankingsRail />
       </div>
     </div>
   );
