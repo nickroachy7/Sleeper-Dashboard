@@ -60,7 +60,7 @@ export default function Debates() {
         {rest.length === 0 ? (
           <p className="text-center text-faint py-16 text-[14px]">No debates in this category yet.</p>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {rest.map((d) => (
               <DebateCard key={d.id} debate={d} />
             ))}

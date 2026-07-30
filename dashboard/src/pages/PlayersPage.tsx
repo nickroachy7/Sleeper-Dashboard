@@ -562,7 +562,7 @@ export function PlayersPage() {
   const [leagueFilterId, setLeagueFilterId] = useState<string | null>(null);
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-3xl mx-auto space-y-4">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto space-y-4">
       {/* Tabs (the nav already names the page "Ranking"). The league filter used
           to lead the page in its own row; it now lives inside the Players tab's
           filter sheet (⚙ beside the search box) so the top stays clean. */}

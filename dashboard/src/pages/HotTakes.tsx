@@ -48,6 +48,9 @@ export default function HotTakes() {
             <p className="text-[12px] text-faint mt-1">Be the first — rank players off the crowd and see if the market follows.</p>
           </section>
         ) : (
+          // A ranked leaderboard reads clearest as a single column — kept at a
+          // comfortable reading width rather than stretched or split into a grid
+          // (rank order matters; a 2-up grid makes the eye zigzag).
           <section className="yap-card overflow-hidden divide-y divide-line-subtle">
             {leaders.map((l) => {
               const m = medal(l.rank);
