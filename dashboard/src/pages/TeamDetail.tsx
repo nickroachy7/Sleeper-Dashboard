@@ -676,8 +676,10 @@ export default function TeamDetail() {
       </section>
       </>)}
 
-      {/* ═══ OVERVIEW (cont.): season history ═══ */}
+      {/* ═══ OVERVIEW (cont.): season history + head-to-head, side-by-side on
+          desktop (each is a self-contained card; they stack on mobile) ═══ */}
       {activeTab === 'overview' && (
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
       <section className="bg-surface rounded-2xl p-4 sm:p-5 border border-line">
         <p className="text-[11px] font-bold text-accent-500 tracking-[0.18em] uppercase mb-3">Season History</p>
         {playedSeasons.length === 0 ? (
@@ -709,10 +711,9 @@ export default function TeamDetail() {
         </div>
         )}
       </section>
-      )}
 
-      {/* ═══ OVERVIEW (cont.): GM profile + head-to-head rivalries ═══ */}
-      {activeTab === 'overview' && (h2h && h2h.length > 0) && (
+      {/* Head-to-head rivalries */}
+      {h2h && h2h.length > 0 ? (
       <section className="bg-surface rounded-2xl p-4 sm:p-5 border border-line">
         <p className="text-[11px] font-bold text-accent-500 tracking-[0.18em] uppercase mb-0.5">Head-to-Head</p>
         <p className="text-[10px] text-faint mb-3">All-time record vs each manager across every season of the dynasty</p>
@@ -764,6 +765,8 @@ export default function TeamDetail() {
           })}
         </div>
       </section>
+      ) : null}
+      </div>
       )}
 
       {/* ═══ ANALYTICS: contention window, scoring/luck, positional edge ═══ */}

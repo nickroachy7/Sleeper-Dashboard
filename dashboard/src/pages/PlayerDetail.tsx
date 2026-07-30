@@ -454,7 +454,7 @@ export default function PlayerDetail() {
     new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto space-y-4">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto space-y-4">
       {/* ── Header ── */}
       <section className="relative overflow-hidden yap-card">
         {/* Position-hue accent: a top edge + a soft top-left glow tinted to the
@@ -580,68 +580,80 @@ export default function PlayerDetail() {
       {/* ── Tab bar ── */}
       <TabBar tabs={tabs} active={activeTab} onChange={(id) => set('tab', id === 'overview' ? null : id)} />
 
-      {/* ═══ OVERVIEW: outlook, market value trajectory, comparables ═══ */}
-      {activeTab === 'overview' && (<>
-        <ValueReceipt receipt={receipt ?? null} />
-        {outlook && <OutlookCard blurb={outlook} />}
-        <SectionCard label="Value History" sub="YAP Value · seeded from prior seasons, updated by trades & votes">
-          <ValueChart data={history} height={240} />
-        </SectionCard>
-        {comparables.length > 0 && (
-          <SectionCard
-            label="Comparable Value"
-            sub={`Players closest to ${player.full_name}'s value at ${player.position} — straight-up trade targets`}
-            flush
-          >
-            <div>
-              {comparables.map((c) => (
-                <PlayerRow
-                  key={c.player.player_id}
-                  playerId={c.player.player_id}
-                  name={c.player.full_name}
-                  position={c.player.position}
-                  team={c.player.team}
-                  value={c.value}
-                  divided
-                />
-              ))}
-            </div>
-          </SectionCard>
-        )}
+      {/* ═══ OVERVIEW: outlook, market value trajectory, comparables ═══
+          Two-column on desktop: the value story (receipt → outlook → history
+          chart) leads the main column; the comparables + real trades — both
+          lists — ride a rail so the page isn't one tall scroll. Stacks on
+          mobile (main first, then the rail cards). */}
+      {activeTab === 'overview' && (
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-6 lg:items-start">
+          <div className="min-w-0 space-y-4">
+            <ValueReceipt receipt={receipt ?? null} />
+            {outlook && <OutlookCard blurb={outlook} />}
+            <SectionCard label="Value History" sub="YAP Value · seeded from prior seasons, updated by trades & votes">
+              <ValueChart data={history} height={240} />
+            </SectionCard>
+          </div>
 
-        {/* Real comparable trades — what this player has actually fetched across
-            every synced league. Grounds the value in real deals, not the model. */}
-        {comparableTrades.length > 0 && (
-          <SectionCard
-            label="Traded for"
-            sub={`Real deals ${player.full_name} was moved in — what came back the other way`}
-            flush
-          >
-            <div className="divide-y divide-line-subtle">
-              {comparableTrades.map((t) => {
-                const top = t.returned[0];
-                const extra = t.returned.length - 1;
-                return (
-                  <Link
-                    key={t.transactionId}
-                    to={`/trades/${t.transactionId}`}
-                    className="flex items-center gap-3 px-4 py-2.5 hover:bg-white/[0.03] transition-colors"
-                  >
-                    <ArrowRightLeft className="h-3.5 w-3.5 text-faint shrink-0" />
-                    <span className="flex-1 min-w-0 text-[13px] text-white truncate">
-                      {top?.label}
-                      {extra > 0 && <span className="text-faint"> +{extra} more</span>}
-                    </span>
-                    <span className="text-[13px] font-semibold text-ink-soft tabular-nums shrink-0">
-                      {t.returnValue.toLocaleString()}
-                    </span>
-                  </Link>
-                );
-              })}
-            </div>
-          </SectionCard>
-        )}
-      </>)}
+          <div className="space-y-4 min-w-0">
+            {comparables.length > 0 && (
+              <SectionCard
+                label="Comparable Value"
+                sub={`Closest to ${player.full_name} at ${player.position} — trade targets`}
+                flush
+              >
+                <div>
+                  {comparables.map((c) => (
+                    <PlayerRow
+                      key={c.player.player_id}
+                      playerId={c.player.player_id}
+                      name={c.player.full_name}
+                      position={c.player.position}
+                      team={c.player.team}
+                      value={c.value}
+                      size="sm"
+                      divided
+                    />
+                  ))}
+                </div>
+              </SectionCard>
+            )}
+
+            {/* Real comparable trades — what this player has actually fetched across
+                every synced league. Grounds the value in real deals, not the model. */}
+            {comparableTrades.length > 0 && (
+              <SectionCard
+                label="Traded for"
+                sub={`Real deals — what came back the other way`}
+                flush
+              >
+                <div className="divide-y divide-line-subtle">
+                  {comparableTrades.map((t) => {
+                    const top = t.returned[0];
+                    const extra = t.returned.length - 1;
+                    return (
+                      <Link
+                        key={t.transactionId}
+                        to={`/trades/${t.transactionId}`}
+                        className="flex items-center gap-3 px-4 py-2.5 hover:bg-white/[0.03] transition-colors"
+                      >
+                        <ArrowRightLeft className="h-3.5 w-3.5 text-faint shrink-0" />
+                        <span className="flex-1 min-w-0 text-[13px] text-white truncate">
+                          {top?.label}
+                          {extra > 0 && <span className="text-faint"> +{extra} more</span>}
+                        </span>
+                        <span className="text-[13px] font-semibold text-ink-soft tabular-nums shrink-0">
+                          {t.returnValue.toLocaleString()}
+                        </span>
+                      </Link>
+                    );
+                  })}
+                </div>
+              </SectionCard>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* ═══ PRODUCTION: career arc chart + weekly in-league rows ═══ */}
       {activeTab === 'production' && (<>

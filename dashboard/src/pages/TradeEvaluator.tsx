@@ -329,7 +329,7 @@ export function TradeEvaluator({ initialSides }: TradeEvaluatorProps = {}) {
         <button
           onClick={() => { if (!globalMode) setActiveDropdown({ side: sideIndex, type: 'team' }); }}
           disabled={globalMode}
-          className={`w-full flex items-center justify-between bg-elevated px-4 sm:px-5 py-2.5 group ${sideIndex > 0 ? 'border-t border-[#26262f]' : ''}`}
+          className={`w-full flex items-center justify-between bg-elevated px-4 sm:px-5 py-2.5 group ${sideIndex > 0 ? 'border-t border-[#26262f] sm:border-t-0' : ''}`}
         >
           <div className="flex items-center gap-2 min-w-0">
             <span className={`font-bold text-sm truncate ${(globalMode || roster) ? 'text-white' : 'text-faint'}`}>
@@ -463,7 +463,14 @@ export function TradeEvaluator({ initialSides }: TradeEvaluatorProps = {}) {
         </div>
       </div>
 
-      {/* Trade builder — styled like TradeCard */}
+      {/* Two-column on desktop: the trade builder leads the main column, and the
+          analysis / feedback / roster-impact ride a rail so they appear BESIDE
+          the builder instead of far below it. Stacks on mobile. */}
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_360px] lg:gap-6 lg:items-start">
+      <div className="min-w-0 space-y-4">
+      {/* Trade builder — styled like TradeCard. On desktop the two sides sit
+          side-by-side (the natural trade-calculator layout); on mobile they
+          stack with a divider (renderSide adds the top border on side 2). */}
       <div className="bg-surface border border-line rounded-xl overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between bg-white/[0.05] px-4 sm:px-5 py-3 sm:py-4">
@@ -482,16 +489,17 @@ export function TradeEvaluator({ initialSides }: TradeEvaluatorProps = {}) {
           </button>
         </div>
 
-        {/* Side 1 */}
-        {renderSide(0)}
-
-        {/* Side 2 */}
-        {renderSide(1)}
+        {/* Sides — side-by-side from sm up (each side owns its own column,
+            divided by a vertical hairline), stacked on the narrowest screens. */}
+        <div className="sm:grid sm:grid-cols-2 sm:divide-x sm:divide-[#26262f]">
+          <div>{renderSide(0)}</div>
+          <div>{renderSide(1)}</div>
+        </div>
       </div>
 
       {/* ── Empty-side hint ── */}
       {(hasZeroSide || tradeSides.some((s) => s.rosterId === 0)) && (
-        <div className="mt-4 bg-surface border border-[#26262f] rounded-xl px-4 py-3 flex items-center gap-2.5">
+        <div className="bg-surface border border-[#26262f] rounded-xl px-4 py-3 flex items-center gap-2.5">
           <Info className="h-4 w-4 text-faint shrink-0" />
           <span className="text-[11px] text-muted">
             {tradeSides.some((s) => s.rosterId === 0)
@@ -500,6 +508,10 @@ export function TradeEvaluator({ initialSides }: TradeEvaluatorProps = {}) {
           </span>
         </div>
       )}
+      </div>
+
+      {/* ── Analysis rail ── */}
+      <div className="space-y-4 min-w-0 lg:sticky lg:top-6">
 
       {/* ── Trade Analysis (appears automatically) ── */}
       {tradeAnalysis && (() => {
@@ -748,6 +760,8 @@ export function TradeEvaluator({ initialSides }: TradeEvaluatorProps = {}) {
           </div>
         </div>
       )}
+      </div>
+      </div>
 
       {/* Dropdowns */}
       {tradeSides.map((_, sideIndex) => (

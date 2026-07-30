@@ -71,9 +71,12 @@ export default function TradeTools() {
     if (activeId !== 'evaluate') setMany({ tab: 'evaluate' });
   }
 
+  // The Evaluator uses a wide two-column builder+analysis layout on desktop;
+  // the other minis stay in the tighter reading column.
+  const wide = active?.id === 'evaluate';
   return (
     <div className="min-h-dvh">
-      <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto">
+      <div className={`p-4 sm:p-6 lg:p-8 mx-auto ${wide ? 'max-w-6xl' : 'max-w-5xl'}`}>
         {active ? (
           <>
             {/* Back to the Minis grid + the active mini's one-line hint. */}
