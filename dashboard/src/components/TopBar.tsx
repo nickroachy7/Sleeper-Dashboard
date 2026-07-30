@@ -4,19 +4,21 @@ import { openLookup } from '../lib/lookup';
 import { ProfileMenu } from './ProfileMenu';
 
 const TITLES: Record<string, string> = {
-  '/': 'Feed',
+  '/': 'The Room',
+  '/feed': 'League Feed',
   '/league': 'League',
   '/trade': 'Minis',
-  '/players': 'Ranking',
+  '/players': 'Rankings',
   '/settings': 'Settings',
   '/feedback': 'Feedback',
 };
 
 function titleForPath(pathname: string): string {
   if (TITLES[pathname]) return TITLES[pathname];
+  if (pathname.startsWith('/debates/')) return 'The Room';
   if (pathname.startsWith('/players/')) return 'Player';
   if (pathname.startsWith('/teams/')) return 'Team';
-  return 'Feed';
+  return 'The Room';
 }
 
 /**

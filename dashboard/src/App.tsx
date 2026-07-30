@@ -1,6 +1,8 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './components/Layout';
 import { ScrollManager } from './components/ScrollManager';
+import Debates from './pages/Debates';
+import DebateDetail from './pages/DebateDetail';
 import Home from './pages/Home';
 import League from './pages/League';
 import Settings from './pages/Settings';
@@ -28,7 +30,11 @@ function App() {
           chrome competing with the wizard. */}
       <Route path="/welcome" element={<Welcome />} />
       <Route path="/" element={<Layout />}>
-        <Route index element={<Home />} />
+        {/* The debate platform is the product. Home = the live-arguments feed. */}
+        <Route index element={<Debates />} />
+        <Route path="debates/:slug" element={<DebateDetail />} />
+        {/* League Mode — the fantasy cross-league feed, now opened as a tool. */}
+        <Route path="feed" element={<Home />} />
         <Route path="league" element={<League />} />
         <Route path="trade" element={<TradeTools />} />
         <Route path="players" element={<PlayersPage />} />

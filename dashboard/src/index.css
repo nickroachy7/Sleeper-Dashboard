@@ -318,6 +318,12 @@ select:focus-visible {
   transform: translateY(-1px);
 }
 
+/* The host's / storyline markdown — tight vertical rhythm, no default margins
+   fighting the card padding. Bold reads as emphasis, em as accent (see the
+   ReactMarkdown component overrides in HostBubble / DebateDetail). */
+.host-md > :first-child { margin-top: 0; }
+.host-md > :last-child { margin-bottom: 0; }
+
 /* Section eyebrow: the small accent label that heads every card/section. */
 .yap-eyebrow {
   font-size: 11px;

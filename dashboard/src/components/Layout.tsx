@@ -1,6 +1,6 @@
 import { NavLink, Outlet, useLocation, Link } from 'react-router-dom';
 import {
-  LayoutDashboard,
+  Swords,
   Gamepad2,
   Settings,
   TrendingUp,
@@ -11,6 +11,7 @@ import {
   UserRound,
 } from 'lucide-react';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
+import { useSeedCrowd } from '../hooks/useDebates';
 import { LookupSearch } from './LookupSearch';
 import { TopBar } from './TopBar';
 import { ProfileMenu } from './ProfileMenu';
@@ -22,7 +23,7 @@ import { useAuth } from '../lib/auth';
 
 interface NavItem {
   to: string;
-  icon: typeof LayoutDashboard;
+  icon: typeof Swords;
   iconImage?: string;
   label: string;
   /** Extra path prefixes that belong to this section (keep the item highlighted
@@ -30,19 +31,17 @@ interface NavItem {
   match?: string[];
 }
 
-// Primary destinations — desktop sidebar + mobile top tab strip. The
-// assistant no longer has a tab: it lives inside the search palette ("search
-// or ask"), reached from the search button in the header/top bar.
+// Primary destinations — the debate platform is the product now. "The Room" is
+// the home (the live-arguments feed); Profile is the viewer's identity/board.
+// Fantasy has been demoted to a separate "League Mode" group below — it's a
+// powerful tool you open, no longer the spine.
 //
 // Profile is appended per-render (see buildPrimaryNav) because its target is
-// auth-dependent: signed-in users with a handle go to their public rankings
-// board (/u/<username>), everyone else to the sign-up pitch — a profile IS a
-// rankings board, which needs an account. It stays highlighted on any /u/ route.
+// auth-dependent: signed-in users with a handle go to their public board
+// (/u/<username>), everyone else to the sign-up pitch. It stays highlighted on
+// any /u/ route. The assistant lives inside the search palette ("search or ask").
 const primaryNavBase: NavItem[] = [
-  { to: '/', icon: LayoutDashboard, label: 'Feed' },
-  { to: '/trade', icon: Gamepad2, label: 'Minis' },
-  { to: '/players', icon: TrendingUp, label: 'Ranking' },
-  { to: '/league', icon: Trophy, label: 'League' },
+  { to: '/', icon: Swords, label: 'The Room', match: ['/debates'] },
 ];
 
 function buildPrimaryNav(username: string | null): NavItem[] {
@@ -57,6 +56,14 @@ function buildPrimaryNav(username: string | null): NavItem[] {
   ];
 }
 
+// League Mode — the (formerly primary) fantasy product, now a tool you open.
+// A labelled group in the sidebar; on mobile it tails the primary tab strip.
+const leagueModeNav: NavItem[] = [
+  { to: '/league', icon: Trophy, label: 'League' },
+  { to: '/players', icon: TrendingUp, label: 'Rankings' },
+  { to: '/trade', icon: Gamepad2, label: 'Minis' },
+];
+
 // Secondary destinations — desktop sidebar footer + tail of the mobile strip.
 const secondaryNav: NavItem[] = [
   { to: '/settings', icon: Settings, label: 'Settings' },
@@ -68,9 +75,12 @@ const secondaryNav: NavItem[] = [
 export default function Layout() {
   const location = useLocation();
   useRealtimeSync();
+  useSeedCrowd(); // populate the synthetic crowd once so day-one boards aren't empty
   const { open: searchOpen } = useLookupState();
   const { username } = useAuth();
   const primaryNav = buildPrimaryNav(username);
+  // Mobile tab strip: debates + league-mode tools + profile, all on one line.
+  const mobileNav = [primaryNav[0], ...leagueModeNav, primaryNav[1]];
 
   const isNavItemActive = (to: string, match?: string[]) => {
     if (match?.some((p) => location.pathname.startsWith(p))) return true;
@@ -146,8 +156,8 @@ export default function Layout() {
         {/* Row 2 — persistent tab strip. Primary destinations only; Settings &
             Feedback live in the league-switcher menu (top-right avatar). Tabs
             share the row equally (flex-1) so all five fit with no side-scroll. */}
-        <nav className="flex items-stretch h-12 border-t border-[#1b1b22]">
-          {primaryNav.map(({ to, label, match }) => {
+        <nav className="flex items-stretch h-12 border-t border-[#1b1b22] overflow-x-auto no-scrollbar">
+          {mobileNav.map(({ to, label, match }) => {
             const active = isNavItemActive(to, match);
             return (
               <Link
@@ -176,9 +186,15 @@ export default function Layout() {
         {/* Navigation — the app chrome is league-neutral now; league identity
             and switching live on the League page, not here. */}
         <nav className="flex-1 px-3 overflow-y-auto pt-2">
-          <p className="px-3 pt-1 pb-2 text-[10px] font-bold uppercase tracking-[0.16em] text-[#5a5a64]">Menu</p>
           <div className="space-y-0.5">
             {primaryNav.map((item) => renderSidebarItem(item))}
+          </div>
+
+          {/* League Mode — the fantasy tool, clearly separated from the debate
+              platform. A labelled group so it reads as "a thing you open". */}
+          <p className="px-3 pt-5 pb-2 text-[10px] font-bold uppercase tracking-[0.16em] text-[#5a5a64]">League Mode</p>
+          <div className="space-y-0.5">
+            {leagueModeNav.map((item) => renderSidebarItem(item))}
           </div>
         </nav>
 
