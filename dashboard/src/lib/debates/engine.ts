@@ -83,3 +83,35 @@ export function rankSubjects(
 export function winProbability(a: SubjectRating, b: SubjectRating): number {
   return expected(a.rating, b.rating);
 }
+
+// ── 0–9,999 value ladder ──────────────────────────────────────────────────────
+// Debate ratings live in Elo space (~1500 centered), which reads as noise to a
+// user. Map a ranked list onto the same 0–9,999 ladder the dynasty player board
+// uses so #1 ≈ 9,999 and the spacing reflects the rating gaps between subjects.
+// This is a monotonic rescale of the ratings (not a flat 1..N reindex), so a
+// runaway leader still shows a bigger gap than a dead heat.
+const VALUE_TOP = 9999;
+const VALUE_FLOOR = 1200; // last place still reads as a real number, not ~0
+
+/** Reindex ranked ratings onto the 0–9,999 ladder. Input must be rating-desc
+ *  (as `rankSubjects` returns). Returns a map subjectId → display value. */
+export function valueLadder(
+  ranked: { subject: Subject; rating: SubjectRating }[]
+): Map<string, number> {
+  const out = new Map<string, number>();
+  if (ranked.length === 0) return out;
+  if (ranked.length === 1) {
+    out.set(ranked[0].subject.id, VALUE_TOP);
+    return out;
+  }
+  const top = ranked[0].rating.rating;
+  const bottom = ranked[ranked.length - 1].rating.rating;
+  const span = Math.max(1, top - bottom);
+  for (const { subject, rating } of ranked) {
+    // Linear interpolate each rating between the floor and top by where it sits
+    // in the [bottom, top] rating range — preserves relative gaps.
+    const t = (rating.rating - bottom) / span; // 0 (last) … 1 (first)
+    out.set(subject.id, Math.round(VALUE_FLOOR + t * (VALUE_TOP - VALUE_FLOOR)));
+  }
+  return out;
+}

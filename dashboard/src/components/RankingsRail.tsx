@@ -1,7 +1,8 @@
 import { Link } from 'react-router-dom';
-import { TrendingUp, TrendingDown, Sparkles, ArrowRight } from 'lucide-react';
+import { TrendingUp, TrendingDown, Sparkles, ArrowRight, Swords } from 'lucide-react';
 import { useGlobalMovers } from '../hooks/useGlobalMovers';
 import { AssetAvatar } from './AssetAvatar';
+import { DEBATES } from '../lib/debates/catalog';
 
 // ── RankingsRail ─────────────────────────────────────────────────────────────
 // The desktop side rail for the Rankings page: fills the horizontal space a lone
@@ -59,9 +60,21 @@ function MoverList({
   );
 }
 
-export function RankingsRail() {
-  const { risers, fallers, loading } = useGlobalMovers(30);
+export function RankingsRail({
+  variant = 'dynasty',
+  activeDebateSlug,
+}: {
+  /** 'dynasty' — the player/pick board rail (movers). 'debate' — a rail for the
+   *  debate rankings: jump to other debates + the community-values note. */
+  variant?: 'dynasty' | 'debate';
+  activeDebateSlug?: string;
+} = {}) {
+  if (variant === 'debate') return <DebateRail activeDebateSlug={activeDebateSlug} />;
+  return <DynastyRail />;
+}
 
+function DynastyRail() {
+  const { risers, fallers, loading } = useGlobalMovers(30);
   return (
     <aside className="hidden lg:block space-y-4 lg:sticky lg:top-6">
       {/* Movers */}
@@ -75,21 +88,60 @@ export function RankingsRail() {
       </section>
 
       {/* How values work — reinforces the community-owned pitch */}
-      <section className="yap-card yap-accent-wash rounded-2xl p-4">
-        <p className="flex items-center gap-1.5 yap-eyebrow mb-1.5">
-          <Sparkles className="h-3.5 w-3.5" /> Community-powered
-        </p>
-        <p className="text-[12.5px] text-ink-soft leading-relaxed">
-          These aren't a scrape. Every value here is set by the crowd — real trades
-          and head-to-head votes — so it moves when opinion moves.
-        </p>
-        <Link
-          to="/trade?tab=rank"
-          className="inline-flex items-center gap-1 mt-2.5 text-[12.5px] font-semibold text-accent-400 hover:text-accent-300 transition-colors"
-        >
-          Cast your votes <ArrowRight className="h-3.5 w-3.5" />
-        </Link>
-      </section>
+      <CommunityNote to="/trade?tab=rank" cta="Cast your votes" />
     </aside>
+  );
+}
+
+/** Rail for the debate rankings: quick links to every OTHER debate (so a
+ *  reviewer can hop between rankings without going back to the switcher) plus
+ *  the shared community-values note. */
+function DebateRail({ activeDebateSlug }: { activeDebateSlug?: string }) {
+  const others = DEBATES.filter((d) => d.slug !== activeDebateSlug);
+  return (
+    <aside className="hidden lg:block space-y-4 lg:sticky lg:top-6">
+      <section className="yap-card rounded-2xl p-4">
+        <p className="yap-eyebrow mb-3">More rankings</p>
+        <div className="space-y-0.5">
+          {others.map((d) => (
+            <Link
+              key={d.slug}
+              to={`/players?ranking=debate:${d.slug}`}
+              className="flex items-center gap-2 px-1.5 py-2 rounded-lg hover:bg-white/[0.03] transition-colors group"
+            >
+              <Swords className="h-3.5 w-3.5 text-accent-500/70 shrink-0" />
+              <span className="min-w-0 flex-1">
+                <span className="block text-[12.5px] font-medium text-ink-soft truncate leading-tight group-hover:text-white transition-colors">
+                  {d.question}
+                </span>
+                <span className="block text-[10.5px] text-faint">{d.category}</span>
+              </span>
+            </Link>
+          ))}
+        </div>
+      </section>
+      <CommunityNote to="/" cta="Explore The Room" />
+    </aside>
+  );
+}
+
+/** The shared "these values are crowd-set, not a scrape" note + vote CTA. */
+function CommunityNote({ to, cta }: { to: string; cta: string }) {
+  return (
+    <section className="yap-card yap-accent-wash rounded-2xl p-4">
+      <p className="flex items-center gap-1.5 yap-eyebrow mb-1.5">
+        <Sparkles className="h-3.5 w-3.5" /> Community-powered
+      </p>
+      <p className="text-[12.5px] text-ink-soft leading-relaxed">
+        These aren't a scrape. Every value here is set by the crowd — real trades
+        and head-to-head votes — so it moves when opinion moves.
+      </p>
+      <Link
+        to={to}
+        className="inline-flex items-center gap-1 mt-2.5 text-[12.5px] font-semibold text-accent-400 hover:text-accent-300 transition-colors"
+      >
+        {cta} <ArrowRight className="h-3.5 w-3.5" />
+      </Link>
+    </section>
   );
 }

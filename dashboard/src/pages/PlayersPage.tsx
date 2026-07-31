@@ -1,17 +1,17 @@
 import { useEffect, useMemo, useState, Fragment } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { TrendingUp, Layers } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { fetchAllRows } from '../hooks/queries';
 import { useUrlState } from '../hooks/useUrlState';
-import { TabBar } from '../components/TabBar';
 import { VALUE_SOURCE } from '../lib/value-source';
 import { Pagination } from '../components/Pagination';
 import { FilterBar, SearchInput, FilterPills, SortSelect } from '../components/FilterBar';
 import { MetaText, FilterSheet, FilterSheetGroup } from '../components/ui';
 import { PlayerRow } from '../components/PlayerRow';
 import { RankingsRail } from '../components/RankingsRail';
+import { RankingSwitcher, type RankingKey } from '../components/RankingSwitcher';
+import { DebateRankingView } from '../components/debates/DebateRankingView';
 import { TakeChip } from '../components/TakeChip';
 import { useTakeVsCrowd } from '../hooks/useTakeVsCrowd';
 import { LeaguePicker } from '../components/LeaguePicker';
@@ -116,7 +116,6 @@ async function fetchPickValues(): Promise<PickValueDetailed[]> {
 
 type SortField = 'rank' | 'value' | 'name' | 'rising' | 'falling';
 type SortDirection = 'asc' | 'desc';
-type TabType = 'players' | 'picks';
 
 const ITEMS_PER_PAGE = 50;
 const MOVER_WINDOW_DAYS = 30;
@@ -535,26 +534,30 @@ function ValuesTab({ kind, leagueFilterId, leagues, onLeagueFilterChange }: {
 
 // ── Main Page Component ──────────────────────────────────────────
 
-const PLAYERS_TABS = [
-  { id: 'players' as const, label: 'Players', icon: TrendingUp },
-  { id: 'picks' as const, label: 'Picks', icon: Layers },
-];
-
-/** The Ranking section: community-driven (YAP) player + rookie-pick values,
- *  both global. Records (league-scoped) lives on the League page now.
- *  "Rank 'Em" is a contribution action, not a tab. */
+/** The Ranking section — now the home for EVERY community ranking. A single
+ *  "Viewing" switcher chooses between the dynasty board (Players, Picks) and any
+ *  debate leaderboard from The Room, so a user can review all of it in one place.
+ *  The choice is URL-driven (?ranking=…) so a specific board is linkable.
+ *
+ *  Records (league-scoped) lives on the League page now; "Rank 'Em" is a
+ *  contribution action, not a tab. */
 export function PlayersPage() {
-  const { get, setMany } = useUrlState();
-  const rawTab = get('tab', 'players');
+  const { get, setMany, set } = useUrlState();
   const { leagues } = useActiveLeague();
 
   // Records moved to the League page; keep old ?tab=records links working.
   const navigate = useNavigate();
+  const rawTab = get('tab', '');
   useEffect(() => {
     if (rawTab === 'records') navigate('/league?tab=records', { replace: true });
   }, [rawTab, navigate]);
 
-  const activeTab = (rawTab === 'picks' ? 'picks' : 'players') as TabType;
+  // Active ranking key. Back-compat: the old ?tab=picks link still selects the
+  // picks board. Otherwise ?ranking=… drives it ('players' | 'picks' |
+  // 'debate:<slug>'); default is the dynasty player board.
+  const ranking: RankingKey = get('ranking', rawTab === 'picks' ? 'picks' : 'players');
+  const isDebate = ranking.startsWith('debate:');
+  const debateSlug = isDebate ? ranking.slice(7) : '';
 
   // League filter for the Players list: null = "All" (global rankings, the
   // default). Picking a league shows just its rostered players on the global
@@ -562,33 +565,37 @@ export function PlayersPage() {
   // Page-level (not URL) — it's a lens on the list, resets on reload.
   const [leagueFilterId, setLeagueFilterId] = useState<string | null>(null);
 
+  // Switching ranking clears the old tab/page/pos params so a stale page number
+  // or position filter never carries across boards.
+  const chooseRanking = (key: RankingKey) =>
+    setMany({ ranking: key === 'players' ? null : key, tab: null, page: null, pos: null });
+
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto space-y-4">
-      {/* Tabs (the nav already names the page "Ranking"). The league filter used
-          to lead the page in its own row; it now lives inside the Players tab's
-          filter sheet (⚙ beside the search box) so the top stays clean. */}
-      <TabBar
-        tabs={PLAYERS_TABS}
-        active={activeTab}
-        onChange={(id) => setMany({ tab: id === 'players' ? null : id, page: null, pos: null })}
-      />
+      {/* One switcher to reach every ranking — dynasty board or any debate. */}
+      <RankingSwitcher value={ranking} onChange={chooseRanking} />
 
-      {/* Two-column on desktop: the values list leads, a contextual rail (biggest
+      {/* Two-column on desktop: the ranking leads, a contextual rail (biggest
           movers + the community-values explainer) fills the space a lone list
           would waste. On mobile everything stacks to one column (rail hidden). */}
       <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-6 lg:items-start">
         <div className="min-w-0">
-          {activeTab === 'picks' ? <ValuesTab kind="pick" />
-            : (
-              <ValuesTab
-                kind="player"
-                leagueFilterId={leagueFilterId}
-                leagues={leagues}
-                onLeagueFilterChange={(id) => { setLeagueFilterId(id); setMany({ page: null }); }}
-              />
-            )}
+          {isDebate ? (
+            <DebateRankingView slug={debateSlug} />
+          ) : ranking === 'picks' ? (
+            <ValuesTab kind="pick" />
+          ) : (
+            <ValuesTab
+              kind="player"
+              leagueFilterId={leagueFilterId}
+              leagues={leagues}
+              onLeagueFilterChange={(id) => { setLeagueFilterId(id); set('page', null); }}
+            />
+          )}
         </div>
-        <RankingsRail />
+        {isDebate
+          ? <RankingsRail variant="debate" activeDebateSlug={debateSlug} />
+          : <RankingsRail />}
       </div>
     </div>
   );

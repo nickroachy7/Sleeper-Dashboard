@@ -80,7 +80,12 @@ export interface LeaderboardRow {
   subject: Subject;
   /** 1-based crowd rank. */
   crowdRank: number;
+  /** Raw Elo-space rating (~1500 centered) — the engine's native number. */
   crowdRating: number;
+  /** The rating reindexed onto the familiar 0–9,999 value ladder (#1 ≈ 9,999),
+   *  so debate rankings read on the same scale as the dynasty player board. */
+  crowdValue: number;
+  /** Comparisons this subject has been in across the crowd's votes. */
   crowdMatches: number;
   /** The viewer's own rank for this subject, if they've voted enough. */
   yourRank: number | null;

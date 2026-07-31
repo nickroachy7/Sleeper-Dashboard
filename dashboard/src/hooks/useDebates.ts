@@ -7,7 +7,7 @@
 import { useSyncExternalStore, useMemo, useEffect } from 'react';
 import { useAuth } from '../lib/auth';
 import { DEBATES, debateBySlug } from '../lib/debates/catalog';
-import { rateDebate, rankSubjects } from '../lib/debates/engine';
+import { rateDebate, rankSubjects, valueLadder } from '../lib/debates/engine';
 import {
   subscribe,
   getSnapshot,
@@ -54,6 +54,7 @@ export function useDebateLeaderboard(debate: Debate | undefined): LeaderboardRow
     const crowdVotes = votesForDebate(debate.id);
     const crowdRatings = rateDebate(debate.subjects, crowdVotes);
     const crowdRanked = rankSubjects(debate.subjects, crowdRatings);
+    const crowdLadder = valueLadder(crowdRanked);
 
     // The viewer's personal board: the same engine over only THEIR votes. Only
     // meaningful once they've cast a few — below that we don't claim a rank.
@@ -72,6 +73,7 @@ export function useDebateLeaderboard(debate: Debate | undefined): LeaderboardRow
         subject: r.subject,
         crowdRank,
         crowdRating: r.rating.rating,
+        crowdValue: crowdLadder.get(r.subject.id) ?? 0,
         crowdMatches: r.rating.matches,
         yourRank,
         delta: yourRank != null ? yourRank - crowdRank : null,
